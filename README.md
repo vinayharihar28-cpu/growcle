@@ -1,36 +1,109 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Enterprise White-Label SaaS Platform
 
-## Getting Started
+A production-ready enterprise SaaS application with clean architecture, scalability, maintainability, and best engineering practices.
 
-First, run the development server:
+## Project Overview
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+This is a White-Label Business Networking SaaS Platform designed to be organization-agnostic and support unlimited organizations (multi-tenancy). 
+The foundation is prepared for future modules such as Organizations, Chapters, Members, Meetings, Attendance, Visitors, Referrals, Finance, Reports, and RBAC.
+
+## Architecture & Technology Stack
+
+- **Framework**: Next.js 15 (App Router), React 19, TypeScript
+- **Styling**: Tailwind CSS v4, shadcn/ui, Lucide React
+- **Backend**: Next.js Route Handlers, Server Actions
+- **Database**: Neon PostgreSQL, Prisma ORM
+- **Authentication**: Better Auth
+- **Validation**: Zod, React Hook Form
+- **State Management**: Zustand, TanStack Query
+- **Tables**: TanStack Table
+- **Components**: FullCalendar, Recharts, Tiptap
+- **Utilities**: date-fns
+- **Storage**: Cloudflare R2 / AWS S3 SDK
+- **Email**: Resend
+- **Push Notifications**: Firebase Cloud Messaging
+- **Payments**: Razorpay, PayU
+- **Documents**: pdf-lib, ExcelJS
+- **Deployment**: Docker, Docker Compose, Nginx, Cloudflare
+- **Testing**: Vitest, React Testing Library, Playwright
+
+## Folder Structure
+
+Following feature-based clean architecture:
+
+```
+src/
+├── app/                  # Next.js App Router (Grouped Routes)
+├── components/           # Reusable UI components
+├── config/               # Global configuration files
+├── constants/            # Application constants
+├── hooks/                # Custom React hooks
+├── lib/                  # Library configurations (Auth, etc.)
+├── modules/              # Feature-based business modules
+├── providers/            # React context providers
+├── styles/               # Global styles
+├── types/                # TypeScript definitions
+└── utils/                # Helper utilities
+prisma/                   # Prisma schema and migrations
+docs/                     # Documentation
+scripts/                  # Build/utility scripts
+docker/                   # Docker configurations
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Installation & Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Clone the repository.**
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+3. **Environment setup:**
+   Copy `.env.example` to `.env` and fill in the required credentials.
+   ```bash
+   cp .env.example .env
+   ```
+4. **Database setup (Future):**
+   ```bash
+   npx prisma generate
+   npx prisma db push
+   ```
+5. **Run the development server:**
+   ```bash
+   npm run dev
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Production
 
-## Learn More
+To build the application for production:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm run build
+npm start
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Docker Deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Run with Docker Compose:
 
-## Deploy on Vercel
+```bash
+docker-compose up -d --build
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run dev`: Starts the development server.
+- `npm run build`: Creates an optimized production build.
+- `npm start`: Starts the production server.
+- `npm run lint`: Runs ESLint for code quality.
+
+## Design Principles
+
+- **SOLID Principles**
+- **Clean Architecture**
+- **Feature-Based Structure**
+- **DRY & KISS**
+- **Server Components by Default**
+
+## Git Standards
+
+Please follow Conventional Commits for version control.
