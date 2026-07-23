@@ -1,14 +1,14 @@
 import { ReactNode } from 'react';
+import { Sidebar } from '@/components/layout/sidebar';
+import { Topbar } from '@/components/layout/topbar';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Sidebar Placeholder */}
-      <aside className="w-64 border-r hidden md:block" />
-      <div className="flex flex-1 flex-col">
-        {/* Header Placeholder */}
-        <header className="h-16 border-b" />
-        <main className="flex-1 p-6">{children}</main>
+      <Sidebar />
+      <div className="flex flex-1 flex-col md:ml-64">
+        <Topbar />
+        <main className="flex-1 p-6 bg-secondary/30">{children}</main>
       </div>
     </div>
   );
