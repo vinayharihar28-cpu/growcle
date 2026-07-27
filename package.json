@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1091.0",
@@ -14,6 +15,7 @@
     "@fullcalendar/daygrid": "^6.1.21",
     "@fullcalendar/react": "^7.0.1",
     "@hookform/resolvers": "^5.4.0",
+    "@prisma/adapter-pg": "^7.9.0",
     "@prisma/client": "^7.9.0",
     "@tanstack/react-query": "^5.101.3",
     "@tanstack/react-table": "^8.21.3",
@@ -22,6 +24,7 @@
     "better-auth": "^1.6.23",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cmdk": "^1.1.1",
     "date-fns": "^4.4.0",
     "exceljs": "^4.4.0",
     "firebase": "^12.16.0",
@@ -30,6 +33,7 @@
     "next-themes": "^0.4.6",
     "payu": "^0.0.1",
     "pdf-lib": "^1.17.1",
+    "pg": "^8.22.0",
     "prisma": "^7.9.0",
     "razorpay": "^2.9.8",
     "react": "^19.2.8",
@@ -46,6 +50,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
