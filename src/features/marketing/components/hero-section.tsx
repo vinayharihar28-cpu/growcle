@@ -37,7 +37,7 @@ export function HeroSection() {
           </p>
           <div className="mt-10 flex items-center gap-x-6 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300">
             <Button size="lg" asChild className="h-12 px-8 text-base shadow-lg hover:shadow-xl transition-all">
-              <Link href="/auth/register">
+              <Link href="/register">
                 Start Networking <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>

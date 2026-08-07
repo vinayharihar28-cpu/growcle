@@ -19,14 +19,14 @@ export function MarketingNavbar() {
           
           {/* Desktop Nav */}
           <nav className="hidden md:flex gap-6">
-            <Link href="#features" className="flex items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="/features" className="flex items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
               Features
             </Link>
-            <Link href="#directory" className="flex items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+            <Link href="/chapters" className="flex items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
               Find a Chapter
             </Link>
-            <Link href="#pricing" className="flex items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
-              Pricing
+            <Link href="/showcase" className="flex items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+              Showcase
             </Link>
           </nav>
         </div>
@@ -36,10 +36,10 @@ export function MarketingNavbar() {
           <ThemeToggle />
           <nav className="flex items-center gap-2">
             <Button variant="ghost" asChild className="hidden sm:inline-flex">
-              <Link href="/auth/login">Login</Link>
+              <Link href="/login">Login</Link>
             </Button>
             <Button asChild className="bg-primary/90 hover:bg-primary">
-              <Link href="/auth/register">Get Started</Link>
+              <Link href="/register">Get Started</Link>
             </Button>
             
             {/* Mobile Menu */}

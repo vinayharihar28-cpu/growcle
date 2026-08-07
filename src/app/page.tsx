@@ -21,12 +21,12 @@ export default function Home() {
             </p>
             <div className="mt-10 flex items-center justify-center gap-x-6">
               <a
-                href="/auth/register"
+                href="/register"
                 className="rounded-md bg-background px-3.5 py-2.5 text-sm font-semibold text-primary shadow-sm hover:bg-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-background"
               >
                 Get started today
               </a>
-              <a href="/auth/login" className="text-sm font-semibold leading-6 text-primary-foreground">
+              <a href="/login" className="text-sm font-semibold leading-6 text-primary-foreground">
                 Sign in to your account <span aria-hidden="true">→</span>
               </a>
             </div>

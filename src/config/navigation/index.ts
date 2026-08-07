@@ -1,22 +1,31 @@
 import { WorkspaceType, WorkspaceConfig } from './types';
 import { memberNavigationConfig } from './member';
-import { adminNavigationConfig } from './admin';
-import { superAdminNavigationConfig } from './super-admin';
+import { chapterAdminNavigationConfig } from './chapter-admin';
+import { organizationAdminNavigationConfig } from './organization-admin';
+import { financeNavigationConfig } from './finance';
+import { platformAdminNavigationConfig } from './platform-admin';
 
 export * from './types';
+export * from './settings';
 
 export const allWorkspaces: WorkspaceConfig[] = [
   memberNavigationConfig,
-  adminNavigationConfig,
-  superAdminNavigationConfig,
+  chapterAdminNavigationConfig,
+  organizationAdminNavigationConfig,
+  financeNavigationConfig,
+  platformAdminNavigationConfig,
 ];
 
 export function getWorkspaceConfig(workspace: WorkspaceType): WorkspaceConfig {
   switch (workspace) {
-    case 'admin':
-      return adminNavigationConfig;
-    case 'super-admin':
-      return superAdminNavigationConfig;
+    case 'chapter-admin':
+      return chapterAdminNavigationConfig;
+    case 'organization-admin':
+      return organizationAdminNavigationConfig;
+    case 'finance':
+      return financeNavigationConfig;
+    case 'platform-admin':
+      return platformAdminNavigationConfig;
     case 'member':
     default:
       return memberNavigationConfig;

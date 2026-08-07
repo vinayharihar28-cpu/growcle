@@ -1,10 +1,26 @@
+'use client';
+
+import { useWorkspaceStore } from '@/stores/use-workspace-store';
+import { MemberDashboard } from '../components/member-dashboard';
+import { ChapterAdminDashboard } from '../components/chapter-admin-dashboard';
+import { OrgAdminDashboard } from '../components/org-admin-dashboard';
+import { FinanceDashboard } from '../components/finance-dashboard';
+import { PlatformAdminDashboard } from '../components/platform-admin-dashboard';
+
 export default function DashboardPage() {
-  return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-      <div className="rounded-xl border border-dashed p-10 text-center">
-        <h3 className="text-lg font-medium text-muted-foreground">Select a module from the sidebar</h3>
-      </div>
-    </div>
-  );
+  const { activeWorkspace } = useWorkspaceStore();
+
+  switch (activeWorkspace) {
+    case 'chapter-admin':
+      return <ChapterAdminDashboard />;
+    case 'organization-admin':
+      return <OrgAdminDashboard />;
+    case 'finance':
+      return <FinanceDashboard />;
+    case 'platform-admin':
+      return <PlatformAdminDashboard />;
+    case 'member':
+    default:
+      return <MemberDashboard />;
+  }
 }

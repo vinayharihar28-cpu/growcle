@@ -10,12 +10,12 @@ export const memberNavigationConfig: WorkspaceConfig = {
       groupTitle: 'Core',
       items: [
         { title: 'Dashboard', href: '/dashboard', iconName: 'LayoutDashboard' },
-        { title: 'Members Directory', href: '/dashboard/members', iconName: 'Users' },
+        { title: 'Business Profile', href: '/dashboard/profile', iconName: 'User' },
         { title: 'Upcoming Meetings', href: '/dashboard/meetings', iconName: 'Calendar' },
       ],
     },
     {
-      groupTitle: 'Networking',
+      groupTitle: 'Networking & Referrals',
       items: [
         { title: 'Business Referrals', href: '/dashboard/referrals', iconName: 'Share2' },
         { title: '1-on-1 Meetings', href: '/dashboard/one-to-ones', iconName: 'Users2' },

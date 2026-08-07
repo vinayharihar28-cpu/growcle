@@ -10,8 +10,8 @@ interface WorkspaceState {
 }
 
 export const useWorkspaceStore = create<WorkspaceState>((set) => ({
-  activeWorkspace: 'admin',
-  workspaceConfig: getWorkspaceConfig('admin'),
+  activeWorkspace: 'member',
+  workspaceConfig: getWorkspaceConfig('member'),
   setActiveWorkspace: (workspace: WorkspaceType) =>
     set({
       activeWorkspace: workspace,

@@ -1,12 +1,16 @@
-import { ComponentType } from 'react';
 import { PermissionKey } from '@/types/rbac';
 
-export type WorkspaceType = 'member' | 'admin' | 'super-admin' | 'finance';
+export type WorkspaceType =
+  | 'member'
+  | 'chapter-admin'
+  | 'organization-admin'
+  | 'finance'
+  | 'platform-admin';
 
 export interface NavItem {
   title: string;
   href: string;
-  iconName: string; // Lucide icon name string for serializability
+  iconName: string;
   badge?: string;
   requiredPermission?: PermissionKey;
 }
@@ -22,4 +26,11 @@ export interface WorkspaceConfig {
   description: string;
   badge: string;
   navigation: NavGroup[];
+}
+
+export interface SettingsSection {
+  id: string;
+  title: string;
+  description: string;
+  requiredPermission?: PermissionKey;
 }

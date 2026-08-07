@@ -40,3 +40,26 @@ export async function getChapterStats(chapterId: string = "temp-chapter-id") {
     };
   }
 }
+
+export async function getChapters() {
+  try {
+    return await db.chapter.findMany({
+      select: {
+        id: true,
+        name: true,
+        organization: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+  } catch (error) {
+    console.error("Failed to fetch chapters:", error);
+    return [];
+  }
+}
+

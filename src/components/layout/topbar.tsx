@@ -1,10 +1,11 @@
 'use client';
 
-import { Moon, Sun, User, Settings, HelpCircle, LogOut, ShieldCheck } from 'lucide-react';
+import { Moon, Sun, User, Settings, HelpCircle, LogOut, ShieldCheck, Search, Plus } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { WorkspaceSwitcher } from './workspace-switcher';
+import { OrgSelector } from './org-selector';
 import { usePermissions } from '@/lib/permissions/use-permissions';
 
 export function Topbar() {
@@ -29,13 +30,34 @@ export function Topbar() {
 
   return (
     <header className="h-16 border-b bg-background/95 backdrop-blur-xs flex items-center justify-between px-6 sticky top-0 z-10 w-full transition-colors">
-      <div className="flex items-center gap-4 flex-1">
+      {/* Context Selectors */}
+      <div className="flex items-center gap-3 flex-1">
+        <OrgSelector />
         <WorkspaceSwitcher />
       </div>
 
-      <div className="flex items-center gap-3 ml-4">
+      {/* Global Search and Actions */}
+      <div className="flex items-center gap-4 ml-4">
+        {/* Global Search */}
+        <div className="relative hidden lg:block w-64">
+          <Search className="w-4 h-4 absolute left-3 top-2 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Global search members, events..."
+            className="w-full pl-9 pr-4 py-1 rounded-lg border bg-accent/30 text-xs focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+
+        {/* Quick Create Action */}
+        <button
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-colors"
+          onClick={() => alert('Quick create module (Member/Meeting/Referral) selector coming soon.')}
+        >
+          <Plus className="w-3.5 h-3.5" /> Create
+        </button>
+
         {/* Active Role Indicator Badge */}
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/60 border text-[11px] font-medium text-muted-foreground">
+        <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/60 border text-[11px] font-medium text-muted-foreground">
           <ShieldCheck className="w-3.5 h-3.5 text-indigo-500" />
           <span>Role: <strong className="text-foreground">{currentRole.name}</strong></span>
         </div>
@@ -45,7 +67,7 @@ export function Topbar() {
           <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="p-2 rounded-lg border bg-card hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-            title="Toggle Light/Dark Theme"
+            title="Toggle Theme"
           >
             {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
@@ -74,7 +96,7 @@ export function Topbar() {
                 onClick={() => setDropdownOpen(false)}
               >
                 <User className="w-4 h-4 text-muted-foreground" />
-                Profile & Bio
+                My Profile
               </Link>
               <Link
                 href="/dashboard/settings"
@@ -84,25 +106,9 @@ export function Topbar() {
                 <Settings className="w-4 h-4 text-muted-foreground" />
                 Account Settings
               </Link>
-              <Link
-                href="/dashboard/rbac"
-                className="flex items-center gap-2.5 px-4 py-2 text-xs text-foreground hover:bg-accent transition-colors"
-                onClick={() => setDropdownOpen(false)}
-              >
-                <ShieldCheck className="w-4 h-4 text-indigo-500" />
-                RBAC & Permissions
-              </Link>
-              <Link
-                href="/help"
-                className="flex items-center gap-2.5 px-4 py-2 text-xs text-foreground hover:bg-accent transition-colors"
-                onClick={() => setDropdownOpen(false)}
-              >
-                <HelpCircle className="w-4 h-4 text-muted-foreground" />
-                Help & Documentation
-              </Link>
               <div className="border-t my-1"></div>
               <button
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-destructive hover:bg-destructive/10 transition-colors font-medium"
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-destructive hover:bg-destructive/10 transition-colors font-medium text-left"
                 onClick={() => setDropdownOpen(false)}
               >
                 <LogOut className="w-4 h-4" />
