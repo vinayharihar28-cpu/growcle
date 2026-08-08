@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useAdmin } from '../hooks/use-admin';
 import { Button } from '@/shared/components/ui/button';
-import { Can } from '@/lib/permissions/can';
 import {
   Users,
   Calendar,
@@ -11,10 +10,6 @@ import {
   ShieldCheck,
   Building2,
   Search,
-  Plus,
-  MoreVertical,
-  CheckCircle2,
-  AlertCircle,
   TrendingUp,
   Clock,
   KeyRound,
@@ -24,7 +19,7 @@ import { AddMemberModal } from '../components/add-member-modal';
 import { ManageMeetingModal } from '../components/manage-meeting-modal';
 import { AttendanceManagerModal } from '../components/attendance-manager-modal';
 import { ChapterConfigCard } from '../components/chapter-config-card';
-import { AdminMeeting, AdminMember } from '@/types/admin';
+import { AdminMeeting } from '@/types/admin';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -33,14 +28,11 @@ export default function AdminWorkspacePage() {
     members,
     meetings,
     stats,
-    loading,
     searchQuery,
     setSearchQuery,
     addMember,
     updateMemberStatus,
-    deleteMember,
     scheduleMeeting,
-    updateMeetingStatus,
     refresh,
   } = useAdmin();
 
@@ -66,17 +58,13 @@ export default function AdminWorkspacePage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Can perform="members.create">
-            <Button onClick={() => setIsAddMemberOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold">
-              <UserPlus className="w-4 h-4 mr-1.5" /> Add Member
-            </Button>
-          </Can>
+          <Button onClick={() => setIsAddMemberOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold">
+            <UserPlus className="w-4 h-4 mr-1.5" /> Add Member
+          </Button>
 
-          <Can perform="meetings.create">
-            <Button onClick={() => setIsScheduleMeetingOpen(true)} variant="outline" className="text-xs font-semibold">
-              <Calendar className="w-4 h-4 mr-1.5 text-indigo-500" /> Schedule Meeting
-            </Button>
-          </Can>
+          <Button onClick={() => setIsScheduleMeetingOpen(true)} variant="outline" className="text-xs font-semibold">
+            <Calendar className="w-4 h-4 mr-1.5 text-indigo-500" /> Schedule Meeting
+          </Button>
         </div>
       </div>
 
@@ -232,11 +220,9 @@ export default function AdminWorkspacePage() {
                 className="w-full pl-9 pr-4 py-2 rounded-xl border bg-card text-xs focus:ring-2 focus:ring-indigo-500 outline-hidden"
               />
             </div>
-            <Can perform="members.create">
-              <Button onClick={() => setIsAddMemberOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold w-full sm:w-auto">
-                <UserPlus className="w-4 h-4 mr-1.5" /> Add Member
-              </Button>
-            </Can>
+            <Button onClick={() => setIsAddMemberOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold w-full sm:w-auto">
+              <UserPlus className="w-4 h-4 mr-1.5" /> Add Member
+            </Button>
           </div>
 
           <div className="border rounded-2xl bg-card overflow-hidden">
@@ -283,17 +269,15 @@ export default function AdminWorkspacePage() {
                       </span>
                     </td>
                     <td className="p-3.5 text-right">
-                      <Can perform="members.edit">
-                        <select
-                          value={m.status}
-                          onChange={(e) => updateMemberStatus(m.id, e.target.value as any)}
-                          className="px-2 py-1 rounded-lg border text-[11px] bg-background outline-hidden cursor-pointer"
-                        >
-                          <option value="ACTIVE">Mark Active</option>
-                          <option value="PENDING">Mark Pending</option>
-                          <option value="SUSPENDED">Suspend Access</option>
-                        </select>
-                      </Can>
+                      <select
+                        value={m.status}
+                        onChange={(e) => updateMemberStatus(m.id, e.target.value as "ACTIVE" | "PENDING" | "SUSPENDED")}
+                        className="px-2 py-1 rounded-lg border text-[11px] bg-background outline-hidden cursor-pointer"
+                      >
+                        <option value="ACTIVE">Mark Active</option>
+                        <option value="PENDING">Mark Pending</option>
+                        <option value="SUSPENDED">Suspend Access</option>
+                      </select>
                     </td>
                   </tr>
                 ))}
@@ -308,11 +292,9 @@ export default function AdminWorkspacePage() {
         <div className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="font-bold text-base text-foreground">Scheduled Meetings & Attendance Sheets</h3>
-            <Can perform="meetings.create">
-              <Button onClick={() => setIsScheduleMeetingOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold">
-                <Calendar className="w-4 h-4 mr-1.5" /> Schedule New Meeting
-              </Button>
-            </Can>
+            <Button onClick={() => setIsScheduleMeetingOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold">
+              <Calendar className="w-4 h-4 mr-1.5" /> Schedule New Meeting
+            </Button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -348,16 +330,14 @@ export default function AdminWorkspacePage() {
                     <strong className="text-amber-600 dark:text-amber-400">{meet.visitorCount}</strong>
                   </div>
 
-                  <Can perform="meetings.attendance">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setSelectedAttendanceMeeting(meet)}
-                      className="text-xs font-semibold border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10"
-                    >
-                      <FileCheck className="w-3.5 h-3.5 mr-1" /> Open Attendance Sheet
-                    </Button>
-                  </Can>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setSelectedAttendanceMeeting(meet)}
+                    className="text-xs font-semibold border-indigo-500/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10"
+                  >
+                    <FileCheck className="w-3.5 h-3.5 mr-1" /> Open Attendance Sheet
+                  </Button>
                 </div>
               </div>
             ))}

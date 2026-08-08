@@ -9,7 +9,7 @@ export const adminNavigation: NavigationConfig = [
     items: [
       {
         title: "Dashboard",
-        href: "/dashboard",
+        href: "/dashboard/admin",
         icon: LayoutDashboard,
       },
     ],

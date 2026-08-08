@@ -1,36 +1,28 @@
-import { RoleRepository } from '@/lib/mock/repositories/role-repository';
-import { RoleDefinition, PermissionKey, PermissionItem, UserRoleAssignment, PermissionOverride } from '@/types/rbac';
+import { RoleDefinition, PermissionKey, PermissionItem, UserRoleAssignment } from '@/types/rbac';
+import { assignRbacRole, createRbacRole, getRbacAssignments, getRbacPermissions, getRbacRoles, updateRbacRolePermissions } from "../actions/rbac";
 
 export class RbacService {
   static async getRoles(): Promise<RoleDefinition[]> {
-    return RoleRepository.findAllRoles();
+    return getRbacRoles();
   }
 
   static async getAllPermissions(): Promise<PermissionItem[]> {
-    return RoleRepository.getAllPermissions();
+    return getRbacPermissions();
   }
 
   static async updateRolePermissions(roleCode: string, permissions: PermissionKey[]): Promise<RoleDefinition> {
-    return RoleRepository.updateRolePermissions(roleCode, permissions);
+    return updateRbacRolePermissions(roleCode, permissions);
   }
 
   static async createCustomRole(data: Omit<RoleDefinition, 'id' | 'memberCount' | 'isCustom'>): Promise<RoleDefinition> {
-    return RoleRepository.createCustomRole(data);
+    return createRbacRole(data);
   }
 
   static async getUserAssignments(): Promise<UserRoleAssignment[]> {
-    return RoleRepository.findAllUserAssignments();
+    return getRbacAssignments();
   }
 
   static async assignUserRole(memberId: string, roleCode: string): Promise<UserRoleAssignment> {
-    return RoleRepository.assignUserRole(memberId, roleCode);
-  }
-
-  static async getUserOverride(memberId: string): Promise<PermissionOverride | null> {
-    return RoleRepository.getUserOverride(memberId);
-  }
-
-  static async setUserOverride(override: PermissionOverride): Promise<PermissionOverride> {
-    return RoleRepository.setUserOverride(override);
+    return assignRbacRole(memberId, roleCode);
   }
 }

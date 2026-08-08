@@ -1,28 +1,24 @@
 'use client';
 
 import { RoleDefinition, UserRoleAssignment } from '@/types/rbac';
-import { Button } from '@/shared/components/ui/button';
-import { ShieldCheck, SlidersHorizontal, User } from 'lucide-react';
 
 interface UserRoleAssignmentTableProps {
   assignments: UserRoleAssignment[];
   roles: RoleDefinition[];
   onAssignRole: (memberId: string, roleCode: string) => void;
-  onOpenOverrides: (memberId: string) => void;
 }
 
 export function UserRoleAssignmentTable({
   assignments,
   roles,
   onAssignRole,
-  onOpenOverrides,
 }: UserRoleAssignmentTableProps) {
   return (
     <div className="space-y-4">
       <div>
         <h3 className="font-bold text-base text-foreground">User Role Assignments & Individual Overrides</h3>
         <p className="text-xs text-muted-foreground">
-          Assign base roles to members and configure explicit permission grants or revokes per user.
+          Assign backend-managed roles to members. Individual permission overrides will appear here when their backend endpoint is available.
         </p>
       </div>
 
@@ -34,7 +30,7 @@ export function UserRoleAssignmentTable({
               <th className="p-3.5">Chapter</th>
               <th className="p-3.5">Current Role</th>
               <th className="p-3.5">Assigned Date</th>
-              <th className="p-3.5 text-right">Role Selection & Overrides</th>
+              <th className="p-3.5 text-right">Role Selection</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -58,7 +54,7 @@ export function UserRoleAssignmentTable({
                   </span>
                 </td>
                 <td className="p-3.5 text-muted-foreground text-[11px]">{asgn.assignedAt}</td>
-                <td className="p-3.5 text-right space-x-2">
+                <td className="p-3.5 text-right">
                   <select
                     value={asgn.roleCode}
                     onChange={(e) => onAssignRole(asgn.memberId, e.target.value)}
@@ -70,15 +66,6 @@ export function UserRoleAssignmentTable({
                       </option>
                     ))}
                   </select>
-
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => onOpenOverrides(asgn.memberId)}
-                    className="text-xs border-indigo-500/30 text-indigo-600 dark:text-indigo-400"
-                  >
-                    <SlidersHorizontal className="w-3.5 h-3.5 mr-1" /> Overrides
-                  </Button>
                 </td>
               </tr>
             ))}

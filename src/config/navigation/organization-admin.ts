@@ -9,7 +9,7 @@ export const organizationAdminNavigationConfig: WorkspaceConfig = {
     {
       groupTitle: 'Local Chapters',
       items: [
-        { title: 'Org Overview', href: '/dashboard', iconName: 'LayoutDashboard', requiredPermission: 'chapters.view' },
+        { title: 'Org Overview', href: '/dashboard/organization', iconName: 'LayoutDashboard', requiredPermission: 'chapters.view' },
         { title: 'Chapters list', href: '/dashboard/chapter/goals', iconName: 'Building', requiredPermission: 'chapters.view' },
         { title: 'All Members', href: '/dashboard/members', iconName: 'Users', requiredPermission: 'members.view' },
       ],

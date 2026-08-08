@@ -5,7 +5,6 @@ import { useRbac } from '@/features/rbac/hooks/use-rbac';
 import { RolesGrid } from '@/features/rbac/components/roles-grid';
 import { PermissionsMatrixTable } from '@/features/rbac/components/permissions-matrix-table';
 import { UserRoleAssignmentTable } from '@/features/rbac/components/user-role-assignment-table';
-import { PermissionOverrideModal } from '@/features/rbac/components/permission-override-modal';
 import { CreateRoleModal } from '@/features/rbac/components/create-role-modal';
 import { settingsSectionsConfig } from '@/config/navigation/settings';
 import { usePermissions } from '@/lib/permissions/use-permissions';
@@ -31,7 +30,6 @@ export default function SettingsPage() {
     permissions,
     assignments,
     loading,
-    refresh,
     togglePermissionForRole,
     createRole,
     assignRoleToUser,
@@ -39,7 +37,6 @@ export default function SettingsPage() {
 
   const [activeSection, setActiveSection] = useState<string>('profile');
   const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
-  const [selectedMemberOverride, setSelectedMemberOverride] = useState<string | null>(null);
 
   // Settings mock profile state
   const [profileData, setProfileData] = useState({
@@ -226,7 +223,6 @@ export default function SettingsPage() {
                 assignments={assignments}
                 roles={roles}
                 onAssignRole={assignRoleToUser}
-                onOpenOverrides={(memberId) => setSelectedMemberOverride(memberId)}
               />
             </div>
           )}
@@ -239,13 +235,6 @@ export default function SettingsPage() {
         permissions={permissions}
         onClose={() => setIsCreateRoleOpen(false)}
         onSubmit={createRole}
-      />
-
-      <PermissionOverrideModal
-        memberId={selectedMemberOverride}
-        isOpen={!!selectedMemberOverride}
-        onClose={() => setSelectedMemberOverride(null)}
-        onSaved={refresh}
       />
     </div>
   );

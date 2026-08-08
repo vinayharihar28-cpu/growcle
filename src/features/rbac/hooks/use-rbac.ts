@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { RbacService } from '../services/rbac-service';
-import { RoleDefinition, PermissionItem, PermissionKey, UserRoleAssignment, PermissionOverride } from '@/types/rbac';
+import { RoleDefinition, PermissionItem, PermissionKey, UserRoleAssignment } from '@/types/rbac';
 
 export function useRbac() {
   const [roles, setRoles] = useState<RoleDefinition[]>([]);
@@ -30,7 +30,7 @@ export function useRbac() {
   }, []);
 
   useEffect(() => {
-    fetchAll();
+    void Promise.resolve().then(fetchAll);
   }, [fetchAll]);
 
   const togglePermissionForRole = async (roleCode: string, permissionKey: PermissionKey) => {
@@ -61,11 +61,6 @@ export function useRbac() {
     setAssignments((prev) => prev.map((a) => (a.memberId === memberId ? updated : a)));
   };
 
-  const setUserOverride = async (override: PermissionOverride) => {
-    await RbacService.setUserOverride(override);
-    await fetchAll();
-  };
-
   return {
     roles,
     permissions,
@@ -75,6 +70,5 @@ export function useRbac() {
     togglePermissionForRole,
     createRole,
     assignRoleToUser,
-    setUserOverride,
   };
 }

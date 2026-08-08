@@ -139,3 +139,92 @@ export async function getMemberDashboardStats(memberId: string) {
     return null;
   }
 }
+
+export async function getOrganizationDashboardStats(organizationId: string) {
+  try {
+    const [organization, chapterCount, memberCount, referralValue, chapters] = await Promise.all([
+      db.organization.findUnique({
+        where: { id: organizationId },
+        select: { name: true },
+      }),
+      db.chapter.count({ where: { organizationId, isActive: true } }),
+      db.member.count({ where: { organizationId, isActive: true } }),
+      db.referral.aggregate({
+        where: {
+          chapter: { organizationId },
+          status: "CLOSED_WON",
+        },
+        _sum: { value: true },
+      }),
+      db.chapter.findMany({
+        where: { organizationId, isActive: true },
+        select: {
+          id: true,
+          name: true,
+          region: true,
+          _count: { select: { members: { where: { isActive: true } } } },
+        },
+        orderBy: { name: "asc" },
+      }),
+    ]);
+
+    const chapterMetrics = await Promise.all(
+      chapters.map(async (chapter) => {
+        const [visitors, convertedVisitors] = await Promise.all([
+          db.visitor.count({ where: { chapterId: chapter.id } }),
+          db.visitor.count({ where: { chapterId: chapter.id, status: "CONVERTED" } }),
+        ]);
+
+        return {
+          ...chapter,
+          activeMembers: chapter._count.members,
+          visitorConversionRate: visitors ? Math.round((convertedVisitors / visitors) * 100) : 0,
+        };
+      })
+    );
+
+    const topChapter = [...chapterMetrics].sort((a, b) => b.activeMembers - a.activeMembers)[0] ?? null;
+
+    return {
+      organizationName: organization?.name ?? "Organization",
+      totalChapters: chapterCount,
+      totalMembers: memberCount,
+      revenueGenerated: Number(referralValue._sum.value ?? 0),
+      topChapter,
+      chapters: chapterMetrics,
+    };
+  } catch (error) {
+    console.error("Failed to fetch organization dashboard stats:", error);
+    return null;
+  }
+}
+
+export async function getPlatformDashboardStats() {
+  try {
+    const [activeOrganizations, subscriptions, recentAuditLogs] = await Promise.all([
+      db.organization.count({ where: { isActive: true, deletedAt: null } }),
+      db.subscription.findMany({
+        where: { status: "ACTIVE" },
+        select: { price: true, currency: true },
+      }),
+      db.auditLog.findMany({
+        orderBy: { when: "desc" },
+        take: 6,
+        select: { id: true, action: true, entity: true, when: true, who: true },
+      }),
+    ]);
+
+    const mrr = subscriptions.reduce((total, subscription) => total + Number(subscription.price), 0);
+
+    return {
+      activeOrganizations,
+      activeSubscriptions: subscriptions.length,
+      mrr,
+      currency: subscriptions[0]?.currency ?? "USD",
+      recentAuditLogs,
+    };
+  } catch (error) {
+    console.error("Failed to fetch platform dashboard stats:", error);
+    return null;
+  }
+}

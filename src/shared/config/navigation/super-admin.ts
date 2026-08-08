@@ -6,7 +6,7 @@ export const superAdminNavigation: NavigationConfig = [
     items: [
       {
         title: "Platform Overview",
-        href: "/dashboard",
+        href: "/dashboard/platform-admin",
         icon: LayoutDashboard,
       },
     ],

@@ -64,3 +64,37 @@ This update completely overhauls and enhances the public website for **Growcle W
 ---
 
 *Log updated on 2026-08-08 by Antigravity AI Coding Assistant.*
+
+---
+
+## Phase 3 Workspace Completion (2026-08-08)
+
+### Dashboard routes and layouts
+
+- Added the requested workspace entry routes:
+  - `/dashboard/member`
+  - `/dashboard/admin`
+  - `/dashboard/organization`
+  - `/dashboard/platform-admin`
+- Kept the former `/dashboard/administration` route working while moving navigation to the canonical Admin route.
+- Updated member, organization, and platform navigation targets to point at their dedicated workspaces.
+
+### Data-backed Organization and Platform workspaces
+
+- Replaced placeholder Organization metrics with Prisma-backed chapter, active-member, closed-revenue, top-chapter, and visitor-conversion data.
+- Replaced placeholder Platform metrics with active-organization, active-subscription, MRR, and recent audit-log data.
+- Added layout-matched skeleton loaders and useful empty/error states to both workspaces.
+
+### RBAC management UI
+
+- Restored `/dashboard/rbac` so it renders the RBAC workspace rather than redirecting away.
+- Replaced the browser-only mock role repository for roles, permissions, assignment, creation, and permission-matrix updates with Prisma-backed server actions.
+- Removed the frontend default permission gate from the Administration workspace. Actions now remain visible and backend authorization is responsible for allowing or denying requests, as required.
+- Removed the misleading individual-permission override controls because the current persisted backend schema has no override model/endpoint. The UI clearly reserves that space for a future backend-supported implementation.
+
+### Verification
+
+- `npm run type-check`
+- `npm run type-check` passes.
+- Changed Phase 3 workspace files pass targeted ESLint checks. `npm run lint` still reports pre-existing lint errors in unrelated legacy files and scripts; it was not treated as a passing project-wide verification.
+- `npm run build` reaches the production build but cannot complete in this environment because `next/font` cannot fetch the existing Google-hosted Inter and Geist Mono fonts. This is an environment network limitation, not a Phase 3 type or route error.

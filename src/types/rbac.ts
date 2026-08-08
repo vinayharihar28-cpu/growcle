@@ -2,23 +2,9 @@ export type RoleScope = 'GLOBAL' | 'ORGANIZATION' | 'CHAPTER';
 
 export type PermissionAction = 'view' | 'create' | 'edit' | 'delete' | 'approve' | 'export';
 
-export type PermissionKey =
-  | 'members.view'
-  | 'members.create'
-  | 'members.edit'
-  | 'members.delete'
-  | 'meetings.view'
-  | 'meetings.create'
-  | 'meetings.edit'
-  | 'meetings.attendance'
-  | 'chapters.view'
-  | 'chapters.manage'
-  | 'rbac.roles_manage'
-  | 'rbac.assign'
-  | 'finance.view'
-  | 'finance.manage'
-  | 'reports.view'
-  | 'system.branding';
+// Permission identifiers are owned by the backend. Keep this open so newly
+// created backend permissions appear in the management UI without a frontend release.
+export type PermissionKey = string;
 
 export interface PermissionItem {
   key: PermissionKey;

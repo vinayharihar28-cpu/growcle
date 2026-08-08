@@ -5,17 +5,15 @@ import { useRbac } from '../hooks/use-rbac';
 import { RolesGrid } from '../components/roles-grid';
 import { PermissionsMatrixTable } from '../components/permissions-matrix-table';
 import { UserRoleAssignmentTable } from '../components/user-role-assignment-table';
-import { PermissionOverrideModal } from '../components/permission-override-modal';
 import { CreateRoleModal } from '../components/create-role-modal';
-import { ShieldCheck, KeyRound, Users, SlidersHorizontal, Layers } from 'lucide-react';
+import { ShieldCheck, KeyRound, Users, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function RbacWorkspacePage() {
-  const { roles, permissions, assignments, loading, refresh, togglePermissionForRole, createRole, assignRoleToUser } = useRbac();
+  const { roles, permissions, assignments, togglePermissionForRole, createRole, assignRoleToUser } = useRbac();
 
   const [activeTab, setActiveTab] = useState<'matrix' | 'roles' | 'users'>('matrix');
   const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
-  const [selectedMemberOverride, setSelectedMemberOverride] = useState<string | null>(null);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
@@ -86,7 +84,6 @@ export default function RbacWorkspacePage() {
           assignments={assignments}
           roles={roles}
           onAssignRole={assignRoleToUser}
-          onOpenOverrides={(memberId) => setSelectedMemberOverride(memberId)}
         />
       )}
 
@@ -96,13 +93,6 @@ export default function RbacWorkspacePage() {
         permissions={permissions}
         onClose={() => setIsCreateRoleOpen(false)}
         onSubmit={createRole}
-      />
-
-      <PermissionOverrideModal
-        memberId={selectedMemberOverride}
-        isOpen={!!selectedMemberOverride}
-        onClose={() => setSelectedMemberOverride(null)}
-        onSaved={refresh}
       />
     </div>
   );
