@@ -1,6 +1,6 @@
 'use client';
 
-import { useWorkspaceStore } from '@/stores/use-workspace-store';
+import { useWorkspaceStore } from '@/shared/stores/workspace';
 import { MemberDashboard } from '../components/member-dashboard';
 import { ChapterAdminDashboard } from '../components/chapter-admin-dashboard';
 import { OrgAdminDashboard } from '../components/org-admin-dashboard';
@@ -8,18 +8,20 @@ import { FinanceDashboard } from '../components/finance-dashboard';
 import { PlatformAdminDashboard } from '../components/platform-admin-dashboard';
 
 export default function DashboardPage() {
-  const { activeWorkspace } = useWorkspaceStore();
+  const { activeRole } = useWorkspaceStore();
 
-  switch (activeWorkspace) {
-    case 'chapter-admin':
+  switch (activeRole) {
+    case 'Admin':
+    case 'Organization Administrator':
       return <ChapterAdminDashboard />;
-    case 'organization-admin':
-      return <OrgAdminDashboard />;
-    case 'finance':
+    case 'Finance':
+    case 'Treasurer':
       return <FinanceDashboard />;
-    case 'platform-admin':
+    case 'SuperAdmin':
       return <PlatformAdminDashboard />;
-    case 'member':
+    case 'Member':
+    case 'Vice President':
+    case 'Secretary':
     default:
       return <MemberDashboard />;
   }

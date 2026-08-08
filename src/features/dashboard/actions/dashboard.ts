@@ -60,7 +60,7 @@ export async function getMemberDashboardStats(memberId: string) {
         date: { gte: new Date() }
       },
       orderBy: { date: "asc" },
-      take: 3,
+      take: 5,
       include: {
         chapter: {
           select: {
@@ -94,14 +94,45 @@ export async function getMemberDashboardStats(memberId: string) {
       }
     }));
 
+    // Generate 6-Month Revenue Data
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const currentDate = new Date();
+    const monthlyRevenue: { month: string; revenue: number; referrals: number }[] = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const startOfMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+      const endOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+
+      const agg = await db.referral.aggregate({
+        where: {
+          toMemberId: memberId,
+          status: "CLOSED_WON",
+          createdAt: {
+            gte: startOfMonth,
+            lte: endOfMonth
+          }
+        },
+        _sum: { value: true },
+        _count: { id: true }
+      });
+
+      monthlyRevenue.push({
+        month: monthNames[d.getMonth()],
+        revenue: Number(agg._sum.value || 0),
+        referrals: agg._count.id || 0
+      });
+    }
+
     return {
       referralsGiven,
       referralsReceived,
-      referralsValue: closedBusinessValue._sum.value || 0,
+      referralsValue: Number(closedBusinessValue._sum.value || 0),
       oneToOnesCount,
       attendanceRate,
       recentReferrals: mappedRecentReferrals,
-      upcomingMeetings
+      upcomingMeetings,
+      monthlyRevenue
     };
   } catch (error) {
     console.error("Failed to fetch member dashboard stats:", error);
