@@ -4,7 +4,198 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
-// Models will be added in Phase 2
+model Organization {
+  id           String    @id @default(uuid())
+  name         String
+  logoUrl      String?
+  primaryColor String?
+  customDomain String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  members      Member[]
+  chapters     Chapter[]
+}
+
+model Chapter {
+  id             String       @id @default(uuid())
+  name           String
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        Member[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  visitors       Visitor[]
+  referrals      Referral[]
+  meetings       Meeting[]
+}
+
+model Member {
+  id             String       @id @default(uuid())
+  userId         String?      @unique
+  firstName      String
+  lastName       String
+  email          String       @unique
+  businessName   String?
+  industry       String?
+  phoneNumber    String?
+  bio            String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  chapterId      String?
+  chapter        Chapter?     @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  givenReferrals    Referral[] @relation("GivenReferrals")
+  receivedReferrals Referral[] @relation("ReceivedReferrals")
+  meetingAttendances MeetingAttendance[]
+  
+  initiatedOneToOnes OneToOne[] @relation("InitiatedOneToOnes")
+  receivedOneToOnes  OneToOne[] @relation("ReceivedOneToOnes")
+}
+
+model Visitor {
+  id           String   @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String
+  businessName String?
+  industry     String?
+  chapterId    String
+  chapter      Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  visitDate    DateTime
+  status       String   @default("PENDING") // PENDING, ATTENDED, NO_SHOW
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  meetingAttendances MeetingAttendance[]
+}
+
+model Referral {
+  id           String   @id @default(uuid())
+  fromMemberId String
+  fromMember   Member   @relation("GivenReferrals", fields: [fromMemberId], references: [id], onDelete: Cascade)
+  toMemberId   String
+  toMember     Member   @relation("ReceivedReferrals", fields: [toMemberId], references: [id], onDelete: Cascade)
+  chapterId    String
+  chapter      Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  
+  referralName String
+  referralEmail String?
+  referralPhone String?
+  notes        String?
+  status       String   @default("PENDING") // PENDING, CONTACTED, CLOSED_WON, CLOSED_LOST
+  value        Float?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Meeting {
+  id          String   @id @default(uuid())
+  chapterId   String
+  chapter     Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  date        DateTime
+  location    String?
+  agenda      String?
+  status      String   @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  attendances MeetingAttendance[]
+}
+
+model MeetingAttendance {
+  id        String   @id @default(uuid())
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  
+  memberId  String?
+  member    Member?  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  
+  visitorId String?
+  visitor   Visitor? @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  
+  status    String   @default("PRESENT") // PRESENT, ABSENT, SUBSTITUTE, EXCUSED
+  notes     String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OneToOne {
+  id          String   @id @default(uuid())
+  initiatorId String
+  initiator   Member   @relation("InitiatedOneToOnes", fields: [initiatorId], references: [id], onDelete: Cascade)
+  
+  receiverId  String
+  receiver    Member   @relation("ReceivedOneToOnes", fields: [receiverId], references: [id], onDelete: Cascade)
+  
+  date        DateTime
+  notes       String?
+  status      String   @default("COMPLETED") // SCHEDULED, COMPLETED, CANCELLED
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(uuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id @default(uuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@map("verification")
+}
+
