@@ -6,141 +6,77 @@ datasource db {
   provider = "postgresql"
 }
 
-model Organization {
-  id           String    @id @default(uuid())
-  name         String
-  logoUrl      String?
-  primaryColor String?
-  customDomain String?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  members      Member[]
-  chapters     Chapter[]
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+enum MemberStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  SUSPENDED
+  EXPIRED
 }
 
-model Chapter {
-  id             String       @id @default(uuid())
-  name           String
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  members        Member[]
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  visitors       Visitor[]
-  referrals      Referral[]
-  meetings       Meeting[]
+enum VisitorStatus {
+  PENDING
+  ATTENDED
+  NO_SHOW
+  CONVERTED
 }
 
-model Member {
-  id             String       @id @default(uuid())
-  userId         String?      @unique
-  firstName      String
-  lastName       String
-  email          String       @unique
-  businessName   String?
-  industry       String?
-  phoneNumber    String?
-  bio            String?
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  chapterId      String?
-  chapter        Chapter?     @relation(fields: [chapterId], references: [id], onDelete: SetNull)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  givenReferrals    Referral[] @relation("GivenReferrals")
-  receivedReferrals Referral[] @relation("ReceivedReferrals")
-  meetingAttendances MeetingAttendance[]
-  
-  initiatedOneToOnes OneToOne[] @relation("InitiatedOneToOnes")
-  receivedOneToOnes  OneToOne[] @relation("ReceivedOneToOnes")
+enum ReferralStatus {
+  PENDING
+  CONTACTED
+  CLOSED_WON
+  CLOSED_LOST
 }
 
-model Visitor {
-  id           String   @id @default(uuid())
-  firstName    String
-  lastName     String
-  email        String
-  businessName String?
-  industry     String?
-  chapterId    String
-  chapter      Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  visitDate    DateTime
-  status       String   @default("PENDING") // PENDING, ATTENDED, NO_SHOW
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
-  meetingAttendances MeetingAttendance[]
+enum MeetingStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
 }
 
-model Referral {
-  id           String   @id @default(uuid())
-  fromMemberId String
-  fromMember   Member   @relation("GivenReferrals", fields: [fromMemberId], references: [id], onDelete: Cascade)
-  toMemberId   String
-  toMember     Member   @relation("ReceivedReferrals", fields: [toMemberId], references: [id], onDelete: Cascade)
-  chapterId    String
-  chapter      Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  
-  referralName String
-  referralEmail String?
-  referralPhone String?
-  notes        String?
-  status       String   @default("PENDING") // PENDING, CONTACTED, CLOSED_WON, CLOSED_LOST
-  value        Float?
-  
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  SUBSTITUTE
+  EXCUSED
 }
 
-model Meeting {
-  id          String   @id @default(uuid())
-  chapterId   String
-  chapter     Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
-  date        DateTime
-  location    String?
-  agenda      String?
-  status      String   @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  attendances MeetingAttendance[]
+enum OneToOneStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
 }
 
-model MeetingAttendance {
-  id        String   @id @default(uuid())
-  meetingId String
-  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
-  
-  memberId  String?
-  member    Member?  @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  
-  visitorId String?
-  visitor   Visitor? @relation(fields: [visitorId], references: [id], onDelete: Cascade)
-  
-  status    String   @default("PRESENT") // PRESENT, ABSENT, SUBSTITUTE, EXCUSED
-  notes     String?
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  CANCELLED
 }
 
-model OneToOne {
-  id          String   @id @default(uuid())
-  initiatorId String
-  initiator   Member   @relation("InitiatedOneToOnes", fields: [initiatorId], references: [id], onDelete: Cascade)
-  
-  receiverId  String
-  receiver    Member   @relation("ReceivedOneToOnes", fields: [receiverId], references: [id], onDelete: Cascade)
-  
-  date        DateTime
-  notes       String?
-  status      String   @default("COMPLETED") // SCHEDULED, COMPLETED, CANCELLED
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  CANCELED
+  INCOMPLETE
+  INCOMPLETE_EXPIRED
+  PAST_DUE
+  UNPAID
 }
 
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+// -----------------------------------------------------------------------------
+// AUTHENTICATION & CORE USER (Better Auth compatible)
+// -----------------------------------------------------------------------------
 model User {
   id            String    @id @default(uuid())
   name          String
@@ -149,8 +85,12 @@ model User {
   image         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
   sessions      Session[]
   accounts      Account[]
+  
+  // Separation of Auth from Membership: A user can belong to many organizations/chapters
+  memberships   Member[]
 
   @@map("user")
 }
@@ -199,3 +139,516 @@ model Verification {
   @@map("verification")
 }
 
+// -----------------------------------------------------------------------------
+// RBAC (Role Based Access Control)
+// -----------------------------------------------------------------------------
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  permissions RolePermission[]
+  members     MemberRole[]
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  action      String   @unique // e.g., 'members.create', 'meetings.view'
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+model MemberRole {
+  id        String   @id @default(uuid())
+  memberId  String
+  roleId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, roleId])
+}
+
+// -----------------------------------------------------------------------------
+// ORGANIZATION & CHAPTER
+// -----------------------------------------------------------------------------
+model Organization {
+  id               String   @id @default(uuid())
+  name             String
+  slug             String   @unique
+  customDomain     String?  @unique
+  logoUrl          String?
+  primaryColor     String?
+  timezone         String?
+  country          String?
+  currency         String?
+  language         String?
+  subscriptionPlan String?
+  settings         Json?
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  deletedAt        DateTime?
+
+  settingsObj  OrganizationSettings?
+  chapters     Chapter[]
+  members      Member[]
+  invitations  Invitation[]
+  files        File[]
+
+  @@index([slug])
+}
+
+model OrganizationSettings {
+  id               String   @id @default(uuid())
+  organizationId   String   @unique
+  brandColors      Json?
+  emailSettings    Json?
+  featureFlags     Json?
+  meetingDefaults  Json?
+  notificationSettings Json?
+  brandAssets      Json?
+  customCss        String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Chapter {
+  id              String   @id @default(uuid())
+  name            String
+  chapterCode     String?
+  description     String?
+  meetingDay      String?
+  meetingTime     String?
+  meetingLocation String?
+  isActive        Boolean  @default(true)
+  region          String?
+  organizationId  String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  deletedAt       DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members      Member[]
+  meetings     Meeting[]
+  visitors     Visitor[]
+  referrals    Referral[]
+  invitations  Invitation[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// -----------------------------------------------------------------------------
+// MEMBER & IDENTITY
+// -----------------------------------------------------------------------------
+model Member {
+  id                String   @id @default(uuid())
+  userId            String?  // Removed @unique so a User can have multiple Member profiles
+  firstName         String
+  lastName          String
+  email             String
+  phoneNumber       String?
+  bio               String?
+  status            MemberStatus @default(PENDING)
+  membershipNumber  String?
+  profileImage      String?
+  website           String?
+  linkedin          String?
+  instagram         String?
+  facebook          String?
+  twitter           String?
+  isActive          Boolean  @default(true)
+  preferredLanguage String?
+  joinedAt          DateTime?
+  expiresAt         DateTime?
+  renewalDate       DateTime?
+  lastLoginAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+
+  organizationId    String
+  chapterId         String?
+
+  user              User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  organization      Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  chapter           Chapter?      @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  business          MemberBusiness?
+  roles             MemberRole[]
+
+  givenReferrals     Referral[] @relation("GivenReferrals")
+  receivedReferrals  Referral[] @relation("ReceivedReferrals")
+  meetingAttendances MeetingAttendance[]
+  initiatedOneToOnes OneToOne[] @relation("InitiatedOneToOnes")
+  receivedOneToOnes  OneToOne[] @relation("ReceivedOneToOnes")
+  visitorsInvited    Visitor[]  @relation("InvitedVisitors")
+
+  @@unique([organizationId, email])
+  @@unique([chapterId, membershipNumber])
+  @@index([userId])
+  @@index([organizationId])
+  @@index([chapterId])
+  @@index([email])
+  @@index([status])
+}
+
+model MemberBusiness {
+  id                 String   @id @default(uuid())
+  memberId           String   @unique
+  businessName       String
+  industry           String?
+  website            String?
+  companyDescription String?
+  businessAddress    String?
+  businessPhone      String?
+  businessEmail      String?
+  businessLogo       String?
+  businessCategory   String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+// -----------------------------------------------------------------------------
+// ONBOARDING
+// -----------------------------------------------------------------------------
+model Invitation {
+  id             String   @id @default(uuid())
+  email          String
+  organizationId String
+  chapterId      String?
+  roleId         String?
+  token          String   @unique
+  status         InvitationStatus @default(PENDING)
+  invitedBy      String?
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  chapter        Chapter?     @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+  
+  @@index([email])
+  @@index([token])
+}
+
+// -----------------------------------------------------------------------------
+// MEETINGS & ATTENDANCE
+// -----------------------------------------------------------------------------
+model Meeting {
+  id            String   @id @default(uuid())
+  chapterId     String
+  title         String?
+  meetingNumber String?
+  speaker       String?
+  theme         String?
+  zoomLink      String?
+  isHybrid      Boolean  @default(false)
+  meetingType   String?
+  date          DateTime
+  startTime     DateTime?
+  endTime       DateTime?
+  location      String?
+  agenda        String?
+  minutes       String?
+  attachments   Json?
+  status        MeetingStatus @default(SCHEDULED)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  chapter     Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  attendances MeetingAttendance[]
+
+  @@unique([chapterId, date])
+  @@index([chapterId])
+  @@index([date])
+}
+
+model MeetingAttendance {
+  id               String   @id @default(uuid())
+  meetingId        String
+  memberId         String?
+  visitorId        String?
+  status           AttendanceStatus @default(PRESENT)
+  checkInTime      DateTime?
+  checkedInBy      String?
+  attendanceMethod String?
+  notes            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  meeting Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  member  Member?  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  visitor Visitor? @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+
+  // DB-level constraints (like memberId != null XOR visitorId != null) must be enforced by Prisma middleware or raw SQL constraints
+  @@index([meetingId])
+  @@index([memberId])
+  @@index([visitorId])
+}
+
+// -----------------------------------------------------------------------------
+// VISITORS
+// -----------------------------------------------------------------------------
+model Visitor {
+  id                  String   @id @default(uuid())
+  firstName           String
+  lastName            String
+  email               String
+  phone               String?
+  company             String?
+  industry            String?
+  notes               String?
+  visitDate           DateTime
+  status              VisitorStatus @default(PENDING)
+  followUpStatus      String?
+  convertedToMemberAt DateTime?
+  chapterId           String
+  invitedByMemberId   String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  deletedAt           DateTime?
+
+  chapter          Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  invitedBy        Member?  @relation("InvitedVisitors", fields: [invitedByMemberId], references: [id], onDelete: SetNull)
+  meetingAttendances MeetingAttendance[]
+
+  @@index([chapterId])
+  @@index([status])
+}
+
+// -----------------------------------------------------------------------------
+// NETWORKING ACTIVITY (Referrals & One-to-Ones)
+// -----------------------------------------------------------------------------
+model Referral {
+  id                  String   @id @default(uuid())
+  fromMemberId        String
+  toMemberId          String
+  chapterId           String
+  referralName        String
+  referralEmail       String?
+  referralPhone       String?
+  destinationBusiness String?
+  notes               String?
+  source              String?
+  category            String?
+  priority            String?
+  status              ReferralStatus @default(PENDING)
+  value               Decimal?
+  commission          Decimal?
+  isClosed            Boolean  @default(false)
+  followUpDate        DateTime?
+  closedDate          DateTime?
+  convertedAt         DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  deletedAt           DateTime?
+
+  fromMember Member  @relation("GivenReferrals", fields: [fromMemberId], references: [id], onDelete: Cascade)
+  toMember   Member  @relation("ReceivedReferrals", fields: [toMemberId], references: [id], onDelete: Cascade)
+  chapter    Chapter @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@index([fromMemberId])
+  @@index([toMemberId])
+  @@index([chapterId])
+  @@index([status])
+}
+
+model OneToOne {
+  id           String   @id @default(uuid())
+  initiatorId  String
+  receiverId   String
+  date         DateTime
+  duration     Int?      // in minutes
+  location     String?
+  meetingMode  String?   // e.g., 'IN_PERSON', 'VIRTUAL'
+  outcome      String?
+  rating       Int?
+  notes        String?
+  status       OneToOneStatus @default(SCHEDULED)
+  followUpDate DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
+
+  initiator Member @relation("InitiatedOneToOnes", fields: [initiatorId], references: [id], onDelete: Cascade)
+  receiver  Member @relation("ReceivedOneToOnes", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([initiatorId])
+  @@index([receiverId])
+}
+
+// -----------------------------------------------------------------------------
+// NOTIFICATIONS
+// -----------------------------------------------------------------------------
+model Notification {
+  id         String   @id @default(uuid())
+  userId     String
+  title      String
+  body       String
+  type       String   // e.g., 'EMAIL', 'SMS', 'PUSH', 'IN_APP'
+  isRead     Boolean  @default(false)
+  readAt     DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model NotificationPreference {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  emailEnabled Boolean  @default(true)
+  smsEnabled   Boolean  @default(false)
+  pushEnabled  Boolean  @default(true)
+  inAppEnabled Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model NotificationTemplate {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  subject   String?
+  bodyText  String
+  bodyHtml  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// -----------------------------------------------------------------------------
+// FINANCE
+// -----------------------------------------------------------------------------
+model Subscription {
+  id             String   @id @default(uuid())
+  organizationId String
+  planId         String
+  status         SubscriptionStatus @default(INCOMPLETE)
+  price          Decimal
+  currency       String   @default("USD")
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+model Invoice {
+  id             String   @id @default(uuid())
+  organizationId String?
+  memberId       String?
+  invoiceNumber  String   @unique
+  total          Decimal
+  currency       String   @default("USD")
+  status         PaymentStatus @default(PENDING)
+  dueDate        DateTime?
+  paidAt         DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([memberId])
+}
+
+model Payment {
+  id             String   @id @default(uuid())
+  invoiceId      String?
+  amount         Decimal
+  currency       String   @default("USD")
+  status         PaymentStatus @default(PENDING)
+  gateway        String?  // 'STRIPE', 'RAZORPAY'
+  gatewayId      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model PaymentMethod {
+  id             String   @id @default(uuid())
+  userId         String
+  provider       String
+  providerToken  String
+  isDefault      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Coupon {
+  id             String   @id @default(uuid())
+  code           String   @unique
+  discountAmount Decimal?
+  discountPercent Float?
+  expiresAt      DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Transaction {
+  id             String   @id @default(uuid())
+  amount         Decimal
+  currency       String
+  description    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+// -----------------------------------------------------------------------------
+// UTILITIES (Audit, Files)
+// -----------------------------------------------------------------------------
+model AuditLog {
+  id         String   @id @default(uuid())
+  who        String?
+  when       DateTime @default(now())
+  action     String
+  entity     String
+  entityId   String?
+  oldValue   Json?
+  newValue   Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model File {
+  id             String   @id @default(uuid())
+  url            String
+  filename       String
+  mimetype       String?
+  size           Int?
+  organizationId String?
+  uploadedBy     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  @@index([organizationId])
+}

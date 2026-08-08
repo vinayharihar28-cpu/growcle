@@ -20,8 +20,8 @@ export default async function DashboardLayout({
   }
 
   // Find or create database Member matching session email
-  let member = await db.member.findUnique({
-    where: { email: session.user.email },
+  let member = await db.member.findFirst({
+    where: { userId: session.user.id },
   });
 
   if (!member) {
@@ -31,6 +31,7 @@ export default async function DashboardLayout({
       org = await db.organization.create({
         data: {
           name: "Growcle Apex",
+          slug: "growcle-apex",
           primaryColor: "#4f46e5",
         },
       });

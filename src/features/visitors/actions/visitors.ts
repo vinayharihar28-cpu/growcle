@@ -4,7 +4,7 @@ import { db } from "@/shared/lib/db";
 
 export async function getVisitors() {
   try {
-    return await db.visitor.findMany({
+    const visitors = await db.visitor.findMany({
       include: {
         chapter: true,
       },
@@ -12,6 +12,10 @@ export async function getVisitors() {
         visitDate: "desc",
       },
     });
+    return visitors.map(v => ({
+      ...v,
+      businessName: v.company
+    }));
   } catch (error) {
     console.error("Failed to fetch visitors:", error);
     return [];
@@ -33,7 +37,7 @@ export async function createVisitor(data: {
         firstName: data.firstName,
         lastName: data.lastName,
         email: data.email,
-        businessName: data.businessName || null,
+        company: data.businessName || null,
         industry: data.industry || null,
         chapterId: data.chapterId,
         visitDate: new Date(data.visitDate),

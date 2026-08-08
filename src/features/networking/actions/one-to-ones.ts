@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 export async function getOneToOnes(memberId: string) {
   try {
-    return await db.oneToOne.findMany({
+    const oneToOnes = await db.oneToOne.findMany({
       where: {
         OR: [
           { initiatorId: memberId },
@@ -14,14 +14,26 @@ export async function getOneToOnes(memberId: string) {
       },
       include: {
         initiator: {
-          select: { firstName: true, lastName: true, businessName: true },
+          select: { firstName: true, lastName: true, business: { select: { businessName: true } } },
         },
         receiver: {
-          select: { firstName: true, lastName: true, businessName: true },
+          select: { firstName: true, lastName: true, business: { select: { businessName: true } } },
         },
       },
       orderBy: { date: "desc" },
     });
+
+    return oneToOnes.map(oto => ({
+      ...oto,
+      initiator: {
+        ...oto.initiator,
+        businessName: oto.initiator.business?.businessName || null
+      },
+      receiver: {
+        ...oto.receiver,
+        businessName: oto.receiver.business?.businessName || null
+      }
+    }));
   } catch (error) {
     console.error("Error fetching 1-to-1s:", error);
     throw new Error("Failed to fetch 1-to-1s");

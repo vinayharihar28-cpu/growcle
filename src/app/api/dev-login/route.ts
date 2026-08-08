@@ -10,6 +10,7 @@ export async function POST() {
       org = await db.organization.create({
         data: {
           name: "Growcle Apex",
+          slug: "growcle-apex",
           primaryColor: "#4f46e5",
         },
       });
@@ -44,8 +45,8 @@ export async function POST() {
     }
 
     // 4. Find or create the member record
-    let member = await db.member.findUnique({
-      where: { email: "alexandra.chen@apextechnologies.io" },
+    let member = await db.member.findFirst({
+      where: { userId: user.id },
     });
 
     if (!member) {

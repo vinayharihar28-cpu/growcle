@@ -40,7 +40,9 @@ export async function getMemberDashboardStats(memberId: string) {
           select: {
             firstName: true,
             lastName: true,
-            businessName: true
+            business: {
+              select: { businessName: true }
+            }
           }
         }
       }
@@ -84,13 +86,21 @@ export async function getMemberDashboardStats(memberId: string) {
       ? Math.round((presentAttendances / totalAttendances) * 100) 
       : 100;
 
+    const mappedRecentReferrals = recentReferrals.map(r => ({
+      ...r,
+      toMember: {
+        ...r.toMember,
+        businessName: r.toMember.business?.businessName || null
+      }
+    }));
+
     return {
       referralsGiven,
       referralsReceived,
       referralsValue: closedBusinessValue._sum.value || 0,
       oneToOnesCount,
       attendanceRate,
-      recentReferrals,
+      recentReferrals: mappedRecentReferrals,
       upcomingMeetings
     };
   } catch (error) {

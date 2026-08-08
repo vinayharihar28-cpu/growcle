@@ -23,15 +23,22 @@ export function LoginForm() {
     resolver: zodResolver(loginSchema)
   });
 
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
   const onSubmit = async (data: LoginFormData) => {
     try {
-      await authClient.signIn.email({
+      setErrorMsg(null);
+      const { data: authData, error } = await authClient.signIn.email({
         email: data.email,
         password: data.password,
         callbackURL: "/dashboard",
       });
+      if (error) {
+        setErrorMsg(error.message || "Invalid email or password");
+      }
     } catch (error) {
       console.error("Email sign in failed", error);
+      setErrorMsg("An unexpected error occurred. Please try again.");
     }
   };
 
@@ -85,6 +92,13 @@ export function LoginForm() {
             />
             {errors.password && <p className="text-xs text-rose-500 font-medium">{errors.password.message}</p>}
           </div>
+
+          {errorMsg && (
+            <div className="p-3 text-sm font-medium bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-xl">
+              {errorMsg}
+            </div>
+          )}
+
           <Button 
             type="submit" 
             className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold h-11 transition-all rounded-xl shadow-lg hover:shadow-indigo-500/25 shadow-indigo-600/10 cursor-pointer" 
