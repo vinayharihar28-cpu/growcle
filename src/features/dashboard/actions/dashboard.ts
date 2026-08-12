@@ -168,20 +168,31 @@ export async function getOrganizationDashboardStats(organizationId: string) {
       }),
     ]);
 
-    const chapterMetrics = await Promise.all(
-      chapters.map(async (chapter) => {
-        const [visitors, convertedVisitors] = await Promise.all([
-          db.visitor.count({ where: { chapterId: chapter.id } }),
-          db.visitor.count({ where: { chapterId: chapter.id, status: "CONVERTED" } }),
-        ]);
+    const totalVisitors = await db.visitor.groupBy({
+      by: ['chapterId'],
+      where: { chapterId: { in: chapters.map(c => c.id) } },
+      _count: { id: true },
+    });
 
-        return {
-          ...chapter,
-          activeMembers: chapter._count.members,
-          visitorConversionRate: visitors ? Math.round((convertedVisitors / visitors) * 100) : 0,
-        };
-      })
-    );
+    const convertedVisitors = await db.visitor.groupBy({
+      by: ['chapterId'],
+      where: { chapterId: { in: chapters.map(c => c.id) }, status: "CONVERTED" },
+      _count: { id: true },
+    });
+
+    const visitorCountMap = Object.fromEntries(totalVisitors.map(v => [v.chapterId, v._count.id]));
+    const convertedCountMap = Object.fromEntries(convertedVisitors.map(v => [v.chapterId, v._count.id]));
+
+    const chapterMetrics = chapters.map((chapter) => {
+      const visitors = visitorCountMap[chapter.id] || 0;
+      const converted = convertedCountMap[chapter.id] || 0;
+
+      return {
+        ...chapter,
+        activeMembers: chapter._count.members,
+        visitorConversionRate: visitors ? Math.round((converted / visitors) * 100) : 0,
+      };
+    });
 
     const topChapter = [...chapterMetrics].sort((a, b) => b.activeMembers - a.activeMembers)[0] ?? null;
 
