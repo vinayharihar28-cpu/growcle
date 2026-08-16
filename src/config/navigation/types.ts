@@ -5,7 +5,8 @@ export type WorkspaceType =
   | 'chapter-admin'
   | 'organization-admin'
   | 'finance'
-  | 'platform-admin';
+  | 'platform-admin'
+  | 'director';
 
 export interface NavItem {
   title: string;

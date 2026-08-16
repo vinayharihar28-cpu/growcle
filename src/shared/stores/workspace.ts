@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type Role = "Member" | "Admin" | "Finance" | "SuperAdmin" | "Organization Administrator" | "Vice President" | "Secretary" | "Treasurer";
+export type Role = "Member" | "Admin" | "Finance" | "SuperAdmin" | "Organization Administrator" | "Vice President" | "Secretary" | "Treasurer" | "Director";
 
 interface WorkspaceState {
   activeRole: Role | null;

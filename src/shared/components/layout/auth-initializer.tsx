@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useAuthStore, MemberInfo } from "@/shared/stores/auth";
+import { useWorkspaceStore, Role } from "@/shared/stores/workspace";
 
 interface AuthInitializerProps {
   user: {
@@ -21,6 +22,13 @@ export function AuthInitializer({ user, member }: AuthInitializerProps) {
         currentMember: member,
         isAuthenticated: true,
       });
+
+      const defaultRoles: Role[] = ["Director", "Admin", "Member", "Finance", "SuperAdmin"];
+      const wsStore = useWorkspaceStore.getState();
+      if (!wsStore.activeRole) {
+        wsStore.setActiveRole("Director");
+      }
+      wsStore.setAvailableRoles(defaultRoles);
     }
   }, [user, member]);
 
