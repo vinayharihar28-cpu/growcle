@@ -8,6 +8,7 @@ import { cache } from "react";
  * Cached per request using React cache to eliminate redundant database queries.
  */
 export const getCurrentSession = cache(async () => {
+  console.log("⚡ [SESSION CACHE MISS] Querying auth session from database/cookie...");
   const reqHeaders = await headers();
   return await auth.api.getSession({
     headers: reqHeaders,
