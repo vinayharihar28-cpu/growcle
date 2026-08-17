@@ -6,7 +6,6 @@ import { cn } from "@/shared/lib/utils";
 import { useSidebarStore } from "@/shared/stores/sidebar";
 import { useWorkspaceStore } from "@/shared/stores/workspace";
 import { getNavigationForRole } from "@/shared/config/navigation";
-import { WorkspaceSwitcher } from "../workspace-switcher";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -23,10 +22,6 @@ export function Sidebar() {
         <span className="text-xl font-bold tracking-tight text-primary">
           Growcle
         </span>
-      </div>
-      
-      <div className="p-4 border-b">
-        <WorkspaceSwitcher />
       </div>
 
       <nav className="flex-1 overflow-y-auto p-4 space-y-6">
