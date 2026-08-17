@@ -23,10 +23,10 @@ export function AuthInitializer({ user, member }: AuthInitializerProps) {
         isAuthenticated: true,
       });
 
-      const defaultRoles: Role[] = ["Director", "Admin", "Member", "Finance", "SuperAdmin"];
+      const defaultRoles: Role[] = ["Admin", "Director", "Leadership Team", "Member"];
       const wsStore = useWorkspaceStore.getState();
-      if (!wsStore.activeRole) {
-        wsStore.setActiveRole("Director");
+      if (!wsStore.activeRole || !defaultRoles.includes(wsStore.activeRole)) {
+        wsStore.setActiveRole("Admin");
       }
       wsStore.setAvailableRoles(defaultRoles);
     }
