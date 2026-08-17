@@ -9,7 +9,7 @@ export const memberNavigationConfig: WorkspaceConfig = {
     {
       groupTitle: 'Core',
       items: [
-        { title: 'Dashboard', href: '/dashboard', iconName: 'LayoutDashboard' },
+        { title: 'Dashboard', href: '/dashboard/member', iconName: 'LayoutDashboard' },
         { title: 'Business Profile', href: '/dashboard/profile', iconName: 'User' },
         { title: 'Upcoming Meetings', href: '/dashboard/meetings', iconName: 'Calendar' },
       ],

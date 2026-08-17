@@ -1,4 +1,4 @@
-import { AdminMember, AdminMeeting, AttendanceRecord, ChapterDetails, AdminStats } from '@/types/admin';
+import { AdminMember, AdminMeeting, AttendanceRecord, ChapterDetails, AdminStats, AdminDirector, LeadershipAssignment } from '@/types/admin';
 import { RoleDefinition, PermissionItem, UserRoleAssignment, PermissionOverride } from '@/types/rbac';
 
 export const ALL_PERMISSIONS: PermissionItem[] = [
@@ -334,35 +334,94 @@ export const MOCK_CHAPTERS: ChapterDetails[] = [
   {
     id: 'chap-01',
     name: 'Silicon Valley Founders',
+    code: 'SV-001',
     organizationId: 'org-01',
+    region: 'West Coast',
     meetingDay: 'Thursday',
     meetingTime: '07:30 AM',
     location: 'Innovation Hub, Palo Alto CA',
+    meetingType: 'HYBRID',
+    directorId: 'mem-101',
+    directorName: 'Alexandra Chen',
     presidentName: 'Marcus Vance',
     vicePresidentName: 'Sophia Rodriguez',
     secretaryName: 'David Kim',
     memberCount: 28,
+    activeMembers: 26,
+    status: 'ACTIVE',
+    createdDate: '2022-01-15',
+    upcomingMeeting: '2026-08-20T07:30:00Z',
+    performance: {
+      attendancePct: 92,
+      visitors: 12,
+      visitorConversionPct: 25,
+      referrals: 156,
+      closedBusiness: 450000,
+      paymentStatus: 'HEALTHY',
+    },
   },
   {
     id: 'chap-02',
     name: 'Metro Executive Network',
+    code: 'ME-002',
     organizationId: 'org-01',
+    region: 'West Coast',
     meetingDay: 'Tuesday',
     meetingTime: '08:00 AM',
     location: 'Metropolitan Club, San Jose CA',
+    meetingType: 'IN_PERSON',
+    directorId: 'mem-101',
+    directorName: 'Alexandra Chen',
     presidentName: 'Elena Rostova',
     vicePresidentName: 'Jonathan Hayes',
     secretaryName: 'Karen White',
     memberCount: 22,
+    activeMembers: 21,
+    status: 'ACTIVE',
+    createdDate: '2023-04-10',
+    upcomingMeeting: '2026-08-18T08:00:00Z',
+    performance: {
+      attendancePct: 88,
+      visitors: 8,
+      visitorConversionPct: 15,
+      referrals: 89,
+      closedBusiness: 210000,
+      paymentStatus: 'NEEDS_ATTENTION',
+    },
   },
 ];
 
 export const MOCK_STATS: AdminStats = {
-  totalMembers: 286,
-  activeChapters: 8,
-  scheduledMeetings: 12,
-  averageAttendancePct: 94.2,
-  pendingInvites: 14,
+  chapters: {
+    total: 8,
+    active: 7,
+    inactive: 1,
+  },
+  members: {
+    total: 286,
+    active: 250,
+    pending: 14,
+    inactive: 22,
+  },
+  visitors: {
+    total: 154,
+    upcoming: 12,
+    attended: 142,
+    converted: 45,
+  },
+  referrals: {
+    total: 840,
+    pending: 120,
+    contacted: 300,
+    closedWon: 350,
+    closedLost: 70,
+    totalClosedBusiness: 2450000,
+  },
+  payments: {
+    totalCollected: 125000,
+    pending: 12000,
+    outstanding: 4500,
+  },
 };
 
 export const MOCK_USER_ASSIGNMENTS: UserRoleAssignment[] = MOCK_MEMBERS.map((m) => ({
@@ -382,3 +441,52 @@ export const MOCK_PERMISSIONS_OVERRIDE: Record<string, PermissionOverride> = {
     revokedPermissions: [],
   },
 };
+
+export const MOCK_DIRECTORS: AdminDirector[] = [
+  {
+    id: 'mem-101',
+    firstName: 'Alexandra',
+    lastName: 'Chen',
+    email: 'alexandra.chen@apextechnologies.io',
+    phoneNumber: '+1 (555) 234-5678',
+    roleCode: 'DIRECTOR',
+    roleName: 'Executive Director',
+    status: 'ACTIVE',
+    joinedDate: '2022-01-15',
+    assignedChapters: [
+      { id: 'chap-01', name: 'Silicon Valley Founders' },
+      { id: 'chap-02', name: 'Metro Executive Network' }
+    ],
+    lastActivity: '2026-08-12T14:30:00Z',
+  },
+  {
+    id: 'mem-107',
+    firstName: 'Michael',
+    lastName: 'Jordan',
+    email: 'michael.jordan@businessnetwork.com',
+    phoneNumber: '+1 (555) 123-4567',
+    roleCode: 'DIRECTOR',
+    roleName: 'Area Director',
+    status: 'ACTIVE',
+    joinedDate: '2023-05-20',
+    assignedChapters: [],
+    lastActivity: '2026-08-10T09:15:00Z',
+  }
+];
+
+export const MOCK_LEADERSHIP: LeadershipAssignment[] = [
+  {
+    chapterId: 'chap-01',
+    chapterName: 'Silicon Valley Founders',
+    president: { id: 'mem-102', name: 'Marcus Vance', email: 'marcus.vance@vancerealty.com' },
+    vicePresident: { id: 'mem-103', name: 'Sophia Rodriguez', email: 'sophia@rodriguezlaw.org' },
+    treasurer: { id: 'mem-104', name: 'David Kim', email: 'david.kim@capitaladvisors.net' },
+  },
+  {
+    chapterId: 'chap-02',
+    chapterName: 'Metro Executive Network',
+    president: { id: 'mem-105', name: 'Elena Rostova', email: 'elena@rostovadesign.co' },
+    vicePresident: { id: 'mem-106', name: 'Jonathan Hayes', email: 'jhayes@hayesconsulting.com' },
+    // No treasurer assigned
+  }
+];

@@ -84,7 +84,10 @@ export class MemberRepository {
     await new Promise((resolve) => setTimeout(resolve, 100));
     return {
       ...MOCK_STATS,
-      totalMembers: this.members.length,
+      members: {
+        ...MOCK_STATS.members,
+        total: this.members.length,
+      },
     };
   }
 }

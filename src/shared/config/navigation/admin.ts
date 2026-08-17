@@ -1,7 +1,8 @@
 import { NavigationConfig } from "@/shared/types/navigation";
 import { 
   LayoutDashboard, Settings, FileText, Banknote, Users, Building, Calendar, Contact, 
-  Handshake, UserPlus, MessagesSquare, Megaphone, CheckCircle, GraduationCap
+  Handshake, UserPlus, MessagesSquare, Megaphone, CheckCircle, GraduationCap,
+  ShieldAlert, Bell, BarChart3, Activity, Briefcase
 } from "lucide-react";
 
 export const adminNavigation: NavigationConfig = [
@@ -9,13 +10,58 @@ export const adminNavigation: NavigationConfig = [
     items: [
       {
         title: "Dashboard",
-        href: "/dashboard",
+        href: "/dashboard/admin",
         icon: LayoutDashboard,
       },
     ],
   },
   {
-    title: "Networking",
+    title: "Network Management",
+    items: [
+      {
+        title: "Chapters",
+        href: "/dashboard/chapters",
+        icon: Building,
+      },
+      {
+        title: "Members",
+        href: "/dashboard/members",
+        icon: Users,
+      },
+      {
+        title: "Directors",
+        href: "/dashboard/admin/directors",
+        icon: Briefcase,
+      },
+      {
+        title: "Leadership",
+        href: "/dashboard/admin/leadership",
+        icon: GraduationCap,
+      },
+      {
+        title: "Visitors",
+        href: "/dashboard/visitors",
+        icon: UserPlus,
+      },
+    ],
+  },
+  {
+    title: "Activity & Events",
+    items: [
+      {
+        title: "Meetings",
+        href: "/dashboard/meetings",
+        icon: Calendar,
+      },
+      {
+        title: "Attendance",
+        href: "/dashboard/attendance",
+        icon: Contact,
+      },
+    ],
+  },
+  {
+    title: "Growth & Revenue",
     items: [
       {
         title: "Referrals",
@@ -23,77 +69,42 @@ export const adminNavigation: NavigationConfig = [
         icon: Handshake,
       },
       {
-        title: "1-to-1 Meetings",
+        title: "One-to-Ones",
         href: "/dashboard/one-to-ones",
         icon: MessagesSquare,
       },
       {
-        title: "Closed Business",
-        href: "/dashboard/tyfcb",
-        icon: CheckCircle,
-      },
-      {
-        title: "Visitors",
-        href: "/dashboard/visitors",
-        icon: UserPlus,
-      },
-      {
-        title: "Members Directory",
-        href: "/dashboard/members",
-        icon: Users,
-      },
-    ],
-  },
-  {
-    title: "Chapter Management",
-    items: [
-      {
-        title: "Chapter Overview",
-        href: "/dashboard/chapter/overview",
-        icon: Building,
-      },
-      {
-        title: "Meeting Agendas",
-        href: "/dashboard/meetings",
-        icon: Calendar,
-      },
-      {
-        title: "Roster & Leadership",
-        href: "/dashboard/chapter/roster",
-        icon: Contact,
-      },
-      {
-        title: "Goals & Performance",
-        href: "/dashboard/chapter/goals",
-        icon: FileText,
-      },
-    ],
-  },
-  {
-    title: "Marketing & Growth",
-    items: [
-      {
-        title: "Public Chapter Pages",
-        href: "/dashboard/marketing/pages",
-        icon: Megaphone,
-      },
-      {
-        title: "Lead Capture",
-        href: "/dashboard/marketing/leads",
-        icon: Users,
-      },
-    ],
-  },
-  {
-    title: "Finance & Admin",
-    items: [
-      {
-        title: "Invoices & Receipts",
-        href: "/dashboard/billing",
+        title: "Payments",
+        href: "/dashboard/payments",
         icon: Banknote,
       },
+    ],
+  },
+  {
+    title: "System",
+    items: [
       {
-        title: "Organization Settings",
+        title: "Notifications",
+        href: "/dashboard/notifications",
+        icon: Bell,
+      },
+      {
+        title: "Reports & Analytics",
+        href: "/dashboard/reports",
+        icon: BarChart3,
+      },
+      {
+        title: "RBAC",
+        href: "/dashboard/rbac",
+        icon: ShieldAlert,
+      },
+      {
+        title: "Audit Logs",
+        href: "/dashboard/audit-logs",
+        icon: Activity,
+      },
+      {
+        title: "Platform Settings",
         href: "/dashboard/settings",
         icon: Settings,
       },

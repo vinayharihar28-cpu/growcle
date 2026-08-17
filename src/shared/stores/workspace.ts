@@ -1,6 +1,17 @@
 import { create } from "zustand";
 
-export type Role = "Member" | "Admin" | "Finance" | "SuperAdmin" | "Organization Administrator" | "Vice President" | "Secretary" | "Treasurer" | "Director";
+export type Role =
+  | "Admin"
+  | "Director"
+  | "Leadership Team"
+  | "Membership"
+  | "Finance"
+  | "SuperAdmin"
+  | "Organization Administrator"
+  | "Vice President"
+  | "Secretary"
+  | "Treasurer"
+  | "Member";
 
 interface WorkspaceState {
   activeRole: Role | null;
@@ -10,8 +21,8 @@ interface WorkspaceState {
 }
 
 export const useWorkspaceStore = create<WorkspaceState>((set) => ({
-  activeRole: null,
-  availableRoles: [],
+  activeRole: "Membership",
+  availableRoles: ["Admin", "Director", "Leadership Team", "Membership"],
   setActiveRole: (role) => set({ activeRole: role }),
   setAvailableRoles: (roles) => set({ availableRoles: roles }),
 }));

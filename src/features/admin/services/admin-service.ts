@@ -1,6 +1,7 @@
 import { MemberRepository } from '@/lib/mock/repositories/member-repository';
 import { MeetingRepository } from '@/lib/mock/repositories/meeting-repository';
-import { AdminMember, AdminMeeting, AttendanceRecord, AdminStats } from '@/types/admin';
+import { AdminMember, AdminMeeting, AttendanceRecord, AdminStats, ChapterDetails, AdminDirector, LeadershipAssignment } from '@/types/admin';
+import { MOCK_CHAPTERS, MOCK_DIRECTORS, MOCK_LEADERSHIP } from '@/lib/mock/mock-store';
 
 export class AdminService {
   static async getMembers(query?: { search?: string; chapterId?: string; roleCode?: string }): Promise<AdminMember[]> {
@@ -41,5 +42,20 @@ export class AdminService {
 
   static async getAdminStats(): Promise<AdminStats> {
     return MemberRepository.getStats();
+  }
+
+  static async getChapters(): Promise<ChapterDetails[]> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    return MOCK_CHAPTERS;
+  }
+
+  static async getDirectors(): Promise<AdminDirector[]> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    return MOCK_DIRECTORS;
+  }
+
+  static async getLeadership(): Promise<LeadershipAssignment[]> {
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    return MOCK_LEADERSHIP;
   }
 }

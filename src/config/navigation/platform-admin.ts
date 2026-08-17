@@ -9,7 +9,7 @@ export const platformAdminNavigationConfig: WorkspaceConfig = {
     {
       groupTitle: 'Platform Controls',
       items: [
-        { title: 'SaaS Overview', href: '/dashboard', iconName: 'LayoutDashboard' },
+        { title: 'SaaS Overview', href: '/dashboard/platform-admin', iconName: 'LayoutDashboard' },
         { title: 'Organizations & Tenants', href: '/dashboard/super-admin', iconName: 'Building' },
       ],
     },

@@ -16,6 +16,19 @@ export interface AdminMember {
   joinedDate: string;
 }
 
+export interface AdminDirector extends AdminMember {
+  assignedChapters: { id: string; name: string }[];
+  lastActivity: string;
+}
+
+export interface LeadershipAssignment {
+  chapterId: string;
+  chapterName: string;
+  president?: { id: string; name: string; email: string };
+  vicePresident?: { id: string; name: string; email: string };
+  treasurer?: { id: string; name: string; email: string };
+}
+
 export interface AdminMeeting {
   id: string;
   chapterId: string;
@@ -47,20 +60,63 @@ export interface AttendanceRecord {
 export interface ChapterDetails {
   id: string;
   name: string;
+  code: string;
   organizationId: string;
+  region: string;
   meetingDay: string;
   meetingTime: string;
   location: string;
+  meetingType: 'IN_PERSON' | 'ONLINE' | 'HYBRID';
+  directorId?: string;
+  directorName?: string;
   presidentName: string;
   vicePresidentName: string;
-  secretaryName: string;
+  secretaryName: string; // also Treasurer
   memberCount: number;
+  activeMembers: number;
+  status: 'ACTIVE' | 'INACTIVE';
+  createdDate: string;
+  upcomingMeeting?: string;
+  // Performance Analytics summary for table
+  performance?: {
+    attendancePct: number;
+    visitors: number;
+    visitorConversionPct: number;
+    referrals: number;
+    closedBusiness: number;
+    paymentStatus: 'HEALTHY' | 'NEEDS_ATTENTION' | 'CRITICAL';
+  };
 }
 
 export interface AdminStats {
-  totalMembers: number;
-  activeChapters: number;
-  scheduledMeetings: number;
-  averageAttendancePct: number;
-  pendingInvites: number;
+  chapters: {
+    total: number;
+    active: number;
+    inactive: number;
+  };
+  members: {
+    total: number;
+    active: number;
+    pending: number;
+    inactive: number;
+  };
+  visitors: {
+    total: number;
+    upcoming: number;
+    attended: number;
+    converted: number;
+  };
+  referrals: {
+    total: number;
+    pending: number;
+    contacted: number;
+    closedWon: number;
+    closedLost: number;
+    totalClosedBusiness: number; // Value of closed won
+  };
+  payments: {
+    totalCollected: number;
+    pending: number;
+    outstanding: number;
+  };
 }

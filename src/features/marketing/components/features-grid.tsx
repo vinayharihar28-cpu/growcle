@@ -1,70 +1,122 @@
-import { Handshake, MessagesSquare, Banknote, Target, LineChart, Building } from "lucide-react";
+"use client";
+
+import { Handshake, MessagesSquare, Banknote, Target, LineChart, Building, ShieldCheck, Zap, Layers } from "lucide-react";
 
 const features = [
   {
-    name: "Track Referrals",
-    description: "Digitally pass referrals to other members and track their status from warm lead to closed business.",
+    name: "Digital Referral Pipeline",
+    description: "Pass warm referrals to chapter members instantly. Monitor stage progress from initial contact to closed revenue with verified audit trails.",
     icon: Handshake,
+    badge: "Core Engine",
   },
   {
-    name: "1-to-1 Meetings",
-    description: "Schedule and log 1-to-1 networking meetings to build deeper relationships with chapter members.",
+    name: "Structured 1-to-1 Meetings",
+    description: "Schedule, log, and document strategic 1-to-1 networking sessions to deepen business trust and identify cross-selling opportunities.",
     icon: MessagesSquare,
+    badge: "Relationship Builder",
   },
   {
-    name: "Revenue Tracking",
-    description: "Log 'Thank You For Closed Business' (TYFCB) to mathematically prove the ROI of your network.",
+    name: "Closed Business Revenue Tracking",
+    description: "Log 'Thank You For Closed Business' (TYFCB) to mathematically measure return on membership investment and network velocity.",
     icon: Banknote,
+    badge: "Verified ROI",
   },
   {
-    name: "Chapter Goals",
-    description: "Set chapter-wide goals for visitors, referrals, and revenue. Monitor progress with real-time traffic lights.",
+    name: "Chapter Goals & Traffic Lights",
+    description: "Set chapter-wide targets for visitor conversion, referrals passed, and revenue. Real-time traffic lights highlight top contributors.",
     icon: Target,
+    badge: "Gamified Growth",
   },
   {
-    name: "Member Analytics",
-    description: "Get detailed analytics on your networking performance. See exactly how much revenue you are generating.",
+    name: "Executive Member Analytics",
+    description: "Interactive dashboard metrics showing your individual performance, top referral sources, and network lifetime value.",
     icon: LineChart,
+    badge: "Data Intelligence",
   },
   {
-    name: "Automated Chapter Management",
-    description: "Leadership teams can manage rosters, attendance, meeting agendas, and dues collection in one place.",
+    name: "Automated Chapter Operations",
+    description: "Empower chapter leadership to automate meeting agendas, attendance check-ins via QR, roster updates, and automated dues billing.",
     icon: Building,
+    badge: "Zero Friction",
+  },
+  {
+    name: "Enterprise Multi-Tenancy",
+    description: "Support unlimited independent business networking organizations, regions, and chapters under customized white-label domains.",
+    icon: Layers,
+    badge: "Scalable Architecture",
+  },
+  {
+    name: "Granular RBAC & Permissions",
+    description: "Role-based access control protecting chapter data, ensuring members, chapter officers, and regional admins access appropriate tools.",
+    icon: ShieldCheck,
+    badge: "Enterprise Security",
+  },
+  {
+    name: "Real-Time Notifications",
+    description: "Instant push notifications, email alerts, and meeting reminders powered by Firebase FCM and Resend integration.",
+    icon: Zap,
+    badge: "Instant Sync",
   },
 ];
 
 export function FeaturesGrid() {
   return (
-    <div id="features" className="py-24 sm:py-32 bg-muted/30">
+    <section id="features" className="py-24 sm:py-32 bg-muted/20 relative">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl lg:text-center">
-          <h2 className="text-base font-semibold leading-7 text-primary">Grow Faster Together</h2>
-          <p className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Everything you need to build a powerful referral network
+        
+        {/* Header */}
+        <div className="mx-auto max-w-3xl text-center space-y-4">
+          <h2 className="text-base font-semibold leading-7 text-primary tracking-wide uppercase">
+            Engineered For Exponential Growth
+          </h2>
+          <p className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
+            Everything your chapter needs to turn networking into a revenue machine
           </p>
-          <p className="mt-6 text-lg leading-8 text-muted-foreground">
-            Our platform provides the structure, tools, and analytics required to turn casual networking into a predictable engine for business growth.
+          <p className="text-base sm:text-lg leading-relaxed text-muted-foreground pt-2">
+            Built with modern architecture to eliminate administrative friction and provide total clarity into referral performance.
           </p>
         </div>
-        <div className="mx-auto mt-16 max-w-2xl sm:mt-20 lg:mt-24 lg:max-w-none">
-          <dl className="grid max-w-xl grid-cols-1 gap-x-8 gap-y-16 lg:max-w-none lg:grid-cols-3">
+
+        {/* Features Cards Grid */}
+        <div className="mx-auto mt-16 sm:mt-20 lg:mt-24 max-w-none">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {features.map((feature) => (
-              <div key={feature.name} className="flex flex-col bg-background p-8 rounded-2xl shadow-sm border hover:shadow-md transition-shadow relative overflow-hidden group">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                <dt className="flex items-center gap-x-3 text-base font-semibold leading-7 text-foreground">
-                  <div className="h-10 w-10 flex items-center justify-center rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                     <feature.icon className="h-5 w-5 flex-none" aria-hidden="true" />
+              <div 
+                key={feature.name} 
+                className="group relative flex flex-col justify-between rounded-3xl bg-background p-8 border border-border/60 shadow-sm hover:shadow-xl hover:border-primary/40 transition-all duration-300 overflow-hidden"
+              >
+                {/* Accent Background Gradient on Hover */}
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                
+                <div>
+                  {/* Top Bar: Icon + Badge */}
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="h-12 w-12 flex items-center justify-center rounded-2xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-300 shadow-sm">
+                      <feature.icon className="h-6 w-6" aria-hidden="true" />
+                    </div>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-muted text-muted-foreground border border-border/50 group-hover:border-primary/30 group-hover:text-primary transition-colors">
+                      {feature.badge}
+                    </span>
                   </div>
-                  {feature.name}
-                </dt>
-                <dd className="mt-4 flex flex-auto flex-col text-base leading-7 text-muted-foreground">
-                  <p className="flex-auto">{feature.description}</p>
-                </dd>
+
+                  <h3 className="text-xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
+                    {feature.name}
+                  </h3>
+                  <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                    {feature.description}
+                  </p>
+                </div>
+
+                <div className="mt-6 pt-4 border-t border-border/40 flex items-center text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span>Learn more</span>
+                  <span className="ml-1 group-hover:translate-x-1 transition-transform">→</span>
+                </div>
               </div>
             ))}
-          </dl>
+          </div>
         </div>
+
       </div>
-    </div>
+    </section>
   );
 }

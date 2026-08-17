@@ -1,15 +1,15 @@
 import { NavigationConfig } from "@/shared/types/navigation";
 import { 
   LayoutDashboard, Users, UserPlus, Handshake, MessagesSquare, 
-  Banknote, Receipt, FileText, BarChart3, Settings, UserCircle
+  Banknote, Receipt, BarChart3, Settings, UserCircle
 } from "lucide-react";
 
 export const memberNavigation: NavigationConfig = [
   {
     items: [
       {
-        title: "Dashboard",
-        href: "/dashboard",
+        title: "Member Workspace",
+        href: "/dashboard/member",
         icon: LayoutDashboard,
       },
     ],
