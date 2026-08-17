@@ -1,26 +1,27 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "./auth";
+import { cache } from "react";
 
 /**
  * Retrieves the current session object.
- * Use this in Server Components and Server Actions.
+ * Cached per request using React cache to eliminate redundant database queries.
  */
-export async function getCurrentSession() {
+export const getCurrentSession = cache(async () => {
   const reqHeaders = await headers();
   return await auth.api.getSession({
     headers: reqHeaders,
   });
-}
+});
 
 /**
  * Retrieves the currently authenticated user.
  * Use this when you only need the user data and not the session metadata.
  */
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async () => {
   const session = await getCurrentSession();
   return session?.user || null;
-}
+});
 
 /**
  * Ensures the user is authenticated.
