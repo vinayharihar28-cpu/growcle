@@ -83,8 +83,8 @@ export function MarketingFooter() {
             <ul className="space-y-2.5 text-sm text-slate-400">
               <li><Link href="/about" className="hover:text-indigo-400 transition-colors">About Us</Link></li>
               <li><Link href="/about#team" className="hover:text-indigo-400 transition-colors">Leadership Team</Link></li>
-              <li><Link href="/contact" className="hover:text-indigo-400 transition-colors">Contact Support</Link></li>
-              <li><Link href="/contact#location" className="hover:text-indigo-400 transition-colors">Global Offices</Link></li>
+              <li><Link href="/chapters" className="hover:text-indigo-400 transition-colors">Chapter Network</Link></li>
+              <li><Link href="/showcase" className="hover:text-indigo-400 transition-colors">Product Showcase</Link></li>
               <li><a href="#" className="hover:text-indigo-400 transition-colors">Privacy Policy</a></li>
             </ul>
           </div>

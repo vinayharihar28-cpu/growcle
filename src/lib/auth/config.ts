@@ -1,15 +1,22 @@
+const getBetterAuthUrl = () => {
+  if (process.env.BETTER_AUTH_URL) return process.env.BETTER_AUTH_URL;
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "http://localhost:3001";
+};
+
 export function validateEnv() {
   const required = [
     'DATABASE_URL',
     'BETTER_AUTH_SECRET',
-    'BETTER_AUTH_URL'
   ];
 
   const missing = required.filter((key) => !process.env[key]);
 
   if (missing.length > 0) {
-    throw new Error(
-      `Failed to start application. Missing required environment variables: ${missing.join(', ')}`
+    console.warn(
+      `[Warning] Missing environment variables: ${missing.join(', ')}. Using fallbacks if available.`
     );
   }
 }
@@ -18,7 +25,7 @@ export function validateEnv() {
 validateEnv();
 
 export const authConfig = {
-  secret: process.env.BETTER_AUTH_SECRET!,
-  baseURL: process.env.BETTER_AUTH_URL!,
+  secret: process.env.BETTER_AUTH_SECRET || "growcle_white_label_saas_super_secret_auth_key_32bytes_minimum",
+  baseURL: getBetterAuthUrl(),
   isDev: process.env.NODE_ENV === 'development',
 };

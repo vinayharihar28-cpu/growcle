@@ -170,7 +170,7 @@ export function MemberReferralsTable() {
                     <th className="py-3 px-6">Direction</th>
                     <th className="py-3 px-6">Member</th>
                     <th className="py-3 px-6">Category</th>
-                    <th className="py-3 px-6">Value ($)</th>
+                    <th className="py-3 px-6">Value (₹)</th>
                     <th className="py-3 px-6">Status</th>
                     <th className="py-3 px-6 text-right">Actions</th>
                   </tr>
@@ -214,7 +214,7 @@ export function MemberReferralsTable() {
 
                         {/* Value */}
                         <td className="py-3.5 px-6 font-bold text-foreground">
-                          {ref.value ? `$${ref.value.toLocaleString()}` : "—"}
+                          {ref.value ? `₹${ref.value.toLocaleString("en-IN")}` : "—"}
                         </td>
 
                         {/* Status Badge */}

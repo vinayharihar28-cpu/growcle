@@ -108,7 +108,7 @@ export function UpdateReferralStatusModal({
 
           {(status === "CLOSED_WON" || status === "CONTACTED") && (
             <div className="space-y-1.5 animate-in fade-in">
-              <Label htmlFor="value" className="text-xs font-semibold">Closed Business / Contract Value ($)</Label>
+              <Label htmlFor="value" className="text-xs font-semibold">Closed Business / Contract Value (₹)</Label>
               <Input
                 id="value"
                 type="number"

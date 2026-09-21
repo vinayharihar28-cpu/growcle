@@ -195,11 +195,11 @@ export function LogReferralModal({ isOpen, onClose, onSuccess }: LogReferralModa
                   </select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="value" className="text-xs font-semibold">Estimated Value ($)</Label>
+                  <Label htmlFor="value" className="text-xs font-semibold">Estimated Value (₹)</Label>
                   <Input
                     id="value"
                     type="number"
-                    placeholder="e.g. 5000"
+                    placeholder="e.g. 50000"
                     {...register("value")}
                     className="h-10 rounded-xl"
                   />

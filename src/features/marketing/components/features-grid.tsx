@@ -1,6 +1,6 @@
 "use client";
 
-import { Handshake, MessagesSquare, Banknote, Target, LineChart, Building, ShieldCheck, Zap, Layers } from "lucide-react";
+import { Handshake, MessagesSquare, Banknote, Target, UserPlus, Building, ShieldCheck, Zap, Layers } from "lucide-react";
 
 const features = [
   {
@@ -28,10 +28,10 @@ const features = [
     badge: "Gamified Growth",
   },
   {
-    name: "Executive Member Analytics",
-    description: "Interactive dashboard metrics showing your individual performance, top referral sources, and network lifetime value.",
-    icon: LineChart,
-    badge: "Data Intelligence",
+    name: "Visitor & Guest Induction",
+    description: "Welcome and track visiting business guests seamlessly. Accelerate guest-to-member conversion with automated follow-ups and chapter induction.",
+    icon: UserPlus,
+    badge: "Membership Growth",
   },
   {
     name: "Automated Chapter Operations",
@@ -105,11 +105,6 @@ export function FeaturesGrid() {
                   <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
                     {feature.description}
                   </p>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-border/40 flex items-center text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span>Learn more</span>
-                  <span className="ml-1 group-hover:translate-x-1 transition-transform">→</span>
                 </div>
               </div>
             ))}

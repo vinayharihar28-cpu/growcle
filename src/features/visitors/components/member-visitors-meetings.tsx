@@ -60,6 +60,8 @@ export function MemberVisitorsMeetings() {
   const [inviteSuccess, setInviteSuccess] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState("");
 
+  const defaultVisitDate = React.useMemo(() => new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10), []);
+
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<VisitorInviteFormData>({
     resolver: zodResolver(visitorInviteSchema),
     defaultValues: {
@@ -68,7 +70,7 @@ export function MemberVisitorsMeetings() {
       email: "",
       businessName: "",
       industry: "",
-      visitDate: new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10),
+      visitDate: defaultVisitDate,
     }
   });
 

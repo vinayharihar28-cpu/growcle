@@ -49,26 +49,26 @@ export function ChapterPerformanceTable({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
           <input
             type="text"
             placeholder="Filter chapters..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-full sm:w-auto"
           />
 
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-full sm:w-auto"
           >
             <option value="all">All Statuses</option>
             <option value="healthy">Healthy</option>
             <option value="needs_attention">Needs Attention</option>
           </select>
 
-          <div className="inline-flex rounded-lg border bg-muted p-0.5">
+          <div className="inline-flex rounded-lg border bg-muted p-0.5 shrink-0 self-start sm:self-auto">
             <button
               onClick={() => setViewMode("table")}
               className={`rounded-md px-3 py-1 text-xs font-semibold transition-all ${
@@ -130,7 +130,7 @@ export function ChapterPerformanceTable({
                 </div>
                 <div>
                   <span className="text-muted-foreground">Closed Business:</span>
-                  <p className="font-bold text-sm text-emerald-600 dark:text-emerald-400">${(chap.closedBusiness / 1000).toFixed(1)}k</p>
+                  <p className="font-bold text-sm text-emerald-600 dark:text-emerald-400">₹{(chap.closedBusiness / 1000).toFixed(1)}k</p>
                 </div>
               </div>
 
@@ -190,17 +190,17 @@ export function ChapterPerformanceTable({
       ) : (
         /* Table View */
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm border-collapse">
             <thead className="border-b bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <tr>
-                <th className="px-6 py-3">Chapter</th>
-                <th className="px-6 py-3">Region</th>
-                <th className="px-6 py-3">Members</th>
-                <th className="px-6 py-3">Attendance</th>
-                <th className="px-6 py-3">Visitors</th>
-                <th className="px-6 py-3">Closed Business</th>
-                <th className="px-6 py-3">Leadership Status</th>
-                <th className="px-6 py-3 text-right">Actions</th>
+                <th className="px-6 py-3 whitespace-nowrap">Chapter</th>
+                <th className="px-6 py-3 whitespace-nowrap">Region</th>
+                <th className="px-6 py-3 whitespace-nowrap">Members</th>
+                <th className="px-6 py-3 whitespace-nowrap">Attendance</th>
+                <th className="px-6 py-3 whitespace-nowrap">Visitors</th>
+                <th className="px-6 py-3 whitespace-nowrap">Closed Business</th>
+                <th className="px-6 py-3 whitespace-nowrap">Leadership Status</th>
+                <th className="px-6 py-3 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -231,7 +231,7 @@ export function ChapterPerformanceTable({
                       {chap.visitorCount} <span className="text-xs text-muted-foreground">({chap.visitorConversion}% conv)</span>
                     </td>
                     <td className="px-6 py-4 font-semibold text-emerald-600 dark:text-emerald-400">
-                      ${(chap.closedBusiness / 1000).toFixed(1)}k
+                      ₹{(chap.closedBusiness / 1000).toFixed(1)}k
                     </td>
                     <td className="px-6 py-4">
                       <span

@@ -34,11 +34,11 @@ export function AttendanceManagementView() {
         <p className="text-muted-foreground">Track member attendance rates, absent trends, substitutes, and excuses across assigned chapters.</p>
       </div>
 
-      <div className="rounded-xl border bg-card p-4 shadow-sm flex items-center justify-between">
+      <div className="rounded-xl border bg-card p-4 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <select
           value={chapterId}
           onChange={(e) => setChapterId(e.target.value)}
-          className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium"
+          className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium w-full sm:w-auto"
         >
           <option value="all">All Assigned Chapters</option>
           {chapters.map((c) => (
@@ -52,16 +52,16 @@ export function AttendanceManagementView() {
           <div className="h-64 animate-pulse bg-muted" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full text-left text-sm border-collapse">
               <thead className="border-b bg-muted/50 text-xs font-semibold uppercase text-muted-foreground">
                 <tr>
-                  <th className="px-6 py-3">Meeting Title & Chapter</th>
-                  <th className="px-6 py-3">Date</th>
-                  <th className="px-6 py-3">Roster Size</th>
-                  <th className="px-6 py-3">Present</th>
-                  <th className="px-6 py-3">Substitutes</th>
-                  <th className="px-6 py-3">Absent / Excused</th>
-                  <th className="px-6 py-3">Attendance Rate</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Meeting Title & Chapter</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Date</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Roster Size</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Present</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Substitutes</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Absent / Excused</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Attendance Rate</th>
                 </tr>
               </thead>
               <tbody className="divide-y">

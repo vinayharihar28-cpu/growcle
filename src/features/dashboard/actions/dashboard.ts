@@ -231,7 +231,7 @@ export async function getPlatformDashboardStats() {
       activeOrganizations,
       activeSubscriptions: subscriptions.length,
       mrr,
-      currency: subscriptions[0]?.currency ?? "USD",
+      currency: subscriptions[0]?.currency ?? "INR",
       recentAuditLogs,
     };
   } catch (error) {

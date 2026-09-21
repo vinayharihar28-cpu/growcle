@@ -38,7 +38,7 @@ export default function ShowcasePage() {
               <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
                 <BarChart3 className="h-5 w-5" />
               </div>
-              <h2 className="text-3xl font-bold text-white">Advanced Member Analytics</h2>
+              <h2 className="text-3xl font-bold text-white">Member Performance Workspace</h2>
               <p className="text-slate-400 leading-relaxed">
                 Log closed revenue, track passed referrals, and measure your exact Return on Investment. Every metric is computed dynamically to prove the value of your business relationships.
               </p>
@@ -62,14 +62,14 @@ export default function ShowcasePage() {
                 <div className="h-3 w-3 rounded-full bg-rose-500/80" />
                 <div className="h-3 w-3 rounded-full bg-amber-500/80" />
                 <div className="h-3 w-3 rounded-full bg-emerald-500/80" />
-                <span className="text-[10px] text-slate-500 ml-4 font-mono">dashboard/member-analytics</span>
+                <span className="text-[10px] text-slate-500 ml-4 font-mono">dashboard/member</span>
               </div>
 
               {/* Cards Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                 <div className="bg-slate-900/50 border border-slate-800/60 rounded-xl p-4">
                   <span className="text-xs text-slate-400">Closed Revenue</span>
-                  <div className="text-xl font-bold mt-1 text-emerald-400">$1,248,500</div>
+                  <div className="text-xl font-bold mt-1 text-emerald-400">₹1,24,85,000</div>
                   <span className="text-[10px] text-emerald-500 font-semibold flex items-center gap-1 mt-1">
                     <TrendingUp className="h-3 w-3" /> +12.4% vs last mo
                   </span>

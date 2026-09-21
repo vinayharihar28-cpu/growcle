@@ -119,11 +119,11 @@ export function MembersManagementView() {
           />
         </div>
 
-        <div className="flex items-center gap-2 w-full md:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
           <select
             value={chapterId}
             onChange={(e) => setChapterId(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium focus:ring-2 focus:ring-primary"
+            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium focus:ring-2 focus:ring-primary flex-1 sm:flex-initial"
           >
             <option value="all">All Assigned Chapters</option>
             {chapters.map((c) => (
@@ -136,7 +136,7 @@ export function MembersManagementView() {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium focus:ring-2 focus:ring-primary"
+            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium focus:ring-2 focus:ring-primary flex-1 sm:flex-initial"
           >
             <option value="all">All Statuses</option>
             <option value="ACTIVE">Active</option>
@@ -152,15 +152,15 @@ export function MembersManagementView() {
           <div className="h-64 animate-pulse bg-muted" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full text-left text-sm border-collapse">
               <thead className="border-b bg-muted/50 text-xs font-semibold uppercase text-muted-foreground">
                 <tr>
-                  <th className="px-6 py-3">Member</th>
-                  <th className="px-6 py-3">Chapter</th>
-                  <th className="px-6 py-3">Business & Industry</th>
-                  <th className="px-6 py-3">Current Role</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3 text-right">Role Actions</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Member</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Chapter</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Business & Industry</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Current Role</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Status</th>
+                  <th className="px-6 py-3 text-right whitespace-nowrap">Role Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y">

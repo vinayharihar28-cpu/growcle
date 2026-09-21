@@ -10,9 +10,10 @@ import { Label } from "@/shared/components/ui/label";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { useState } from "react";
+import { ArrowLeft, CheckCircle2, Mail } from "lucide-react";
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email("Invalid email address"),
+  email: z.string().email("Please enter a valid email address"),
 });
 
 type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>;
@@ -26,7 +27,7 @@ export function ForgotPasswordForm() {
   const onSubmit = async (data: ForgotPasswordFormData) => {
     try {
       await authClient.requestPasswordReset({
-        email: data.email,
+        email: data.email.trim(),
         redirectTo: "/reset-password",
       });
       setSuccess(true);
@@ -36,51 +37,60 @@ export function ForgotPasswordForm() {
   };
 
   return (
-    <Card className="bg-slate-900/50 border-slate-800/80 backdrop-blur-xl shadow-2xl rounded-2xl p-4 sm:p-8">
-      <CardHeader className="space-y-2 pb-6">
-        <CardTitle className="text-3xl font-extrabold text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 via-indigo-100 to-white">
+    <Card className="w-full max-w-lg mx-auto rounded-3xl bg-card/90 dark:bg-card/75 border border-slate-200 dark:border-slate-800 p-6 sm:p-9 shadow-xl backdrop-blur-xl">
+      <CardHeader className="space-y-2 pb-6 px-0">
+        <CardTitle className="text-2xl sm:text-3xl font-extrabold text-center text-foreground">
           Forgot password
         </CardTitle>
-        <CardDescription className="text-center text-slate-400">
+        <CardDescription className="text-center text-muted-foreground text-xs sm:text-sm">
           Enter your email address and we will send you a reset link
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0">
         {success ? (
-          <div className="space-y-6 text-center">
-            <div className="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-200 text-sm">
+          <div className="space-y-6 text-center animate-in fade-in zoom-in duration-300">
+            <div className="h-14 w-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="h-7 w-7" />
+            </div>
+            <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-foreground text-xs sm:text-sm leading-relaxed">
               We&apos;ve sent a password reset link to your email address. Please check your inbox.
             </div>
             <Link 
               href="/login" 
-              className="inline-block px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition-all shadow-md text-sm"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all shadow-md text-sm"
             >
-              Back to sign in
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to sign in</span>
             </Link>
           </div>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-slate-300 font-medium">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                placeholder="m@example.com" 
-                {...register("email")} 
-                className="bg-slate-950/50 border-slate-800/80 text-slate-100 placeholder:text-slate-600 focus-visible:ring-indigo-600 focus-visible:ring-offset-slate-900 h-11 rounded-xl"
-              />
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-foreground font-medium text-xs sm:text-sm">Email Address</Label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
+                  <Mail className="h-4 w-4" />
+                </div>
+                <Input 
+                  id="email" 
+                  type="email" 
+                  placeholder="m@example.com" 
+                  {...register("email")} 
+                  className="bg-background/80 border-input text-foreground placeholder:text-muted-foreground pl-10 h-11 rounded-xl focus-visible:ring-primary"
+                />
+              </div>
               {errors.email && <p className="text-xs text-rose-500 font-medium">{errors.email.message}</p>}
             </div>
             <Button 
               type="submit" 
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold h-11 transition-all rounded-xl shadow-lg hover:shadow-indigo-500/25 shadow-indigo-600/10 cursor-pointer" 
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-11 transition-all rounded-xl shadow-md hover:shadow-primary/20 cursor-pointer" 
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Sending..." : "Send reset link"}
+              {isSubmitting ? "Sending reset link..." : "Send reset link"}
             </Button>
-            <div className="text-center text-sm text-slate-400 pt-2">
+            <div className="text-center text-xs sm:text-sm text-muted-foreground pt-2">
               Remember your password?{" "}
-              <Link href="/login" className="text-indigo-400 hover:text-indigo-300 font-semibold transition-colors">
+              <Link href="/login" className="text-primary hover:underline font-semibold transition-colors">
                 Sign in
               </Link>
             </div>
@@ -90,4 +100,3 @@ export function ForgotPasswordForm() {
     </Card>
   );
 }
-

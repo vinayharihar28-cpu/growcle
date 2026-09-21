@@ -29,7 +29,7 @@ export function WorkspaceSwitcher() {
           Available Workspaces
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {availableRoles.map((role) => (
+        {availableRoles.map((role: any) => (
           <DropdownMenuItem
             key={role}
             onSelect={() => setActiveRole(role)}

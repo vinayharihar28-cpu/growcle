@@ -41,21 +41,35 @@ export class AdminService {
   }
 
   static async getAdminStats(): Promise<AdminStats> {
-    return MemberRepository.getStats();
+    const { getAdminPlatformKPIs } = await import('../actions/admin-actions');
+    const realKpis = await getAdminPlatformKPIs();
+    return realKpis as any;
   }
 
   static async getChapters(): Promise<ChapterDetails[]> {
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    const { getAdminChaptersList } = await import('../actions/admin-actions');
+    const chapters = await getAdminChaptersList();
+    if (chapters.length > 0) {
+      return chapters as any;
+    }
     return MOCK_CHAPTERS;
   }
 
   static async getDirectors(): Promise<AdminDirector[]> {
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    const { getAdminDirectors } = await import('../actions/admin-actions');
+    const directors = await getAdminDirectors();
+    if (directors.length > 0) {
+      return directors as any;
+    }
     return MOCK_DIRECTORS;
   }
 
   static async getLeadership(): Promise<LeadershipAssignment[]> {
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    const { getAdminLeadershipAssignments } = await import('../actions/admin-actions');
+    const leadership = await getAdminLeadershipAssignments();
+    if (leadership.length > 0) {
+      return leadership as any;
+    }
     return MOCK_LEADERSHIP;
   }
 }

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { Building2, DollarSign, Trophy, Users } from "lucide-react";
+import { Building2, IndianRupee, Trophy, Users } from "lucide-react";
 import { useAuthStore } from "@/shared/stores/auth";
 import { getOrganizationDashboardStats } from "../actions/dashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
@@ -35,7 +35,7 @@ export function OrgAdminDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Active chapters" value={data.totalChapters} icon={<Building2 className="h-5 w-5" />} />
         <MetricCard label="Active members" value={data.totalMembers} icon={<Users className="h-5 w-5" />} />
-        <MetricCard label="Organization revenue" value={`$${data.revenueGenerated.toLocaleString()}`} icon={<DollarSign className="h-5 w-5" />} />
+        <MetricCard label="Organization revenue" value={`₹${data.revenueGenerated.toLocaleString("en-IN")}`} icon={<IndianRupee className="h-5 w-5" />} />
         <MetricCard label="Top chapter" value={data.topChapter?.name ?? "No chapters yet"} icon={<Trophy className="h-5 w-5" />} compact />
       </div>
 

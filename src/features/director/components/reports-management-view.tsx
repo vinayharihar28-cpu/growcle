@@ -42,11 +42,11 @@ export function ReportsManagementView() {
         </button>
       </div>
 
-      <div className="rounded-xl border bg-card p-4 shadow-sm flex items-center justify-between">
+      <div className="rounded-xl border bg-card p-4 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         <select
           value={chapterId}
           onChange={(e) => setChapterId(e.target.value)}
-          className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium"
+          className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium w-full sm:w-auto"
         >
           <option value="all">All Assigned Chapters</option>
           {chapters.map((c) => (
@@ -68,7 +68,7 @@ export function ReportsManagementView() {
               {reports.monthlyPerformance.map((item: any) => (
                 <div key={item.month} className="rounded-lg border bg-background p-3 text-center space-y-1">
                   <span className="text-xs font-bold uppercase text-muted-foreground">{item.month}</span>
-                  <p className="text-base font-bold text-emerald-600">${(item.business / 1000).toFixed(0)}k</p>
+                  <p className="text-base font-bold text-emerald-600">₹{(item.business / 1000).toFixed(0)}k</p>
                   <span className="text-[11px] text-muted-foreground">{item.referrals} Referrals</span>
                   <div className="text-[10px] text-purple-600 font-semibold">{item.attendance}% Att.</div>
                 </div>
@@ -82,16 +82,16 @@ export function ReportsManagementView() {
               <BarChart3 className="h-5 w-5 text-primary" /> Assigned Chapters Comparison
             </h3>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full text-left text-sm border-collapse">
                 <thead className="border-b bg-muted/50 text-xs font-semibold uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-4 py-3">Chapter</th>
-                    <th className="px-4 py-3">Members</th>
-                    <th className="px-4 py-3">Attendance Rate</th>
-                    <th className="px-4 py-3">Visitors</th>
-                    <th className="px-4 py-3">Visitor Conversion</th>
-                    <th className="px-4 py-3">Referrals</th>
-                    <th className="px-4 py-3">Closed Business</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Chapter</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Members</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Attendance Rate</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Visitors</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Visitor Conversion</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Referrals</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Closed Business</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -103,7 +103,7 @@ export function ReportsManagementView() {
                       <td className="px-4 py-3">{c.visitorCount}</td>
                       <td className="px-4 py-3 text-emerald-600 font-semibold">{c.visitorConversion}%</td>
                       <td className="px-4 py-3 font-medium">{c.referralCount}</td>
-                      <td className="px-4 py-3 font-bold text-emerald-600">${(c.closedBusiness / 1000).toFixed(1)}k</td>
+                      <td className="px-4 py-3 font-bold text-emerald-600">₹{(c.closedBusiness / 1000).toFixed(1)}k</td>
                     </tr>
                   ))}
                 </tbody>

@@ -34,9 +34,6 @@ export function MarketingNavbar() {
             <Link href="/about" className="text-muted-foreground transition-colors hover:text-foreground">
               About
             </Link>
-            <Link href="/contact" className="text-muted-foreground transition-colors hover:text-foreground">
-              Contact
-            </Link>
             <Link href="/showcase" className="text-muted-foreground transition-colors hover:text-foreground flex items-center gap-0.5">
               Showcase <ArrowUpRight className="h-3 w-3 opacity-60" />
             </Link>
@@ -92,13 +89,6 @@ export function MarketingNavbar() {
               className="text-muted-foreground hover:text-foreground transition-colors py-1"
             >
               About
-            </Link>
-            <Link 
-              href="/contact" 
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-muted-foreground hover:text-foreground transition-colors py-1"
-            >
-              Contact
             </Link>
             <Link 
               href="/showcase" 

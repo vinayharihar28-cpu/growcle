@@ -40,7 +40,7 @@ interface PermissionsState {
   toggleSuperAdmin: () => void;
 }
 
-export const usePermissionsStore = create<PermissionsState>((set) => ({
+export const usePermissionsStore = create<PermissionsState>((set: any) => ({
   currentRole: DEFAULT_ROLE,
   userOverrides: {
     memberId: 'usr-1',
@@ -48,9 +48,9 @@ export const usePermissionsStore = create<PermissionsState>((set) => ({
     revokedPermissions: [],
   },
   isSuperAdmin: false,
-  setCurrentRole: (role) => set({ currentRole: role }),
-  setUserOverrides: (userOverrides) => set({ userOverrides }),
-  toggleSuperAdmin: () => set((state) => ({ isSuperAdmin: !state.isSuperAdmin })),
+  setCurrentRole: (role: RoleDefinition) => set({ currentRole: role }),
+  setUserOverrides: (userOverrides: PermissionOverride) => set({ userOverrides }),
+  toggleSuperAdmin: () => set((state: any) => ({ isSuperAdmin: !state.isSuperAdmin })),
 }));
 
 export function usePermissions() {

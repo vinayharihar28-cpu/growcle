@@ -8,9 +8,11 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
-import { AlertCircle, ArrowRight, Loader2, Lock, Mail } from "lucide-react";
-import Image from "next/image";
+import { 
+  AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock, Mail 
+} from "lucide-react";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -20,27 +22,52 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema)
+  const router = useRouter();
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [rememberMe, setRememberMe] = React.useState(true);
+  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const [isShaking, setIsShaking] = React.useState(false);
+
+  const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      email: "",
+      password: "",
+    }
   });
 
-  const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+  const triggerShake = () => {
+    setIsShaking(true);
+    setTimeout(() => setIsShaking(false), 500);
+  };
 
   const onSubmit = async (data: LoginFormData) => {
     try {
       setErrorMsg(null);
+      const email = data.email.trim();
       const { data: authData, error } = await authClient.signIn.email({
-        email: data.email,
+        email,
         password: data.password,
         callbackURL: "/dashboard",
+        fetchOptions: {
+          onSuccess: () => {
+            router.push("/dashboard");
+            router.refresh();
+          },
+        },
       });
       
       if (error) {
-        setErrorMsg(error.message || "Invalid email or password");
+        setErrorMsg(error.message || "Invalid email or password. Please verify your credentials.");
+        triggerShake();
+      } else {
+        router.push("/dashboard");
+        router.refresh();
       }
     } catch (error) {
       console.error("Email sign in failed", error);
-      setErrorMsg("An unexpected network error occurred.");
+      setErrorMsg("An unexpected network error occurred. Please try again.");
+      triggerShake();
     }
   };
 
@@ -56,116 +83,146 @@ export function LoginForm() {
   };
 
   return (
-    <div className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
-      <div className="space-y-3">
-        <h1 className="text-4xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white to-slate-400">
+    <div className={`w-full max-w-lg mx-auto rounded-3xl bg-card/90 dark:bg-card/75 border border-slate-200 dark:border-slate-800 p-6 sm:p-9 shadow-xl backdrop-blur-xl space-y-6 transition-all ${isShaking ? "animate-shake" : ""}`}>
+      {/* Title & Subtitle */}
+      <div className="space-y-2">
+        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
           Welcome back
         </h1>
-        <p className="text-slate-400 text-lg">
-          Sign in to your account to continue shaping the future.
+        <p className="text-muted-foreground text-sm sm:text-base">
+          Sign in to your account to manage your chapter network.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 pt-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         
-        <div className="space-y-2 group">
-          <Label htmlFor="email" className="text-slate-300 font-medium text-sm ml-1 transition-colors group-focus-within:text-indigo-400">
+        {/* Email Address */}
+        <div className="space-y-1.5 group">
+          <Label htmlFor="email" className="text-foreground font-medium text-xs sm:text-sm ml-1 transition-colors group-focus-within:text-primary">
             Email Address
           </Label>
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-indigo-400 transition-colors">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors">
               <Mail className="h-5 w-5" />
             </div>
             <Input 
               id="email" 
               type="email" 
-              placeholder="name@example.com" 
+              placeholder="alexandra.chen@apextechnologies.io" 
               {...register("email")} 
-              className={`bg-slate-900/50 border-slate-800/80 text-white placeholder:text-slate-600 pl-12 h-14 rounded-2xl transition-all duration-300 focus-visible:ring-indigo-500/50 focus-visible:border-indigo-500/50 focus:bg-slate-900/80 ${errors.email ? "border-rose-500/70 focus-visible:ring-rose-500/50" : ""}`}
+              className={`bg-background/80 border-input text-foreground placeholder:text-muted-foreground pl-12 h-12 sm:h-13 rounded-2xl transition-all duration-200 focus-visible:ring-primary focus-visible:border-primary ${errors.email ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}
             />
           </div>
           {errors.email && (
-            <p className="text-xs text-rose-400 font-medium flex items-center gap-1.5 ml-1 animate-in fade-in slide-in-from-top-1">
-              <AlertCircle className="h-3.5 w-3.5" /> {errors.email.message}
+            <p className="text-xs text-rose-500 font-medium flex items-center gap-1.5 ml-1 animate-in fade-in">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {errors.email.message}
             </p>
           )}
         </div>
 
-        <div className="space-y-2 group">
+        {/* Password */}
+        <div className="space-y-1.5 group">
           <div className="flex items-center justify-between ml-1">
-            <Label htmlFor="password" className="text-slate-300 font-medium text-sm transition-colors group-focus-within:text-indigo-400">
+            <Label htmlFor="password" className="text-foreground font-medium text-xs sm:text-sm transition-colors group-focus-within:text-primary">
               Password
             </Label>
-            <Link href="/forgot-password" className="text-sm font-medium text-indigo-400 hover:text-indigo-300 transition-colors">
+            <Link href="/forgot-password" className="text-xs sm:text-sm font-medium text-primary hover:underline transition-colors">
               Forgot password?
             </Link>
           </div>
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-indigo-400 transition-colors">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-muted-foreground group-focus-within:text-primary transition-colors">
               <Lock className="h-5 w-5" />
             </div>
             <Input 
               id="password" 
-              type="password" 
+              type={showPassword ? "text" : "password"} 
               placeholder="••••••••"
               {...register("password")} 
-              className={`bg-slate-900/50 border-slate-800/80 text-white placeholder:text-slate-600 pl-12 h-14 rounded-2xl transition-all duration-300 focus-visible:ring-indigo-500/50 focus-visible:border-indigo-500/50 focus:bg-slate-900/80 ${errors.password ? "border-rose-500/70 focus-visible:ring-rose-500/50" : ""}`}
+              className={`bg-background/80 border-input text-foreground placeholder:text-muted-foreground pl-12 pr-12 h-12 sm:h-13 rounded-2xl transition-all duration-200 focus-visible:ring-primary focus-visible:border-primary ${errors.password ? "border-rose-500 focus-visible:ring-rose-500" : ""}`}
             />
+            {/* Password Visibility Toggle */}
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute inset-y-0 right-0 pr-4 flex items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
           </div>
           {errors.password && (
-            <p className="text-xs text-rose-400 font-medium flex items-center gap-1.5 ml-1 animate-in fade-in slide-in-from-top-1">
-              <AlertCircle className="h-3.5 w-3.5" /> {errors.password.message}
+            <p className="text-xs text-rose-500 font-medium flex items-center gap-1.5 ml-1 animate-in fade-in">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {errors.password.message}
             </p>
           )}
         </div>
 
+        {/* Remember Me Option */}
+        <div className="flex items-center justify-between ml-1 pt-1">
+          <label className="flex items-center gap-2 cursor-pointer text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors select-none">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="h-4 w-4 rounded border-input text-primary focus:ring-primary/40 cursor-pointer accent-indigo-600"
+            />
+            <span>Keep me signed in</span>
+          </label>
+        </div>
+
+        {/* Error Notification */}
         {errorMsg && (
-          <div className="p-4 text-sm font-medium bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl flex items-start gap-3 animate-in fade-in zoom-in-95">
-            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="p-3.5 text-xs sm:text-sm font-medium bg-rose-500/10 border border-rose-500/20 text-rose-500 dark:text-rose-400 rounded-2xl flex items-start gap-2.5 animate-in fade-in">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
             <span>{errorMsg}</span>
           </div>
         )}
 
+        {/* Submit Button */}
         <Button 
           type="submit" 
-          className="w-full bg-white text-black hover:bg-slate-200 font-semibold h-14 text-base transition-all rounded-2xl group flex items-center justify-center gap-2" 
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-12 sm:h-13 text-sm sm:text-base transition-all rounded-2xl group flex items-center justify-center gap-2 shadow-md hover:shadow-primary/20 cursor-pointer" 
           disabled={isSubmitting}
         >
           {isSubmitting ? (
-            <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+            <Loader2 className="h-5 w-5 animate-spin" />
           ) : (
             <>
-              Sign in
-              <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              <span>Sign in to Account</span>
+              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
             </>
           )}
         </Button>
 
-        <div className="relative my-8">
+        {/* Social Sign In Divider */}
+        <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-slate-800/60" />
+            <span className="w-full border-t border-border/60" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-slate-950 px-4 text-slate-500 tracking-widest font-medium">Or continue with</span>
+            <span className="bg-card px-4 text-muted-foreground tracking-widest font-medium">Or continue with</span>
           </div>
         </div>
 
+        {/* Google Social Button */}
         <Button
           type="button"
           variant="outline"
-          className="w-full bg-slate-900/40 border-slate-800 hover:bg-slate-800/80 hover:border-slate-700 text-slate-300 hover:text-white font-medium h-14 transition-all duration-300 rounded-2xl flex items-center justify-center gap-3"
+          className="w-full border-border/80 hover:bg-muted/70 text-foreground font-medium h-12 sm:h-13 transition-all rounded-2xl flex items-center justify-center gap-3 cursor-pointer shadow-xs"
           onClick={handleGoogleLogin}
         >
-          <svg className="h-5 w-5" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+          <svg className="h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
             <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
           </svg>
           Google
         </Button>
 
-        <div className="text-center text-sm text-slate-400 pt-6">
+        {/* Sign up link */}
+        <div className="text-center text-xs sm:text-sm text-muted-foreground pt-4">
           Don&apos;t have an account?{" "}
-          <Link href="/register" className="text-white hover:text-indigo-300 font-semibold transition-colors">
-            Sign up
+          <Link href="/register" className="text-primary hover:underline font-semibold transition-colors">
+            Register as Visitor
           </Link>
         </div>
 

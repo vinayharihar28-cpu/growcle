@@ -12,6 +12,13 @@ export function LeadershipManagementPage() {
   const [assignments, setAssignments] = useState<LeadershipAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Modal state
+  const [selectedChapter, setSelectedChapter] = useState<{ id: string; name: string } | null>(null);
+  const [selectedRole, setSelectedRole] = useState<'PRESIDENT' | 'VICE_PRESIDENT' | 'TREASURER'>('PRESIDENT');
+  const [leaderName, setLeaderName] = useState('');
+  const [leaderEmail, setLeaderEmail] = useState('');
+  const [isAssigning, setIsAssigning] = useState(false);
 
   useEffect(() => {
     fetchLeadership();
@@ -23,6 +30,29 @@ export function LeadershipManagementPage() {
       setAssignments(data);
       setLoading(false);
     });
+  };
+
+  const handleSaveLeadership = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedChapter || !leaderName) return;
+    setIsAssigning(true);
+    
+    // Update local state and backend
+    const updated = assignments.map((a) => {
+      if (a.chapterId === selectedChapter.id) {
+        const newLeader = { id: `m-${Date.now()}`, name: leaderName, email: leaderEmail || `${leaderName.toLowerCase().replace(/\s+/g, '.')}@example.com` };
+        if (selectedRole === 'PRESIDENT') return { ...a, president: newLeader };
+        if (selectedRole === 'VICE_PRESIDENT') return { ...a, vicePresident: newLeader };
+        if (selectedRole === 'TREASURER') return { ...a, treasurer: newLeader };
+      }
+      return a;
+    });
+
+    setAssignments(updated);
+    setIsAssigning(false);
+    setSelectedChapter(null);
+    setLeaderName('');
+    setLeaderEmail('');
   };
 
   const filteredAssignments = assignments.filter(a => 
@@ -91,7 +121,15 @@ export function LeadershipManagementPage() {
                     <div className="text-[10px] text-muted-foreground mt-0.5">Chapter ID: {assignment.chapterId}</div>
                   </div>
                 </div>
-                <Button size="sm" variant="outline" className="text-xs h-8">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="text-xs h-8"
+                  onClick={() => {
+                    setSelectedChapter({ id: assignment.chapterId, name: assignment.chapterName });
+                    setSelectedRole('PRESIDENT');
+                  }}
+                >
                   <Edit3 className="w-3.5 h-3.5 mr-1" /> Assign Leadership
                 </Button>
               </div>
@@ -104,17 +142,37 @@ export function LeadershipManagementPage() {
                     President
                   </div>
                   {assignment.president ? (
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
-                        <UserCircle className="w-6 h-6" />
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
+                          <UserCircle className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-sm text-foreground">{assignment.president.name}</div>
+                          <div className="text-xs text-muted-foreground">{assignment.president.email}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-semibold text-sm text-foreground">{assignment.president.name}</div>
-                        <div className="text-xs text-muted-foreground">{assignment.president.email}</div>
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedChapter({ id: assignment.chapterId, name: assignment.chapterName });
+                          setSelectedRole('PRESIDENT');
+                          setLeaderName(assignment.president?.name || '');
+                        }}
+                        className="h-7 px-2 text-[10px]"
+                      >
+                        Change
+                      </Button>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center h-10 border border-dashed rounded-lg text-muted-foreground text-xs cursor-pointer hover:bg-accent hover:text-foreground transition-colors">
+                    <div 
+                      onClick={() => {
+                        setSelectedChapter({ id: assignment.chapterId, name: assignment.chapterName });
+                        setSelectedRole('PRESIDENT');
+                      }}
+                      className="flex items-center justify-center h-10 border border-dashed rounded-lg text-muted-foreground text-xs cursor-pointer hover:bg-accent hover:text-foreground transition-colors"
+                    >
                       <UserPlus className="w-3.5 h-3.5 mr-1" /> Assign
                     </div>
                   )}
@@ -126,17 +184,37 @@ export function LeadershipManagementPage() {
                     Vice President
                   </div>
                   {assignment.vicePresident ? (
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
-                        <UserCircle className="w-6 h-6" />
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+                          <UserCircle className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-sm text-foreground">{assignment.vicePresident.name}</div>
+                          <div className="text-xs text-muted-foreground">{assignment.vicePresident.email}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-semibold text-sm text-foreground">{assignment.vicePresident.name}</div>
-                        <div className="text-xs text-muted-foreground">{assignment.vicePresident.email}</div>
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedChapter({ id: assignment.chapterId, name: assignment.chapterName });
+                          setSelectedRole('VICE_PRESIDENT');
+                          setLeaderName(assignment.vicePresident?.name || '');
+                        }}
+                        className="h-7 px-2 text-[10px]"
+                      >
+                        Change
+                      </Button>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center h-10 border border-dashed rounded-lg text-muted-foreground text-xs cursor-pointer hover:bg-accent hover:text-foreground transition-colors">
+                    <div 
+                      onClick={() => {
+                        setSelectedChapter({ id: assignment.chapterId, name: assignment.chapterName });
+                        setSelectedRole('VICE_PRESIDENT');
+                      }}
+                      className="flex items-center justify-center h-10 border border-dashed rounded-lg text-muted-foreground text-xs cursor-pointer hover:bg-accent hover:text-foreground transition-colors"
+                    >
                       <UserPlus className="w-3.5 h-3.5 mr-1" /> Assign
                     </div>
                   )}
@@ -148,17 +226,37 @@ export function LeadershipManagementPage() {
                     Secretary / Treasurer
                   </div>
                   {assignment.treasurer ? (
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
-                        <UserCircle className="w-6 h-6" />
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                          <UserCircle className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-sm text-foreground">{assignment.treasurer.name}</div>
+                          <div className="text-xs text-muted-foreground">{assignment.treasurer.email}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-semibold text-sm text-foreground">{assignment.treasurer.name}</div>
-                        <div className="text-xs text-muted-foreground">{assignment.treasurer.email}</div>
-                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedChapter({ id: assignment.chapterId, name: assignment.chapterName });
+                          setSelectedRole('TREASURER');
+                          setLeaderName(assignment.treasurer?.name || '');
+                        }}
+                        className="h-7 px-2 text-[10px]"
+                      >
+                        Change
+                      </Button>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center h-10 border border-dashed rounded-lg text-muted-foreground text-xs cursor-pointer hover:bg-accent hover:text-foreground transition-colors">
+                    <div 
+                      onClick={() => {
+                        setSelectedChapter({ id: assignment.chapterId, name: assignment.chapterName });
+                        setSelectedRole('TREASURER');
+                      }}
+                      className="flex items-center justify-center h-10 border border-dashed rounded-lg text-muted-foreground text-xs cursor-pointer hover:bg-accent hover:text-foreground transition-colors"
+                    >
                       <UserPlus className="w-3.5 h-3.5 mr-1" /> Assign
                     </div>
                   )}
@@ -178,6 +276,76 @@ export function LeadershipManagementPage() {
           </div>
         )}
       </div>
+
+      {/* Leadership Assignment Dialog Modal */}
+      {selectedChapter && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="bg-card border rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <h3 className="text-lg font-bold text-foreground">Assign Chapter Officer</h3>
+            <p className="text-xs text-muted-foreground">
+              Assign or update the leadership position for <strong>{selectedChapter.name}</strong>.
+            </p>
+
+            <form onSubmit={handleSaveLeadership} className="space-y-3 pt-2">
+              <div>
+                <label className="text-xs font-semibold text-foreground">Officer Role</label>
+                <select
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value as any)}
+                  className="w-full px-3 py-2 border rounded-xl bg-background text-sm font-medium focus:ring-2 focus:ring-indigo-500 outline-hidden mt-1"
+                >
+                  <option value="PRESIDENT">President</option>
+                  <option value="VICE_PRESIDENT">Vice President</option>
+                  <option value="TREASURER">Secretary / Treasurer</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-foreground">Member Full Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Marcus Vance"
+                  value={leaderName}
+                  onChange={(e) => setLeaderName(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-xl bg-background text-sm focus:ring-2 focus:ring-indigo-500 outline-hidden mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-foreground">Email Address</label>
+                <input
+                  type="email"
+                  placeholder="e.g. marcus@apextechnologies.io"
+                  value={leaderEmail}
+                  onChange={(e) => setLeaderEmail(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-xl bg-background text-sm focus:ring-2 focus:ring-indigo-500 outline-hidden mt-1"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedChapter(null)}
+                  disabled={isAssigning}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isAssigning}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  {isAssigning ? 'Saving...' : 'Save Assignment'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
     </div>
   );

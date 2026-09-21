@@ -47,6 +47,14 @@ export async function resolveAuthorizationContext(tenant?: TenantContext): Promi
   // Resolve the Roles and Permissions for this Member
   const { roles, permissions } = await AuthorizationService.resolveMemberProfile(member.id);
 
+  // Enforce tenant isolation explicitly: ensure member organization/chapter match tenant
+  if (tenant.organizationId && member.organizationId !== tenant.organizationId) {
+    redirect("/unauthorized");
+  }
+  if (tenant.chapterId && member.chapterId !== tenant.chapterId) {
+    redirect("/unauthorized");
+  }
+
   // Platform Admins implicitly get all permissions, but standard engine still maps them explicitly.
   return {
     user: { ...user, image: user.image ?? null },

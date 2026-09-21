@@ -22,15 +22,15 @@ export function UserRoleAssignmentTable({
         </p>
       </div>
 
-      <div className="border rounded-2xl bg-card overflow-hidden shadow-xs">
-        <table className="w-full text-left text-xs">
+      <div className="border rounded-2xl bg-card overflow-x-auto shadow-xs">
+        <table className="w-full text-left text-xs border-collapse">
           <thead className="bg-muted/60 border-b text-[11px] font-bold text-muted-foreground uppercase">
             <tr>
-              <th className="p-3.5">User / Member</th>
-              <th className="p-3.5">Chapter</th>
-              <th className="p-3.5">Current Role</th>
-              <th className="p-3.5">Assigned Date</th>
-              <th className="p-3.5 text-right">Role Selection</th>
+              <th className="p-3.5 whitespace-nowrap">User / Member</th>
+              <th className="p-3.5 whitespace-nowrap">Chapter</th>
+              <th className="p-3.5 whitespace-nowrap">Current Role</th>
+              <th className="p-3.5 whitespace-nowrap">Assigned Date</th>
+              <th className="p-3.5 text-right whitespace-nowrap">Role Selection</th>
             </tr>
           </thead>
           <tbody className="divide-y">

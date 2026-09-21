@@ -93,7 +93,7 @@ export function HeroSection() {
             </div>
             <div>
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Closed Business</p>
-              <p className="text-xl font-extrabold text-foreground">$14.8M+</p>
+              <p className="text-xl font-extrabold text-foreground">₹14.8 Cr+</p>
               <span className="text-[11px] text-emerald-500 font-medium">↑ +28% this month</span>
             </div>
           </div>

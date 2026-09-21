@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import {
-  Users, UserPlus, DollarSign, TrendingUp, Activity,
+  Users, UserPlus, IndianRupee, TrendingUp, Activity,
   Calendar, Sparkles, Plus, ClipboardList, ChevronRight,
   CheckCircle2, AlertCircle
 } from "lucide-react";
@@ -78,9 +78,9 @@ export function AdminOverviewDashboard({ chapterId, chapterName, onNavigateTab }
     },
     {
       label: "Chapter Revenue",
-      value: `$${((stats?.chapterRevenue ?? 0) / 1000).toFixed(1)}k`,
+      value: `₹${((stats?.chapterRevenue ?? 0) / 1000).toFixed(1)}k`,
       sub: "Closed business (TYFCB)",
-      icon: DollarSign,
+      icon: IndianRupee,
       color: "amber",
     },
     {

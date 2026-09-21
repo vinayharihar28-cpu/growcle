@@ -49,7 +49,7 @@ export function Header() {
     {
       id: "2",
       title: "Referral Closed Business",
-      message: "$12,500 closed business logged by Marcus Vance.",
+      message: "₹12,500 closed business logged by Marcus Vance.",
       time: "1h ago",
       read: false,
       icon: CheckCircle2,
@@ -96,13 +96,13 @@ export function Header() {
 
       <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
         <div className="flex flex-1"></div>
-        <div className="flex items-center gap-x-4 lg:gap-x-6">
-          <Select value={activeRole ?? undefined} onValueChange={(val) => setActiveRole(val as Role)}>
-            <SelectTrigger className="w-[180px]">
+        <div className="flex items-center gap-x-2 sm:gap-x-4 lg:gap-x-6">
+          <Select value={activeRole ?? undefined} onValueChange={(val: any) => setActiveRole(val as Role)}>
+            <SelectTrigger className="w-[120px] xs:w-[140px] sm:w-[180px] text-xs sm:text-sm">
               <SelectValue placeholder="Select Role" />
             </SelectTrigger>
             <SelectContent>
-              {availableRoles.map((role) => (
+              {availableRoles.map((role: string) => (
                 <SelectItem key={role} value={role}>
                   {role}
                 </SelectItem>
@@ -114,7 +114,7 @@ export function Header() {
 
           {/* Notifications Popover */}
           <Popover>
-            <PopoverTrigger asChild>
+            <PopoverTrigger>
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-5 w-5 text-muted-foreground" />
                 {unreadCount > 0 && (
@@ -125,7 +125,7 @@ export function Header() {
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-80 p-0" align="end">
+            <PopoverContent className="w-[calc(100vw-2rem)] max-w-xs sm:w-80 p-0" align="end">
               <div className="flex items-center justify-between p-4 border-b">
                 <div className="flex items-center gap-2">
                   <h4 className="font-semibold text-sm">Notifications</h4>
@@ -182,7 +182,7 @@ export function Header() {
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end" forceMount>
+            <DropdownMenuContent className="w-56" align="end">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{user?.name || "User Account"}</p>

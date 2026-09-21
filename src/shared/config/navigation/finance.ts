@@ -1,5 +1,5 @@
 import { NavigationConfig } from "@/shared/types/navigation";
-import { LayoutDashboard, Receipt, DollarSign, PieChart } from "lucide-react";
+import { LayoutDashboard, Receipt, IndianRupee, PieChart } from "lucide-react";
 
 export const financeNavigation: NavigationConfig = [
   {
@@ -22,7 +22,7 @@ export const financeNavigation: NavigationConfig = [
       {
         title: "Expenses",
         href: "/dashboard/expenses",
-        icon: DollarSign,
+        icon: IndianRupee,
       },
       {
         title: "Reports",

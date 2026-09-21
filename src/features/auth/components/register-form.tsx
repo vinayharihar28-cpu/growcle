@@ -3,7 +3,6 @@
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
@@ -11,7 +10,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { getChapters } from "@/features/chapter/actions/chapter";
 import { createVisitor } from "@/features/visitors/actions/visitors";
-import { AlertCircle, CheckCircle2, UserCheck } from "lucide-react";
+import { AlertCircle, CheckCircle2, UserCheck, ArrowRight } from "lucide-react";
 
 const visitorSchema = z.object({
   firstName: z.string().min(2, "First name must be at least 2 characters"),
@@ -86,154 +85,175 @@ export function RegisterForm() {
   };
 
   return (
-    <Card className={`bg-slate-900/70 border-slate-800/80 backdrop-blur-xl shadow-2xl rounded-3xl p-4 sm:p-8 transition-all ${isShaking ? "animate-shake border-rose-500/50" : ""}`}>
-      <CardHeader className="space-y-2 pb-6">
-        <div className="flex justify-center">
-          <div className="h-12 w-12 rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center mb-2">
-            <UserCheck className="h-6 w-6" />
+    <div className={`w-full rounded-3xl bg-card/90 dark:bg-card/75 border border-slate-200 dark:border-slate-800 p-6 sm:p-8 lg:p-9 shadow-xl backdrop-blur-xl transition-all ${isShaking ? "animate-shake" : ""}`}>
+      {/* Form Header */}
+      <div className="space-y-1.5 pb-4 text-center sm:text-left">
+        <div className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 mb-1">
+          <UserCheck className="h-3.5 w-3.5" />
+          <span>Chapter Visitor Registration</span>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
+          Register as Visitor
+        </h1>
+        <p className="text-xs sm:text-sm text-muted-foreground">
+          Connect with business leaders and attend an upcoming weekly meeting.
+        </p>
+      </div>
+
+      {success ? (
+        <div className="space-y-5 text-center animate-in fade-in zoom-in duration-300 py-6">
+          <div className="h-16 w-16 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle2 className="h-8 w-8" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-bold text-foreground">Registration Submitted!</h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
+              Thank you! Your visitor registration request has been received. The chapter leadership team will reach out shortly with meeting details.
+            </p>
+          </div>
+          <div className="pt-3">
+            <Link 
+              href="/" 
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-semibold transition-all shadow-md text-sm"
+            >
+              <span>Return to Home</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
-        <CardTitle className="text-3xl font-extrabold text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-200 via-indigo-100 to-white">
-          Register as Chapter Visitor
-        </CardTitle>
-        <CardDescription className="text-center text-slate-400">
-          Connect with business leaders and attend an upcoming chapter meeting
-        </CardDescription>
-      </CardHeader>
+      ) : (
+        <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-3.5">
+          {submitError && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-semibold text-center flex items-center justify-center gap-2 animate-in fade-in">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{submitError}</span>
+            </div>
+          )}
+          
+          {/* Row 1: First Name & Last Name */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="space-y-1">
+              <Label htmlFor="firstName" className="text-xs font-semibold text-foreground/90">
+                First Name <span className="text-rose-500">*</span>
+              </Label>
+              <Input 
+                id="firstName" 
+                placeholder="John" 
+                {...register("firstName")} 
+                className={`h-11 px-3.5 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-background/90 text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary transition-all ${errors.firstName ? "border-rose-500" : ""}`}
+              />
+              {errors.firstName && <p className="text-[11px] text-rose-500 font-medium">{errors.firstName.message}</p>}
+            </div>
 
-      <CardContent>
-        {success ? (
-          <div className="space-y-6 text-center animate-in fade-in zoom-in duration-300 py-4">
-            <div className="h-16 w-16 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto">
-              <CheckCircle2 className="h-8 w-8" />
-            </div>
-            <div className="space-y-2">
-              <h3 className="text-xl font-bold text-white">Registration Submitted!</h3>
-              <p className="text-sm text-slate-300 max-w-sm mx-auto leading-relaxed">
-                Thank you! Your visitor registration request has been received. The chapter leadership team will reach out shortly with details.
-              </p>
-            </div>
-            <div className="pt-4">
-              <Link 
-                href="/" 
-                className="inline-block px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold transition-all shadow-lg text-sm"
-              >
-                Return to Home
-              </Link>
+            <div className="space-y-1">
+              <Label htmlFor="lastName" className="text-xs font-semibold text-foreground/90">
+                Last Name <span className="text-rose-500">*</span>
+              </Label>
+              <Input 
+                id="lastName" 
+                placeholder="Doe" 
+                {...register("lastName")} 
+                className={`h-11 px-3.5 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-background/90 text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary transition-all ${errors.lastName ? "border-rose-500" : ""}`}
+              />
+              {errors.lastName && <p className="text-[11px] text-rose-500 font-medium">{errors.lastName.message}</p>}
             </div>
           </div>
-        ) : (
-          <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-4">
-            {submitError && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold text-center flex items-center justify-center gap-2 animate-in fade-in">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>{submitError}</span>
-              </div>
-            )}
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="firstName" className="text-slate-300 font-medium text-xs">First Name</Label>
-                <Input 
-                  id="firstName" 
-                  placeholder="John" 
-                  {...register("firstName")} 
-                  className={`bg-slate-950/60 border-slate-800 text-slate-100 placeholder:text-slate-600 focus-visible:ring-indigo-500 h-10 rounded-xl ${errors.firstName ? "border-rose-500/70" : ""}`}
-                />
-                {errors.firstName && <p className="text-[11px] text-rose-400 font-medium">{errors.firstName.message}</p>}
-              </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="lastName" className="text-slate-300 font-medium text-xs">Last Name</Label>
-                <Input 
-                  id="lastName" 
-                  placeholder="Doe" 
-                  {...register("lastName")} 
-                  className={`bg-slate-950/60 border-slate-800 text-slate-100 placeholder:text-slate-600 focus-visible:ring-indigo-500 h-10 rounded-xl ${errors.lastName ? "border-rose-500/70" : ""}`}
-                />
-                {errors.lastName && <p className="text-[11px] text-rose-400 font-medium">{errors.lastName.message}</p>}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-slate-300 font-medium text-xs">Work Email</Label>
+          {/* Row 2: Work Email & Company Name */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="space-y-1">
+              <Label htmlFor="email" className="text-xs font-semibold text-foreground/90">
+                Work Email <span className="text-rose-500">*</span>
+              </Label>
               <Input 
                 id="email" 
                 type="email" 
                 placeholder="john@company.com" 
                 {...register("email")} 
-                className={`bg-slate-950/60 border-slate-800 text-slate-100 placeholder:text-slate-600 focus-visible:ring-indigo-500 h-10 rounded-xl ${errors.email ? "border-rose-500/70" : ""}`}
+                className={`h-11 px-3.5 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-background/90 text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary transition-all ${errors.email ? "border-rose-500" : ""}`}
               />
-              {errors.email && <p className="text-[11px] text-rose-400 font-medium">{errors.email.message}</p>}
+              {errors.email && <p className="text-[11px] text-rose-500 font-medium">{errors.email.message}</p>}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="businessName" className="text-slate-300 font-medium text-xs">Company Name (Optional)</Label>
-                <Input 
-                  id="businessName" 
-                  placeholder="Acme Corp" 
-                  {...register("businessName")} 
-                  className="bg-slate-950/60 border-slate-800 text-slate-100 placeholder:text-slate-600 focus-visible:ring-indigo-500 h-10 rounded-xl"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="industry" className="text-slate-300 font-medium text-xs">Industry (Optional)</Label>
-                <Input 
-                  id="industry" 
-                  placeholder="Technology / Real Estate" 
-                  {...register("industry")} 
-                  className="bg-slate-950/60 border-slate-800 text-slate-100 placeholder:text-slate-600 focus-visible:ring-indigo-500 h-10 rounded-xl"
-                />
-              </div>
+            <div className="space-y-1">
+              <Label htmlFor="businessName" className="text-xs font-semibold text-foreground/90">
+                Company Name <span className="text-muted-foreground font-normal">(Optional)</span>
+              </Label>
+              <Input 
+                id="businessName" 
+                placeholder="Acme Corp" 
+                {...register("businessName")} 
+                className="h-11 px-3.5 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-background/90 text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary transition-all"
+              />
             </div>
+          </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="chapterId" className="text-slate-300 font-medium text-xs">Select Chapter</Label>
+          {/* Row 3: Select Chapter & Industry */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="space-y-1">
+              <Label htmlFor="chapterId" className="text-xs font-semibold text-foreground/90">
+                Select Chapter <span className="text-rose-500">*</span>
+              </Label>
               <select 
                 id="chapterId"
                 {...register("chapterId")}
-                className={`flex w-full rounded-xl border border-slate-800 bg-slate-950/60 px-3 text-sm text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 h-10 transition-all ${errors.chapterId ? "border-rose-500/70" : ""}`}
+                className={`flex w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-background/90 px-3.5 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary h-11 transition-all ${errors.chapterId ? "border-rose-500" : ""}`}
               >
-                <option value="" className="bg-slate-950 text-slate-400">Choose a chapter...</option>
+                <option value="" className="bg-background text-muted-foreground">Choose a chapter...</option>
                 {chapters.map((ch) => (
-                  <option key={ch.id} value={ch.id} className="bg-slate-950 text-slate-100">
+                  <option key={ch.id} value={ch.id} className="bg-background text-foreground">
                     {ch.name} {ch.organization ? `(${ch.organization.name})` : ""}
                   </option>
                 ))}
               </select>
-              {errors.chapterId && <p className="text-[11px] text-rose-400 font-medium">{errors.chapterId.message}</p>}
+              {errors.chapterId && <p className="text-[11px] text-rose-500 font-medium">{errors.chapterId.message}</p>}
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="visitDate" className="text-slate-300 font-medium text-xs">Planned Visit Date</Label>
+            <div className="space-y-1">
+              <Label htmlFor="industry" className="text-xs font-semibold text-foreground/90">
+                Industry <span className="text-muted-foreground font-normal">(Optional)</span>
+              </Label>
               <Input 
-                id="visitDate" 
-                type="date" 
-                {...register("visitDate")} 
-                className={`bg-slate-950/60 border-slate-800 text-slate-100 focus-visible:ring-indigo-500 h-10 rounded-xl block w-full [color-scheme:dark] ${errors.visitDate ? "border-rose-500/70" : ""}`}
+                id="industry" 
+                placeholder="Real Estate / Tech / Legal" 
+                {...register("industry")} 
+                className="h-11 px-3.5 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-background/90 text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary transition-all"
               />
-              {errors.visitDate && <p className="text-[11px] text-rose-400 font-medium">{errors.visitDate.message}</p>}
             </div>
+          </div>
 
-            <Button 
-              type="submit" 
-              className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-semibold h-11 transition-all rounded-xl shadow-lg hover:shadow-indigo-500/25 cursor-pointer mt-3" 
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? "Submitting Registration..." : "Complete Visitor Registration"}
-            </Button>
+          {/* Row 4: Planned Visit Date */}
+          <div className="space-y-1">
+            <Label htmlFor="visitDate" className="text-xs font-semibold text-foreground/90">
+              Planned Visit Date <span className="text-rose-500">*</span>
+            </Label>
+            <Input 
+              id="visitDate" 
+              type="date" 
+              {...register("visitDate")} 
+              className={`h-11 px-3.5 text-sm rounded-xl border border-slate-300 dark:border-slate-700 bg-background/90 text-foreground focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary block w-full transition-all ${errors.visitDate ? "border-rose-500" : ""}`}
+            />
+            {errors.visitDate && <p className="text-[11px] text-rose-500 font-medium">{errors.visitDate.message}</p>}
+          </div>
 
-            <div className="text-center text-xs text-slate-400 pt-2">
-              Already a registered member?{" "}
-              <Link href="/login" className="text-indigo-400 hover:text-indigo-300 font-semibold transition-colors">
-                Sign in to Portal
-              </Link>
-            </div>
-          </form>
-        )}
-      </CardContent>
-    </Card>
+          {/* Submit Button */}
+          <Button 
+            type="submit" 
+            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-12 text-sm sm:text-base transition-all rounded-xl shadow-md hover:shadow-primary/20 cursor-pointer mt-2" 
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Submitting Registration..." : "Complete Visitor Registration"}
+          </Button>
+
+          {/* Link to Login */}
+          <div className="text-center text-xs text-muted-foreground pt-1">
+            Already a registered member?{" "}
+            <Link href="/login" className="text-primary hover:underline font-semibold transition-colors">
+              Sign in to Portal
+            </Link>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }

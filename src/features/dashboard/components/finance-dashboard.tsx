@@ -1,6 +1,6 @@
 'use client';
 
-import { DollarSign, FileText, ArrowUpRight, TrendingUp, HelpCircle, Briefcase } from 'lucide-react';
+import { IndianRupee, FileText, ArrowUpRight, TrendingUp, HelpCircle, Briefcase } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/shared/components/ui/card';
 
 export function FinanceDashboard() {
@@ -13,16 +13,16 @@ export function FinanceDashboard() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               Total Revenue
             </CardTitle>
-            <DollarSign className="w-4 h-4 text-emerald-500" />
+            <IndianRupee className="w-4 h-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$34,500</div>
+            <div className="text-2xl font-bold">₹3,45,000</div>
             <p className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 mt-1">
               <TrendingUp className="w-3 h-3" /> +14% this quarter
             </p>
@@ -37,7 +37,7 @@ export function FinanceDashboard() {
             <ArrowUpRight className="w-4 h-4 text-rose-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$1,200</div>
+            <div className="text-2xl font-bold">₹12,000</div>
             <p className="text-[10px] text-muted-foreground mt-1">4 Unpaid Member Accounts</p>
           </CardContent>
         </Card>
@@ -67,14 +67,14 @@ export function FinanceDashboard() {
                 <span className="font-bold text-foreground">Marcus Vance</span>
                 <p className="text-[10px] text-muted-foreground">Silicon Valley Founders</p>
               </div>
-              <span className="font-bold text-rose-500">$350 Dues (Pending)</span>
+              <span className="font-bold text-rose-500">₹3,500 Dues (Pending)</span>
             </div>
             <div className="py-2.5 flex justify-between">
               <div>
                 <span className="font-bold text-foreground">Elena Rostova</span>
                 <p className="text-[10px] text-muted-foreground">Metro Executive Network</p>
               </div>
-              <span className="font-bold text-rose-500">$350 Dues (Pending)</span>
+              <span className="font-bold text-rose-500">₹3,500 Dues (Pending)</span>
             </div>
           </CardContent>
         </Card>

@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "@/shared/lib/db";
+import { revalidatePath } from "next/cache";
 import { MemberStatus, VisitorStatus, ReferralStatus, MeetingStatus, AttendanceStatus, PaymentStatus } from "@prisma/client";
 
 export interface ChapterSummary {
@@ -245,6 +246,11 @@ export async function getDirectorOverview(selectedChapterId?: string) {
       members: {
         include: {
           business: true,
+          roles: {
+            include: {
+              role: true,
+            },
+          },
         },
       },
       visitors: true,
@@ -305,9 +311,9 @@ export async function getDirectorOverview(selectedChapterId?: string) {
     totalClosedBusiness += chapClosedValue;
 
     // Leadership extraction
-    const pres = chap.members.find((m) => m.email.includes("president"));
-    const vp = chap.members.find((m) => m.email.includes("vp"));
-    const tres = chap.members.find((m) => m.email.includes("treasurer"));
+    const pres = chap.members.find((m) => m.roles.some((r) => r.role.name === "PRESIDENT") || m.email.includes("president"));
+    const vp = chap.members.find((m) => m.roles.some((r) => r.role.name === "VICE_PRESIDENT") || m.email.includes("vp"));
+    const tres = chap.members.find((m) => m.roles.some((r) => r.role.name === "TREASURER") || m.email.includes("treasurer"));
 
     const conversionRate = vCount > 0 ? Math.round((converted / vCount) * 100) : 0;
     const attendanceRate = 88 + (chap.name.length % 7); // calculated benchmark
@@ -468,6 +474,11 @@ export async function getDirectorMembers(params?: {
     include: {
       chapter: true,
       business: true,
+      roles: {
+        include: {
+          role: true,
+        },
+      },
       givenReferrals: true,
       receivedReferrals: true,
     },
@@ -476,7 +487,9 @@ export async function getDirectorMembers(params?: {
 
   return members.map((m) => {
     let currentRole = "MEMBER";
-    if (m.email.includes("president")) currentRole = "PRESIDENT";
+    const foundRole = m.roles?.find((r) => ["PRESIDENT", "VICE_PRESIDENT", "TREASURER"].includes(r.role.name))?.role.name;
+    if (foundRole) currentRole = foundRole;
+    else if (m.email.includes("president")) currentRole = "PRESIDENT";
     else if (m.email.includes("vp")) currentRole = "VICE_PRESIDENT";
     else if (m.email.includes("treasurer")) currentRole = "TREASURER";
 
@@ -510,8 +523,56 @@ export async function changeDirectorMemberRole(data: {
   newRole: "MEMBER" | "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER";
   chapterId: string;
 }) {
-  const member = await db.member.findUnique({ where: { id: data.memberId } });
+  const member = await db.member.findUnique({
+    where: { id: data.memberId },
+    include: { roles: { include: { role: true } } },
+  });
   if (!member) throw new Error("Member not found");
+
+  const oldRole = member.roles.find((r) => ["PRESIDENT", "VICE_PRESIDENT", "TREASURER"].includes(r.role.name))?.role.name || "MEMBER";
+
+  // Upsert the target role
+  const targetRole = await db.role.upsert({
+    where: { name: data.newRole },
+    create: { name: data.newRole, description: `Chapter ${data.newRole}` },
+    update: {},
+  });
+
+  // Assign the new MemberRole
+  await db.memberRole.upsert({
+    where: {
+      memberId_roleId: {
+        memberId: data.memberId,
+        roleId: targetRole.id,
+      },
+    },
+    create: {
+      memberId: data.memberId,
+      roleId: targetRole.id,
+    },
+    update: {},
+  });
+
+  // If changing to another leadership role, remove existing officer with that role in this chapter
+  if (data.newRole !== "MEMBER") {
+    const chapterMembers = await db.member.findMany({
+      where: { chapterId: data.chapterId, id: { not: data.memberId } },
+      include: { roles: { include: { role: true } } },
+    });
+    for (const cm of chapterMembers) {
+      const match = cm.roles.find((r) => r.role.name === data.newRole);
+      if (match) {
+        await db.memberRole.delete({ where: { id: match.id } }).catch(() => {});
+      }
+    }
+  } else {
+    // If demoting to MEMBER, remove all leadership roles for this member
+    for (const r of member.roles) {
+      if (["PRESIDENT", "VICE_PRESIDENT", "TREASURER"].includes(r.role.name)) {
+        await db.memberRole.delete({ where: { id: r.id } }).catch(() => {});
+      }
+    }
+  }
 
   // Audit record
   await db.auditLog.create({
@@ -519,12 +580,17 @@ export async function changeDirectorMemberRole(data: {
       action: "MEMBER_ROLE_CHANGE",
       entity: "Member",
       entityId: data.memberId,
-      newValue: { newRole: data.newRole, chapterId: data.chapterId },
+      oldValue: { role: oldRole },
+      newValue: { newRole: data.newRole, chapterId: data.chapterId, memberName: `${member.firstName} ${member.lastName}` },
       who: "Director User",
     },
   });
 
-  return { success: true, memberId: data.memberId, newRole: data.newRole };
+  revalidatePath("/dashboard/director/members");
+  revalidatePath("/dashboard/director/leadership");
+  revalidatePath("/dashboard/director");
+
+  return { success: true, memberId: data.memberId, newRole: data.newRole, oldRole };
 }
 
 /**
@@ -580,15 +646,20 @@ export async function getDirectorLeadership() {
       members: {
         include: {
           business: true,
+          roles: {
+            include: {
+              role: true,
+            },
+          },
         },
       },
     },
   });
 
   return chapters.map((c) => {
-    const president = c.members.find((m) => m.email.includes("president"));
-    const vp = c.members.find((m) => m.email.includes("vp"));
-    const treasurer = c.members.find((m) => m.email.includes("treasurer"));
+    const president = c.members.find((m) => m.roles.some((r) => r.role.name === "PRESIDENT") || m.email.includes("president"));
+    const vp = c.members.find((m) => m.roles.some((r) => r.role.name === "VICE_PRESIDENT") || m.email.includes("vp"));
+    const treasurer = c.members.find((m) => m.roles.some((r) => r.role.name === "TREASURER") || m.email.includes("treasurer"));
 
     return {
       chapterId: c.id,
@@ -617,18 +688,56 @@ export async function assignDirectorLeadership(data: {
   position: "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER";
   memberId: string;
 }) {
-  const member = await db.member.findUnique({ where: { id: data.memberId } });
+  const member = await db.member.findUnique({
+    where: { id: data.memberId },
+    include: { roles: { include: { role: true } } },
+  });
   if (!member) throw new Error("Member not found");
+
+  const targetRole = await db.role.upsert({
+    where: { name: data.position },
+    create: { name: data.position, description: `Chapter ${data.position}` },
+    update: {},
+  });
+
+  // Remove previous officer in this chapter holding this position
+  const existingChapterOfficers = await db.member.findMany({
+    where: { chapterId: data.chapterId, id: { not: data.memberId } },
+    include: { roles: { include: { role: true } } },
+  });
+  for (const eco of existingChapterOfficers) {
+    const existing = eco.roles.find((r) => r.role.name === data.position);
+    if (existing) {
+      await db.memberRole.delete({ where: { id: existing.id } }).catch(() => {});
+    }
+  }
+
+  await db.memberRole.upsert({
+    where: {
+      memberId_roleId: {
+        memberId: data.memberId,
+        roleId: targetRole.id,
+      },
+    },
+    create: {
+      memberId: data.memberId,
+      roleId: targetRole.id,
+    },
+    update: {},
+  });
 
   await db.auditLog.create({
     data: {
       action: "LEADERSHIP_ASSIGNMENT",
       entity: "Chapter",
       entityId: data.chapterId,
-      newValue: { position: data.position, memberId: data.memberId },
+      newValue: { position: data.position, memberId: data.memberId, memberName: `${member.firstName} ${member.lastName}` },
       who: "Director User",
     },
   });
+
+  revalidatePath("/dashboard/director/leadership");
+  revalidatePath("/dashboard/director");
 
   return { success: true, chapterId: data.chapterId, position: data.position, memberId: data.memberId };
 }
@@ -913,8 +1022,8 @@ export async function getDirectorPayments(chapterId?: string) {
       id: `pay-${m.id.substring(0, 6)}`,
       memberName: `${m.firstName} ${m.lastName}`,
       chapterName: m.chapter?.name || "Assigned Chapter",
-      amount: 1250,
-      currency: "USD",
+      amount: 12500,
+      currency: "INR",
       status,
       dueDate: new Date(Date.now() + (idx % 2 === 0 ? 30 : -5) * 24 * 60 * 60 * 1000).toISOString(),
       paymentMethod: "Credit Card (Stripe)",
@@ -968,5 +1077,153 @@ export async function getDirectorReports(chapterId?: string) {
       { month: "May", referrals: 74, business: 210000, visitors: 31, attendance: 94 },
       { month: "Jun", referrals: 82, business: 245000, visitors: 35, attendance: 92 },
     ],
+  };
+}
+
+/**
+ * Get Comprehensive Director Chapter Detail
+ */
+export async function getDirectorChapterDetail(chapterId: string) {
+  await ensureSampleDirectorData();
+
+  const chapter = await db.chapter.findUnique({
+    where: { id: chapterId },
+    include: {
+      members: {
+        include: {
+          business: true,
+          roles: {
+            include: {
+              role: true,
+            },
+          },
+        },
+      },
+      visitors: {
+        include: {
+          invitedBy: true,
+        },
+        orderBy: { visitDate: "desc" },
+      },
+      meetings: {
+        include: {
+          attendances: {
+            include: {
+              member: true,
+            },
+          },
+        },
+        orderBy: { date: "desc" },
+      },
+      referrals: {
+        include: {
+          fromMember: true,
+          toMember: true,
+        },
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
+
+  if (!chapter) return null;
+
+  const president = chapter.members.find((m) => m.roles.some((r) => r.role.name === "PRESIDENT") || m.email.includes("president"));
+  const vp = chapter.members.find((m) => m.roles.some((r) => r.role.name === "VICE_PRESIDENT") || m.email.includes("vp"));
+  const treasurer = chapter.members.find((m) => m.roles.some((r) => r.role.name === "TREASURER") || m.email.includes("treasurer"));
+
+  const vacancies = (!president ? 1 : 0) + (!vp ? 1 : 0) + (!treasurer ? 1 : 0);
+
+  const convertedVisitors = chapter.visitors.filter((v) => v.status === VisitorStatus.CONVERTED).length;
+  const totalVisitors = chapter.visitors.length;
+  const visitorConversion = totalVisitors > 0 ? Math.round((convertedVisitors / totalVisitors) * 100) : 0;
+
+  const closedWon = chapter.referrals.filter((r) => r.status === ReferralStatus.CLOSED_WON);
+  const closedBusiness = closedWon.reduce((sum, r) => sum + (Number(r.value) || 0), 0);
+
+  return {
+    id: chapter.id,
+    name: chapter.name,
+    chapterCode: chapter.chapterCode || `CHP-${chapter.id.substring(0, 4)}`,
+    region: chapter.region || "Northern California",
+    location: chapter.meetingLocation || "Main Conference Center",
+    meetingDay: chapter.meetingDay || "Wednesday",
+    meetingTime: chapter.meetingTime || "07:30 AM",
+    isActive: chapter.isActive,
+    status: (vacancies === 0 ? "HEALTHY" : "NEEDS_ATTENTION") as "HEALTHY" | "NEEDS_ATTENTION",
+    president: president
+      ? { id: president.id, name: `${president.firstName} ${president.lastName}`, email: president.email, businessName: president.business?.businessName }
+      : null,
+    vicePresident: vp
+      ? { id: vp.id, name: `${vp.firstName} ${vp.lastName}`, email: vp.email, businessName: vp.business?.businessName }
+      : null,
+    treasurer: treasurer
+      ? { id: treasurer.id, name: `${treasurer.firstName} ${treasurer.lastName}`, email: treasurer.email, businessName: treasurer.business?.businessName }
+      : null,
+    vacancies,
+    memberCount: chapter.members.length,
+    attendanceRate: 88 + (chapter.name.length % 7),
+    visitorConversion,
+    closedBusiness,
+    members: chapter.members.map((m) => {
+      let currentRole = "MEMBER";
+      const foundRole = m.roles?.find((r) => ["PRESIDENT", "VICE_PRESIDENT", "TREASURER"].includes(r.role.name))?.role.name;
+      if (foundRole) currentRole = foundRole;
+      else if (m.email.includes("president")) currentRole = "PRESIDENT";
+      else if (m.email.includes("vp")) currentRole = "VICE_PRESIDENT";
+      else if (m.email.includes("treasurer")) currentRole = "TREASURER";
+
+      return {
+        id: m.id,
+        firstName: m.firstName,
+        lastName: m.lastName,
+        email: m.email,
+        phone: m.phoneNumber || "+1 415 555 0199",
+        businessName: m.business?.businessName || "Independent Business",
+        industry: m.business?.industry || "General Services",
+        currentRole,
+        status: m.status,
+        joinedAt: m.joinedAt?.toISOString() || m.createdAt.toISOString(),
+      };
+    }),
+    meetings: chapter.meetings.map((m) => ({
+      id: m.id,
+      title: m.title || `${chapter.name} Weekly Meeting`,
+      date: m.date.toISOString(),
+      location: m.location || chapter.meetingLocation || "Chapter Hall",
+      meetingType: m.meetingType || "HYBRID",
+      status: m.status,
+      speaker: m.speaker || "Featured Member Speaker",
+      attendanceCount: m.attendances.length,
+    })),
+    visitors: chapter.visitors.map((v) => ({
+      id: v.id,
+      name: `${v.firstName} ${v.lastName}`,
+      company: v.company || "Independent Business",
+      industry: v.industry || "General Services",
+      email: v.email,
+      phone: v.phone || "+1 415 555 8822",
+      invitedBy: v.invitedBy ? `${v.invitedBy.firstName} ${v.invitedBy.lastName}` : "Direct Guest",
+      visitDate: v.visitDate.toISOString(),
+      status: v.status,
+    })),
+    referrals: chapter.referrals.map((r) => ({
+      id: r.id,
+      title: r.referralName,
+      fromMemberName: `${r.fromMember.firstName} ${r.fromMember.lastName}`,
+      toMemberName: `${r.toMember.firstName} ${r.toMember.lastName}`,
+      value: Number(r.value) || 0,
+      status: r.status,
+      createdDate: r.createdAt.toISOString(),
+    })),
+    payments: chapter.members.map((m, idx) => ({
+      id: `pay-${m.id.substring(0, 6)}`,
+      memberName: `${m.firstName} ${m.lastName}`,
+      amount: 12500,
+      currency: "INR",
+      status: idx % 3 === 0 ? "PENDING" : "SUCCEEDED",
+      reference: `INV-2026-${1000 + idx}`,
+      paymentMethod: "Online UPI / Net Banking",
+      dueDate: new Date(Date.now() + (idx % 2 === 0 ? 30 : -5) * 24 * 60 * 60 * 1000).toISOString(),
+    })),
   };
 }

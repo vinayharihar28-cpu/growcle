@@ -25,7 +25,7 @@ interface AuthState {
   setCurrentMember: (member: MemberInfo | null) => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set: any) => ({
   user: {
     id: "usr-101",
     name: "Alexandra Chen",
@@ -41,7 +41,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     organizationId: "org-01",
   },
   isAuthenticated: true,
-  login: (user) => set({ user, isAuthenticated: true }),
+  login: (user: User) => set({ user, isAuthenticated: true }),
   logout: () => set({ user: null, currentMember: null, isAuthenticated: false }),
-  setCurrentMember: (currentMember) => set({ currentMember }),
+  setCurrentMember: (currentMember: MemberInfo | null) => set({ currentMember }),
 }));

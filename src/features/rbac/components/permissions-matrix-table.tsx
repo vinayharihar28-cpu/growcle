@@ -28,9 +28,9 @@ export function PermissionsMatrixTable({ roles, permissions, onTogglePermission 
         <table className="w-full text-left text-xs border-collapse">
           <thead className="bg-muted/60 border-b text-[11px] font-bold text-muted-foreground uppercase">
             <tr>
-              <th className="p-4 min-w-[240px] sticky left-0 bg-muted/90 backdrop-blur-xs z-10">Permission Name & Action</th>
+              <th className="p-4 min-w-[180px] sm:min-w-[240px] sm:sticky sm:left-0 bg-muted/90 backdrop-blur-xs z-10 whitespace-nowrap">Permission Name & Action</th>
               {roles.map((r) => (
-                <th key={r.code} className="p-4 text-center min-w-[130px]">
+                <th key={r.code} className="p-4 text-center min-w-[120px] whitespace-nowrap">
                   <div className="font-bold text-foreground capitalize">{r.name}</div>
                   <div className="text-[10px] text-muted-foreground font-mono font-normal">{r.code}</div>
                 </th>
@@ -52,7 +52,7 @@ export function PermissionsMatrixTable({ roles, permissions, onTogglePermission 
 
                   {categoryPermissions.map((perm) => (
                     <tr key={perm.key} className="hover:bg-accent/30 transition-colors">
-                      <td className="p-4 sticky left-0 bg-card z-10 border-r">
+                      <td className="p-4 sm:sticky sm:left-0 bg-card z-10 border-r">
                         <div className="font-bold text-foreground text-xs">{perm.label}</div>
                         <div className="text-[11px] text-muted-foreground">{perm.description}</div>
                         <span className="text-[10px] font-mono text-slate-400">{perm.key}</span>

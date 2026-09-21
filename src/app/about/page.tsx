@@ -134,8 +134,8 @@ export default function AboutPage() {
             </p>
             <div className="pt-2">
               <Button asChild className="rounded-xl px-6">
-                <Link href="/contact">
-                  Get in Touch with Sales <ArrowRight className="ml-2 h-4 w-4" />
+                <Link href="/register">
+                  Register as Chapter Visitor <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
             </div>

@@ -4,7 +4,7 @@ import * as React from "react";
 import { useAuthStore } from "@/shared/stores/auth";
 import { getMemberDashboardStats } from "../actions/dashboard";
 import { 
-  Share2, Handshake, DollarSign, Calendar, TrendingUp, Users2, Plus, 
+  Share2, Handshake, IndianRupee, Calendar, TrendingUp, Users2, Plus, 
   UserCheck, ArrowRight, Sparkles, Activity, CheckCircle2, RefreshCw, AlertCircle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/components/ui/card";
@@ -161,12 +161,12 @@ export function MemberDashboard({ onNavigateTab }: MemberDashboardProps) {
               Value Generated (Revenue)
             </CardTitle>
             <div className="h-9 w-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
-              <DollarSign className="h-5 w-5" />
+              <IndianRupee className="h-5 w-5" />
             </div>
           </CardHeader>
           <CardContent className="space-y-1">
             <div className="text-3xl font-extrabold text-foreground">
-              ${(stats?.referralsValue ?? 0).toLocaleString()}
+              ₹{(stats?.referralsValue ?? 0).toLocaleString("en-IN")}
             </div>
             <p className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold">
               Verified Closed Business (TYFCB)
@@ -187,7 +187,7 @@ export function MemberDashboard({ onNavigateTab }: MemberDashboardProps) {
                 <Activity className="h-4 w-4 text-indigo-500" /> Revenue Generated (Last 6 Months)
               </CardTitle>
               <CardDescription className="text-xs">
-                Monthly breakdown of closed-won business value ($)
+                Monthly breakdown of closed-won business value (₹)
               </CardDescription>
             </div>
           </CardHeader>
@@ -197,7 +197,7 @@ export function MemberDashboard({ onNavigateTab }: MemberDashboardProps) {
                 <BarChart data={revenueData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148, 163, 184, 0.2)" />
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(val) => `$${val}`} />
+                  <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(val) => `₹${val}`} />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: "#0f172a", 
@@ -206,7 +206,7 @@ export function MemberDashboard({ onNavigateTab }: MemberDashboardProps) {
                       color: "#fff",
                       fontSize: "12px"
                     }}
-                    formatter={(val: any) => [`$${Number(val).toLocaleString()}`, "Revenue"]}
+                    formatter={(val: any) => [`₹${Number(val).toLocaleString("en-IN")}`, "Revenue"]}
                   />
                   <Bar dataKey="revenue" fill="#6366f1" radius={[8, 8, 0, 0]} />
                 </BarChart>

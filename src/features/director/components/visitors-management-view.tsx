@@ -46,12 +46,12 @@ export function VisitorsManagementView() {
       </div>
 
       {/* Filter Toolbar */}
-      <div className="rounded-xl border bg-card p-4 shadow-sm flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+      <div className="rounded-xl border bg-card p-4 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
           <select
             value={chapterId}
             onChange={(e) => setChapterId(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium focus:ring-2 focus:ring-primary"
+            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium focus:ring-2 focus:ring-primary w-full sm:w-auto"
           >
             <option value="all">All Assigned Chapters</option>
             {chapters.map((c) => (
@@ -62,7 +62,7 @@ export function VisitorsManagementView() {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium focus:ring-2 focus:ring-primary"
+            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium focus:ring-2 focus:ring-primary w-full sm:w-auto"
           >
             <option value="all">All Visitor Statuses</option>
             <option value="PENDING">Pending Visit</option>
@@ -83,16 +83,16 @@ export function VisitorsManagementView() {
           <div className="h-64 animate-pulse bg-muted" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="w-full text-left text-sm border-collapse">
               <thead className="border-b bg-muted/50 text-xs font-semibold uppercase text-muted-foreground">
                 <tr>
-                  <th className="px-6 py-3">Visitor Name</th>
-                  <th className="px-6 py-3">Company & Industry</th>
-                  <th className="px-6 py-3">Chapter</th>
-                  <th className="px-6 py-3">Invited By</th>
-                  <th className="px-6 py-3">Visit Date</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3 text-right">Conversion Action</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Visitor Name</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Company & Industry</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Chapter</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Invited By</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Visit Date</th>
+                  <th className="px-6 py-3 whitespace-nowrap">Status</th>
+                  <th className="px-6 py-3 text-right whitespace-nowrap">Conversion Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y">

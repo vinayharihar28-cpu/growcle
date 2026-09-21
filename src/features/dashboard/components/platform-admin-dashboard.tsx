@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { Building2, ClipboardList, CreditCard, DollarSign } from "lucide-react";
+import { Building2, ClipboardList, CreditCard, IndianRupee } from "lucide-react";
 import { getPlatformDashboardStats } from "../actions/dashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/components/ui/card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
@@ -25,7 +25,7 @@ export function PlatformAdminDashboard() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <PlatformMetric label="Active organizations" value={data.activeOrganizations} icon={<Building2 className="h-5 w-5" />} />
         <PlatformMetric label="Active subscriptions" value={data.activeSubscriptions} icon={<CreditCard className="h-5 w-5" />} />
-        <PlatformMetric label="Monthly recurring revenue" value={`${data.currency} ${data.mrr.toLocaleString()}`} icon={<DollarSign className="h-5 w-5" />} />
+        <PlatformMetric label="Monthly recurring revenue" value={`₹${data.mrr.toLocaleString("en-IN")}`} icon={<IndianRupee className="h-5 w-5" />} />
         <PlatformMetric label="Recent audit events" value={data.recentAuditLogs.length} icon={<ClipboardList className="h-5 w-5" />} />
       </div>
 

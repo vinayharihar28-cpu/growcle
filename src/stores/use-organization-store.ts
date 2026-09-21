@@ -33,9 +33,9 @@ interface OrganizationState {
   setActiveOrganization: (orgId: string) => void;
 }
 
-export const useOrganizationStore = create<OrganizationState>((set) => ({
+export const useOrganizationStore = create<OrganizationState>((set: any) => ({
   activeOrganization: MOCK_ORGANIZATIONS[0],
-  setActiveOrganization: (orgId) => {
+  setActiveOrganization: (orgId: string) => {
     const org = MOCK_ORGANIZATIONS.find((o) => o.id === orgId) || MOCK_ORGANIZATIONS[0];
     set({ activeOrganization: org });
 

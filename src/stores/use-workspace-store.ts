@@ -9,7 +9,7 @@ interface WorkspaceState {
   setActiveWorkspace: (workspace: WorkspaceType) => void;
 }
 
-export const useWorkspaceStore = create<WorkspaceState>((set) => ({
+export const useWorkspaceStore = create<WorkspaceState>((set: any) => ({
   activeWorkspace: 'member',
   workspaceConfig: getWorkspaceConfig('member'),
   setActiveWorkspace: (workspace: WorkspaceType) =>

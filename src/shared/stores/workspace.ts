@@ -20,9 +20,9 @@ interface WorkspaceState {
   setAvailableRoles: (roles: Role[]) => void;
 }
 
-export const useWorkspaceStore = create<WorkspaceState>((set) => ({
+export const useWorkspaceStore = create<WorkspaceState>((set: any) => ({
   activeRole: "Admin",
   availableRoles: ["Admin", "Director", "Leadership Team", "Member"],
-  setActiveRole: (role) => set({ activeRole: role }),
-  setAvailableRoles: (roles) => set({ availableRoles: roles }),
+  setActiveRole: (role: Role) => set({ activeRole: role }),
+  setAvailableRoles: (roles: Role[]) => set({ availableRoles: roles }),
 }));
