@@ -15,6 +15,7 @@ export function CreateChapterWizard({ isOpen, onClose, onComplete }: CreateChapt
   const [formData, setFormData] = useState({
     name: '', code: '', description: '', region: '', location: '',
     meetingDay: 'Thursday', meetingTime: '07:30 AM', meetingLocation: '', meetingType: 'IN_PERSON',
+    meetingFee: 800, themeColor: 'emerald', upiId: '', upiName: '',
     directorId: '', presidentId: '', vicePresidentId: '', treasurerId: ''
   });
 
@@ -103,6 +104,31 @@ export function CreateChapterWizard({ isOpen, onClose, onComplete }: CreateChapt
                 <div className="col-span-2 space-y-1">
                   <label className="text-xs font-semibold text-muted-foreground">Primary Meeting Location / Link</label>
                   <input type="text" value={formData.meetingLocation} onChange={(e) => handleChange('meetingLocation', e.target.value)} className="w-full p-2 text-sm border rounded-lg" placeholder="Physical address or Zoom link" />
+                </div>
+                <div className="col-span-2 sm:col-span-1 space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Standard Meeting Fee (₹)</label>
+                  <input type="number" value={formData.meetingFee} onChange={(e) => handleChange('meetingFee', e.target.value)} className="w-full p-2 text-sm border rounded-lg" placeholder="800" />
+                </div>
+                <div className="col-span-2 sm:col-span-1 space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Chapter Theme Preset</label>
+                  <select value={formData.themeColor} onChange={(e) => handleChange('themeColor', e.target.value)} className="w-full p-2 text-sm border rounded-lg bg-background font-medium">
+                    <option value="emerald">Emerald Vitality (Green)</option>
+                    <option value="purple">Royal Purple</option>
+                    <option value="amber">Solar Amber (Gold)</option>
+                    <option value="rose">Velvet Rose</option>
+                    <option value="cyan">Electric Cyan</option>
+                    <option value="indigo">Midnight Indigo</option>
+                    <option value="crimson">Crimson Red</option>
+                    <option value="orange">Sunset Orange</option>
+                  </select>
+                </div>
+                <div className="col-span-2 sm:col-span-1 space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Chapter UPI VPA ID</label>
+                  <input type="text" value={formData.upiId} onChange={(e) => handleChange('upiId', e.target.value)} className="w-full p-2 text-sm border rounded-lg font-mono" placeholder="e.g. sskchapter@okaxis" />
+                </div>
+                <div className="col-span-2 sm:col-span-1 space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Payee Name</label>
+                  <input type="text" value={formData.upiName} onChange={(e) => handleChange('upiName', e.target.value)} className="w-full p-2 text-sm border rounded-lg" placeholder="e.g. SSK Chapter Treasury" />
                 </div>
               </div>
             </div>

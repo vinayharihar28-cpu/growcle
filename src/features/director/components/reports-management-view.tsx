@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { BarChart3, TrendingUp, Download, Building2, Users, Handshake } from "lucide-react";
 import { getDirectorReports, getAssignedChapters } from "../actions/director-actions";
+import { LeadershipReportsView } from "@/features/leadership/components/leadership-reports-view";
 
 export function ReportsManagementView() {
   const [reports, setReports] = useState<any>(null);
@@ -109,6 +110,11 @@ export function ReportsManagementView() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Meeting Attendance & Turnout PDF Reports */}
+          <div className="pt-4 border-t">
+            <LeadershipReportsView forcedRole="DIRECTOR" />
           </div>
         </div>
       )}

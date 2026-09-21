@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Building2, Check, ArrowRight, ArrowLeft, X } from "lucide-react";
 import { createDirectorChapter } from "../actions/director-actions";
+import { CHAPTER_THEMES } from "@/lib/chapter-themes";
 
 interface CreateChapterModalProps {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export function CreateChapterModal({
     meetingTime: "07:30 AM",
     meetingLocation: "",
     description: "",
+    themeColor: "emerald",
   });
 
   if (!isOpen) return null;
@@ -179,12 +181,38 @@ export function CreateChapterModal({
           )}
 
           {step === 3 && (
-            <div className="space-y-3">
-              <h4 className="font-semibold text-foreground">Step 3 — Leadership Workspace Setup</h4>
-              <p className="text-xs text-muted-foreground">
-                Upon creation, your new chapter will be initialized with vacant leadership positions for President, Vice President, and Treasurer. You can assign members to leadership positions anytime from the Leadership tab.
-              </p>
-              <div className="rounded-lg border bg-muted/30 p-4 space-y-2 text-xs">
+            <div className="space-y-4">
+              <div>
+                <h4 className="font-semibold text-foreground">Step 3 — Color Theme & Leadership Setup</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Choose a dedicated color theme for this chapter and preview initial leadership slots.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-muted-foreground uppercase mb-2">
+                  Chapter Color Theme
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {Object.values(CHAPTER_THEMES).map((theme) => (
+                    <button
+                      key={theme.id}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, themeColor: theme.id })}
+                      className={`flex items-center gap-2 p-2 rounded-lg border text-xs font-medium transition-all text-left ${
+                        formData.themeColor === theme.id
+                          ? "border-primary ring-2 ring-primary/30 bg-primary/5 shadow-xs"
+                          : "border-border hover:border-muted-foreground/40 opacity-80 hover:opacity-100"
+                      }`}
+                    >
+                      <span className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs" style={{ backgroundColor: theme.hex }} />
+                      <span className="truncate">{theme.name.split(" ")[0]}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-lg border bg-muted/30 p-3.5 space-y-2 text-xs">
                 <div className="flex justify-between">
                   <span className="font-semibold">President:</span>
                   <span className="text-amber-500 font-medium">Unassigned (Pending creation)</span>
@@ -216,6 +244,16 @@ export function CreateChapterModal({
                 <div className="flex justify-between border-b pb-1.5">
                   <span className="text-muted-foreground">Region:</span>
                   <span className="font-medium">{formData.region}</span>
+                </div>
+                <div className="flex justify-between border-b pb-1.5">
+                  <span className="text-muted-foreground">Color Theme:</span>
+                  <div className="flex items-center gap-1.5 font-medium">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: CHAPTER_THEMES[formData.themeColor]?.hex || "#10b981" }}
+                    />
+                    <span>{CHAPTER_THEMES[formData.themeColor]?.name || formData.themeColor}</span>
+                  </div>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Schedule:</span>

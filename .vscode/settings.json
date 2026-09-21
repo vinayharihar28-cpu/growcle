@@ -1,0 +1,20 @@
+{
+  "terminal.integrated.defaultProfile.windows": "Command Prompt",
+  "terminal.integrated.windowsEnableConpty": false,
+  "terminal.integrated.gpuAcceleration": "off",
+  "terminal.integrated.profiles.windows": {
+    "Command Prompt": {
+      "path": "C:\\Windows\\System32\\cmd.exe",
+      "args": [],
+      "icon": "terminal-cmd"
+    },
+    "PowerShell (No Profile)": {
+      "source": "PowerShell",
+      "args": ["-NoProfile"],
+      "icon": "terminal-powershell"
+    },
+    "Git Bash": {
+      "source": "Git Bash"
+    }
+  }
+}

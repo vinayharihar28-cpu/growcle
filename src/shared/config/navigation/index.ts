@@ -5,6 +5,7 @@ import { adminNavigation } from "./admin";
 import { financeNavigation } from "./finance";
 import { superAdminNavigation } from "./super-admin";
 import { directorNavigation } from "./director";
+import { leadershipNavigation } from "./leadership";
 
 export function getNavigationForRole(role: Role | null): NavigationConfig {
   switch (role) {
@@ -15,12 +16,14 @@ export function getNavigationForRole(role: Role | null): NavigationConfig {
     case "Admin":
     case "Organization Administrator":
       return adminNavigation;
-    case "Finance":
-    case "Treasurer":
-      return financeNavigation;
-    case "Member":
+    case "President":
     case "Vice President":
     case "Secretary":
+    case "Treasurer":
+    case "Leadership Team":
+    case "Finance":
+      return leadershipNavigation;
+    case "Member":
     default:
       return memberNavigation;
   }

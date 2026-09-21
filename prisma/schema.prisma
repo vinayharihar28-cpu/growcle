@@ -243,8 +243,13 @@ model Chapter {
   chapterCode     String?
   description     String?
   meetingDay      String?
+  meetingDayOfWeek Int?     @default(3)
   meetingTime     String?
   meetingLocation String?
+  meetingFee      Float?    @default(800)
+  themeColor      String?   @default("emerald")
+  upiId           String?
+  upiName         String?
   isActive        Boolean  @default(true)
   region          String?
   organizationId  String
@@ -398,6 +403,12 @@ model MeetingAttendance {
   memberId         String?
   visitorId        String?
   status           AttendanceStatus @default(PRESENT)
+  paid             Boolean          @default(false)
+  paymentMethod    String?          // 'UPI' | 'CASH' | 'ADV'
+  amount           Float?
+  utr              String?
+  gatewayTxnId     String?
+  screenshotUrl    String?
   checkInTime      DateTime?
   checkedInBy      String?
   attendanceMethod String?
@@ -615,10 +626,21 @@ model Coupon {
 model Transaction {
   id             String   @id @default(uuid())
   amount         Decimal
-  currency       String
+  currency       String   @default("INR")
   description    String?
+  memberId       String?
+  meetingId      String?
+  paymentMethod  String?  // 'UPI' | 'CASH' | 'ADV'
+  status         String   @default("SUCCESS") // 'SUCCESS' | 'PENDING' | 'FAILED'
+  utr            String?
+  gatewayTxnId   String?
+  screenshotUrl  String?
+  notes          String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  @@index([memberId])
+  @@index([meetingId])
 }
 
 // -----------------------------------------------------------------------------

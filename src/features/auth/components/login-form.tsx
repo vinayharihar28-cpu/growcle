@@ -45,24 +45,19 @@ export function LoginForm() {
     try {
       setErrorMsg(null);
       const email = data.email.trim();
-      const { data: authData, error } = await authClient.signIn.email({
+      const { error } = await authClient.signIn.email({
         email,
         password: data.password,
         callbackURL: "/dashboard",
-        fetchOptions: {
-          onSuccess: () => {
-            router.push("/dashboard");
-            router.refresh();
-          },
-        },
       });
       
       if (error) {
         setErrorMsg(error.message || "Invalid email or password. Please verify your credentials.");
         triggerShake();
       } else {
-        router.push("/dashboard");
-        router.refresh();
+        // The session cookie is available on the next request, so a single
+        // navigation is enough. Refreshing here caused duplicate dashboard loads.
+        router.replace("/dashboard");
       }
     } catch (error) {
       console.error("Email sign in failed", error);

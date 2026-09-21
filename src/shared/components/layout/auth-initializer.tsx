@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useAuthStore, MemberInfo } from "@/shared/stores/auth";
-import { useWorkspaceStore, Role } from "@/shared/stores/workspace";
+import { useWorkspaceStore, Role, ChapterOption } from "@/shared/stores/workspace";
 
 interface AuthInitializerProps {
   user: {
@@ -12,9 +12,16 @@ interface AuthInitializerProps {
     roles: string[];
   } | null;
   member: MemberInfo | null;
+  availableRoles: Role[];
+  chapters?: ChapterOption[];
 }
 
-export function AuthInitializer({ user, member }: AuthInitializerProps) {
+export function AuthInitializer({
+  user,
+  member,
+  availableRoles,
+  chapters = [],
+}: AuthInitializerProps) {
   useEffect(() => {
     if (user && member) {
       useAuthStore.setState({
@@ -23,14 +30,33 @@ export function AuthInitializer({ user, member }: AuthInitializerProps) {
         isAuthenticated: true,
       });
 
-      const defaultRoles: Role[] = ["Admin", "Director", "Leadership Team", "Member"];
       const wsStore = useWorkspaceStore.getState();
-      if (!wsStore.activeRole || !defaultRoles.includes(wsStore.activeRole)) {
-        wsStore.setActiveRole("Admin");
+      wsStore.setAvailableRoles(availableRoles);
+
+      // If activeRole is not in user's permitted roles, switch to their primary permitted role
+      if (!wsStore.activeRole || !availableRoles.includes(wsStore.activeRole)) {
+        const preferredRole = availableRoles.includes("Admin")
+          ? "Admin"
+          : availableRoles.includes("Director")
+          ? "Director"
+          : availableRoles.includes("Leadership Team")
+          ? "Leadership Team"
+          : availableRoles[0] || "Member";
+        wsStore.setActiveRole(preferredRole);
       }
-      wsStore.setAvailableRoles(defaultRoles);
+
+      // Update chapters for switching
+      wsStore.setAvailableChapters(chapters);
+
+      // Check cookie for selected chapter
+      if (typeof document !== "undefined") {
+        const match = document.cookie.match(new RegExp("(^| )active-chapter-id=([^;]+)"));
+        if (match && match[2]) {
+          wsStore.setSelectedChapterId(match[2]);
+        }
+      }
     }
-  }, [user, member]);
+  }, [user, member, availableRoles, chapters]);
 
   return null;
 }

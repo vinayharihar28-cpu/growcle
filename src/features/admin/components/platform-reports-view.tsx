@@ -14,10 +14,11 @@ import {
   Filter
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
+import { LeadershipReportsView } from '@/features/leadership/components/leadership-reports-view';
 
 export function PlatformReportsView() {
   const [timeRange, setTimeRange] = useState<'30d' | '3m' | '6m' | '12m'>('6m');
-  const [activeSubTab, setActiveSubTab] = useState<'membership' | 'chapters' | 'visitors' | 'referrals' | 'finance'>('membership');
+  const [activeSubTab, setActiveSubTab] = useState<'membership' | 'chapters' | 'visitors' | 'referrals' | 'finance' | 'meetings'>('membership');
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -111,6 +112,16 @@ export function PlatformReportsView() {
           }`}
         >
           <CreditCard className="w-4 h-4" /> Dues & Financials
+        </button>
+        <button
+          onClick={() => setActiveSubTab('meetings')}
+          className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+            activeSubTab === 'meetings'
+              ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4 text-emerald-500" /> Meeting Turnout & PDF Reports
         </button>
       </div>
 
@@ -334,6 +345,13 @@ export function PlatformReportsView() {
               <div className="text-3xl font-extrabold text-rose-600 mt-1">{formatCurrency(15000)}</div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 6. Meeting Turnout & Weekly Attendance PDF Reports */}
+      {activeSubTab === 'meetings' && (
+        <div className="pt-2">
+          <LeadershipReportsView forcedRole="ADMIN" />
         </div>
       )}
     </div>

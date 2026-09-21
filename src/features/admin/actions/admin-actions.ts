@@ -10,12 +10,42 @@ import {
   PaymentStatus 
 } from "@prisma/client";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
+
+async function getEffectiveChapterId(paramChapterId?: string): Promise<string | undefined> {
+  if (paramChapterId && paramChapterId !== "all") return paramChapterId;
+  if (paramChapterId === "all") return undefined;
+  try {
+    const cookieStore = await cookies();
+    const cookieVal = cookieStore.get("active-chapter-id")?.value;
+    if (cookieVal && cookieVal !== "all") return cookieVal;
+  } catch (e) {
+    // ignore outside request context
+  }
+  return undefined;
+}
 
 // -----------------------------------------------------------------------------
 // 1. PLATFORM OVERVIEW & KPIS (Section 6 & 7)
 // -----------------------------------------------------------------------------
-export async function getAdminPlatformKPIs() {
+export async function getAdminPlatformKPIs(chapterId?: string) {
   try {
+    const effectiveChapterId = await getEffectiveChapterId(chapterId);
+    const isChapterFiltered = !!effectiveChapterId;
+    const chapterFilter = isChapterFiltered ? { id: effectiveChapterId } : {};
+    const memberChapterFilter = isChapterFiltered ? { chapterId: effectiveChapterId } : {};
+    const visitorChapterFilter = isChapterFiltered ? { chapterId: effectiveChapterId } : {};
+    const referralChapterFilter = isChapterFiltered ? { chapterId: effectiveChapterId } : {};
+
+    let memberIds: string[] | undefined = undefined;
+    if (isChapterFiltered) {
+      const chapterMembers = await db.member.findMany({
+        where: { chapterId: effectiveChapterId },
+        select: { id: true },
+      });
+      memberIds = chapterMembers.map((m) => m.id);
+    }
+
     const [
       totalChapters,
       activeChapters,
@@ -38,70 +68,78 @@ export async function getAdminPlatformKPIs() {
       pendingInvoices,
       failedInvoices,
     ] = await Promise.all([
-      db.chapter.count(),
-      db.chapter.count({ where: { isActive: true } }),
-      db.chapter.count({ where: { isActive: false } }),
-      db.member.count(),
-      db.member.count({ where: { status: MemberStatus.ACTIVE } }),
-      db.member.count({ where: { status: MemberStatus.PENDING } }),
-      db.member.count({ where: { status: { in: [MemberStatus.INACTIVE, MemberStatus.SUSPENDED, MemberStatus.EXPIRED] } } }),
-      db.visitor.count(),
-      db.visitor.count({ where: { status: VisitorStatus.PENDING } }),
-      db.visitor.count({ where: { status: VisitorStatus.ATTENDED } }),
-      db.visitor.count({ where: { status: VisitorStatus.CONVERTED } }),
-      db.referral.count(),
-      db.referral.count({ where: { status: ReferralStatus.PENDING } }),
-      db.referral.count({ where: { status: ReferralStatus.CONTACTED } }),
-      db.referral.count({ where: { status: ReferralStatus.CLOSED_WON } }),
-      db.referral.count({ where: { status: ReferralStatus.CLOSED_LOST } }),
+      db.chapter.count({ where: chapterFilter }),
+      db.chapter.count({ where: { ...chapterFilter, isActive: true } }),
+      db.chapter.count({ where: { ...chapterFilter, isActive: false } }),
+      db.member.count({ where: memberChapterFilter }),
+      db.member.count({ where: { ...memberChapterFilter, status: MemberStatus.ACTIVE } }),
+      db.member.count({ where: { ...memberChapterFilter, status: MemberStatus.PENDING } }),
+      db.member.count({ where: { ...memberChapterFilter, status: { in: [MemberStatus.INACTIVE, MemberStatus.SUSPENDED, MemberStatus.EXPIRED] } } }),
+      db.visitor.count({ where: visitorChapterFilter }),
+      db.visitor.count({ where: { ...visitorChapterFilter, status: VisitorStatus.PENDING } }),
+      db.visitor.count({ where: { ...visitorChapterFilter, status: VisitorStatus.ATTENDED } }),
+      db.visitor.count({ where: { ...visitorChapterFilter, status: VisitorStatus.CONVERTED } }),
+      db.referral.count({ where: referralChapterFilter }),
+      db.referral.count({ where: { ...referralChapterFilter, status: ReferralStatus.PENDING } }),
+      db.referral.count({ where: { ...referralChapterFilter, status: ReferralStatus.CONTACTED } }),
+      db.referral.count({ where: { ...referralChapterFilter, status: ReferralStatus.CLOSED_WON } }),
+      db.referral.count({ where: { ...referralChapterFilter, status: ReferralStatus.CLOSED_LOST } }),
       db.referral.aggregate({
-        where: { status: ReferralStatus.CLOSED_WON },
+        where: { ...referralChapterFilter, status: ReferralStatus.CLOSED_WON },
         _sum: { value: true },
       }),
       db.invoice.aggregate({
-        where: { status: PaymentStatus.SUCCEEDED },
+        where: {
+          status: PaymentStatus.SUCCEEDED,
+          ...(memberIds ? { memberId: { in: memberIds } } : {}),
+        },
         _sum: { total: true },
       }),
       db.invoice.aggregate({
-        where: { status: PaymentStatus.PENDING },
+        where: {
+          status: PaymentStatus.PENDING,
+          ...(memberIds ? { memberId: { in: memberIds } } : {}),
+        },
         _sum: { total: true },
       }),
       db.invoice.aggregate({
-        where: { status: PaymentStatus.FAILED },
+        where: {
+          status: PaymentStatus.FAILED,
+          ...(memberIds ? { memberId: { in: memberIds } } : {}),
+        },
         _sum: { total: true },
       }),
     ]);
 
-    // Fallbacks if database is brand new / unseeded
-    const totalClosedValue = Number(closedBusinessAgg._sum.value || 0) || 12485000;
-    const collectedRevenue = Number(totalPaidInvoices._sum.total || 0) || 345000;
-    const pendingRevenue = Number(pendingInvoices._sum.total || 0) || 45000;
-    const outstandingRevenue = Number(failedInvoices._sum.total || 0) || 15000;
+    const totalClosedValue = Number(closedBusinessAgg._sum.value || 0);
+    const collectedRevenue = Number(totalPaidInvoices._sum?.total || 0);
+    const pendingRevenue = Number(pendingInvoices._sum?.total || 0);
+    const outstandingRevenue = Number(failedInvoices._sum?.total || 0);
 
     return {
       chapters: {
-        total: totalChapters || 12,
-        active: activeChapters || 11,
-        inactive: inactiveChapters || 1,
+        total: totalChapters,
+        active: activeChapters,
+        inactive: inactiveChapters,
       },
       members: {
-        total: totalMembers || 164,
-        active: activeMembers || 152,
-        pending: pendingMembers || 8,
-        inactive: inactiveMembers || 4,
+        total: totalMembers,
+        active: activeMembers,
+        pending: pendingMembers,
+        inactive: inactiveMembers,
       },
       visitors: {
-        total: totalVisitors || 86,
-        upcoming: upcomingVisitors || 14,
-        attended: attendedVisitors || 52,
-        converted: convertedVisitors || 20,
+        total: totalVisitors,
+        upcoming: upcomingVisitors,
+        attended: attendedVisitors,
+        converted: convertedVisitors,
       },
       referrals: {
-        total: totalReferrals || 428,
-        pending: pendingReferrals || 64,
-        contacted: contactedReferrals || 92,
-        closedWon: closedWonReferrals || 246,
-        closedLost: closedLostReferrals || 26,
+        total: totalReferrals,
+        pending: pendingReferrals,
+        contacted: contactedReferrals,
+        closedWon: closedWonReferrals,
+        closedLost: closedLostReferrals,
         totalClosedBusiness: totalClosedValue,
       },
       payments: {
@@ -113,11 +151,11 @@ export async function getAdminPlatformKPIs() {
   } catch (error) {
     console.error("[AdminActions] Error in getAdminPlatformKPIs:", error);
     return {
-      chapters: { total: 12, active: 11, inactive: 1 },
-      members: { total: 164, active: 152, pending: 8, inactive: 4 },
-      visitors: { total: 86, upcoming: 14, attended: 52, converted: 20 },
-      referrals: { total: 428, pending: 64, contacted: 92, closedWon: 246, closedLost: 26, totalClosedBusiness: 12485000 },
-      payments: { totalCollected: 345000, pending: 45000, outstanding: 15000 },
+      chapters: { total: 0, active: 0, inactive: 0 },
+      members: { total: 0, active: 0, pending: 0, inactive: 0 },
+      visitors: { total: 0, upcoming: 0, attended: 0, converted: 0 },
+      referrals: { total: 0, pending: 0, contacted: 0, closedWon: 0, closedLost: 0, totalClosedBusiness: 0 },
+      payments: { totalCollected: 0, pending: 0, outstanding: 0 },
     };
   }
 }
@@ -162,9 +200,19 @@ export async function getAdminChaptersList() {
 
     return chapters.map((chap) => {
       const activeMembers = chap.members.filter((m) => m.status === MemberStatus.ACTIVE);
-      const president = chap.members.find((m) => m.roles.some((r) => r.role.name === "PRESIDENT") || m.email.includes("president"));
-      const vp = chap.members.find((m) => m.roles.some((r) => r.role.name === "VICE_PRESIDENT") || m.email.includes("vp"));
-      const treasurer = chap.members.find((m) => m.roles.some((r) => r.role.name === "TREASURER") || m.email.includes("treasurer"));
+      const president = chap.members.find(
+        (m) => m.roles.some((r) => r.role.name === "PRESIDENT") || m.email.includes("president")
+      );
+      const vp = chap.members.find(
+        (m) => m.roles.some((r) => r.role.name === "VICE_PRESIDENT") || m.email.includes("vp")
+      );
+      const treasurer = chap.members.find(
+        (m) => m.roles.some((r) => r.role.name === "TREASURER") || m.email.includes("treasurer")
+      );
+      const director = chap.members.find(
+        (m) => m.roles.some((r) => r.role.name === "DIRECTOR") || m.email.includes("director")
+      );
+
       const closedValue = chap.referrals.reduce((sum, r) => sum + (Number(r.value) || 0), 0);
       const convertedVisitors = chap.visitors.filter((v) => v.status === VisitorStatus.CONVERTED).length;
       const totalVisitors = chap.visitors.length;
@@ -174,22 +222,24 @@ export async function getAdminChaptersList() {
         id: chap.id,
         name: chap.name,
         chapterCode: chap.chapterCode || `CHP-${chap.id.substring(0, 4).toUpperCase()}`,
-        region: chap.region || "Metro Region",
-        location: chap.meetingLocation || "Business Innovation Hub",
+        region: chap.region || "Primary Region",
+        location: chap.meetingLocation || "Business Center",
         meetingDay: chap.meetingDay || "Wednesday",
         meetingTime: chap.meetingTime || "07:30 AM",
         isActive: chap.isActive,
         activeMembersCount: activeMembers.length,
         totalMembersCount: chap.members.length,
-        directorName: "Marcus Vance",
+        directorName: director ? `${director.firstName} ${director.lastName}` : "Unassigned",
         presidentName: president ? `${president.firstName} ${president.lastName}` : "Unassigned",
         vpName: vp ? `${vp.firstName} ${vp.lastName}` : "Unassigned",
         treasurerName: treasurer ? `${treasurer.firstName} ${treasurer.lastName}` : "Unassigned",
-        nextMeeting: chap.meetings[0] ? `${new Date(chap.meetings[0].date).toLocaleDateString()} at ${chap.meetings[0].startTime}` : "None scheduled",
+        nextMeeting: chap.meetings[0]
+          ? `${new Date(chap.meetings[0].date).toLocaleDateString()} at ${chap.meetings[0].startTime}`
+          : "None scheduled",
         closedBusiness: closedValue,
         visitorCount: totalVisitors,
         visitorConversionRate: conversionRate,
-        attendanceRate: 88 + (chap.name.length % 9),
+        attendanceRate: 0,
       };
     });
   } catch (error) {
@@ -203,51 +253,75 @@ export async function getAdminChaptersList() {
 // -----------------------------------------------------------------------------
 export async function getAdminDirectors() {
   try {
-    const chapters = await db.chapter.findMany({
-      select: { id: true, name: true },
-      take: 6,
+    const directorMembers = await db.member.findMany({
+      where: {
+        roles: {
+          some: {
+            role: { name: "DIRECTOR" },
+          },
+        },
+      },
+      include: {
+        chapter: true,
+        roles: {
+          include: { role: true },
+        },
+      },
+      orderBy: { firstName: "asc" },
     });
 
-    const chapterNames = chapters.map((c) => c.name);
-
-    return [
-      {
-        id: "dir-1",
-        firstName: "Marcus",
-        lastName: "Vance",
-        email: "marcus.vance@growcle.app",
-        status: "ACTIVE" as const,
-        assignedChapters: chapterNames.slice(0, 3),
-        totalChapters: 3,
-        dateAssigned: "2025-01-15",
-        lastActivity: "2 hours ago",
-      },
-      {
-        id: "dir-2",
-        firstName: "Elena",
-        lastName: "Rostova",
-        email: "elena.rostova@growcle.app",
-        status: "ACTIVE" as const,
-        assignedChapters: chapterNames.slice(3, 5),
-        totalChapters: 2,
-        dateAssigned: "2025-02-01",
-        lastActivity: "Yesterday",
-      },
-      {
-        id: "dir-3",
-        firstName: "David",
-        lastName: "Kim",
-        email: "david.kim@growcle.app",
-        status: "ACTIVE" as const,
-        assignedChapters: chapterNames.slice(5),
-        totalChapters: 1,
-        dateAssigned: "2025-02-18",
-        lastActivity: "3 days ago",
-      },
-    ];
+    return directorMembers.map((dm) => ({
+      id: dm.id,
+      firstName: dm.firstName,
+      lastName: dm.lastName,
+      email: dm.email,
+      status: dm.status,
+      assignedChapters: dm.chapter ? [dm.chapter.name] : [],
+      totalChapters: dm.chapter ? 1 : 0,
+      dateAssigned: dm.joinedAt ? new Date(dm.joinedAt).toLocaleDateString("en-IN") : "Recent",
+      lastActivity: "Active",
+    }));
   } catch (error) {
     console.error("[AdminActions] Error in getAdminDirectors:", error);
     return [];
+  }
+}
+
+export async function assignMemberAsDirector(memberId: string, chapterId?: string) {
+  try {
+    const role = await db.role.upsert({
+      where: { name: "DIRECTOR" },
+      create: { name: "DIRECTOR", description: "Regional Chapter Director" },
+      update: {},
+    });
+
+    await db.memberRole.upsert({
+      where: {
+        memberId_roleId: {
+          memberId,
+          roleId: role.id,
+        },
+      },
+      create: {
+        memberId,
+        roleId: role.id,
+      },
+      update: {},
+    });
+
+    if (chapterId) {
+      await db.member.update({
+        where: { id: memberId },
+        data: { chapterId },
+      });
+    }
+
+    revalidatePath("/dashboard/admin/directors");
+    revalidatePath("/dashboard/director");
+    return { success: true };
+  } catch (error) {
+    console.error("[AdminActions] Error in assignMemberAsDirector:", error);
+    return { success: false, error: "Failed to assign director" };
   }
 }
 
@@ -297,9 +371,15 @@ export async function getAdminLeadershipAssignments() {
     });
 
     return chapters.map((c) => {
-      const pres = c.members.find((m) => m.roles.some((r) => r.role.name === "PRESIDENT") || m.email.includes("president"));
-      const vp = c.members.find((m) => m.roles.some((r) => r.role.name === "VICE_PRESIDENT") || m.email.includes("vp"));
-      const tres = c.members.find((m) => m.roles.some((r) => r.role.name === "TREASURER") || m.email.includes("treasurer"));
+      const pres = c.members.find(
+        (m) => m.roles.some((r) => r.role.name === "PRESIDENT") || m.email.includes("president")
+      );
+      const vp = c.members.find(
+        (m) => m.roles.some((r) => r.role.name === "VICE_PRESIDENT") || m.email.includes("vp")
+      );
+      const tres = c.members.find(
+        (m) => m.roles.some((r) => r.role.name === "TREASURER") || m.email.includes("treasurer")
+      );
 
       return {
         chapterId: c.id,
@@ -361,12 +441,13 @@ export async function updateLeadershipRole(chapterId: string, memberId: string, 
 // -----------------------------------------------------------------------------
 export async function getAdminAttendanceData(chapterId?: string) {
   try {
+    const effectiveChapterId = await getEffectiveChapterId(chapterId);
     const chapters = await db.chapter.findMany({
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     });
 
-    const selectedChapterId = chapterId || chapters[0]?.id;
+    const selectedChapterId = effectiveChapterId || chapters[0]?.id;
 
     const meetings = selectedChapterId
       ? await db.meeting.findMany({
@@ -394,7 +475,7 @@ export async function getAdminAttendanceData(chapterId?: string) {
         const substitute = m.attendances.filter((a) => a.status === AttendanceStatus.SUBSTITUTE).length;
         const absent = m.attendances.filter((a) => a.status === AttendanceStatus.ABSENT).length;
         const excused = m.attendances.filter((a) => a.status === AttendanceStatus.EXCUSED).length;
-        const rate = total > 0 ? Math.round(((present + substitute) / total) * 100) : 100;
+        const rate = total > 0 ? Math.round(((present + substitute) / total) * 100) : 0;
 
         return {
           id: m.id,
@@ -403,12 +484,12 @@ export async function getAdminAttendanceData(chapterId?: string) {
           startTime: m.startTime,
           location: m.location,
           status: m.status,
-          totalMembers: total || 28,
-          present: present || 24,
-          substitute: substitute || 2,
-          absent: absent || 1,
-          excused: excused || 1,
-          rate: total > 0 ? rate : 93,
+          totalMembers: total,
+          present: present,
+          substitute: substitute,
+          absent: absent,
+          excused: excused,
+          rate: rate,
           records: m.attendances.map((rec) => ({
             id: rec.id,
             memberId: rec.memberId || "",
@@ -453,64 +534,70 @@ export async function correctAttendanceRecord(attendanceId: string, newStatus: A
 // -----------------------------------------------------------------------------
 // 6. PAYMENTS & TRANSACTIONS (Section 27)
 // -----------------------------------------------------------------------------
-export async function getAdminPaymentsData() {
+export async function getAdminPaymentsData(chapterId?: string) {
   try {
-    const paymentsList = [
-      {
-        id: "INV-1092",
-        member: "Alexandra Chen",
-        chapter: "Silicon Valley Founders",
-        amount: 25000,
-        status: "SUCCEEDED",
-        date: "2025-03-15",
-        method: "Razorpay / UPI",
-        reference: "pay_Rzp98273921",
-      },
-      {
-        id: "INV-1093",
-        member: "Marcus Vance",
-        chapter: "Silicon Valley Founders",
-        amount: 25000,
-        status: "SUCCEEDED",
-        date: "2025-03-14",
-        method: "Bank Transfer",
-        reference: "NEFT-7821920391",
-      },
-      {
-        id: "INV-1094",
-        member: "Sophia Rodriguez",
-        chapter: "Golden Gate Executives",
-        amount: 25000,
-        status: "PENDING",
-        date: "2025-03-12",
-        method: "Credit Card",
-        reference: "auth_99182371",
-      },
-      {
-        id: "INV-1095",
-        member: "David Kim",
-        chapter: "East Bay Nexus",
-        amount: 25000,
-        status: "FAILED",
-        date: "2025-03-10",
-        method: "Debit Card",
-        reference: "err_insufficient_funds",
-      },
-    ];
+    const effectiveChapterId = await getEffectiveChapterId(chapterId);
+    let memberIds: string[] | undefined = undefined;
+    if (effectiveChapterId) {
+      const chapterMembers = await db.member.findMany({
+        where: { chapterId: effectiveChapterId },
+        select: { id: true },
+      });
+      memberIds = chapterMembers.map((m) => m.id);
+    }
+
+    const invoices = await db.invoice.findMany({
+      where: memberIds ? { memberId: { in: memberIds } } : undefined,
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+
+    const memberIdList = invoices.map((i) => i.memberId).filter((id): id is string => !!id);
+    const members = memberIdList.length > 0
+      ? await db.member.findMany({
+          where: { id: { in: memberIdList } },
+          include: { chapter: true },
+        })
+      : [];
+    const memberMap = new Map(members.map((m) => [m.id, m]));
+
+    const totalCollected = invoices
+      .filter((i) => i.status === PaymentStatus.SUCCEEDED)
+      .reduce((sum, i) => sum + (Number(i.total) || 0), 0);
+    const pending = invoices
+      .filter((i) => i.status === PaymentStatus.PENDING)
+      .reduce((sum, i) => sum + (Number(i.total) || 0), 0);
+    const failed = invoices
+      .filter((i) => i.status === PaymentStatus.FAILED)
+      .reduce((sum, i) => sum + (Number(i.total) || 0), 0);
+
+    const paymentsList = invoices.map((inv) => {
+      const m = inv.memberId ? memberMap.get(inv.memberId) : null;
+      return {
+        id: inv.invoiceNumber || `INV-${inv.id.substring(0, 6)}`,
+        member: m ? `${m.firstName} ${m.lastName}` : "Member",
+        chapter: m?.chapter?.name || "Chapter",
+        amount: Number(inv.total) || 0,
+        status: inv.status,
+        date: inv.createdAt.toISOString().split("T")[0],
+        method: "Online UPI / Net Banking",
+        reference: inv.id,
+      };
+    });
 
     return {
       kpis: {
-        totalCollected: 345000,
-        pending: 45000,
-        failed: 15000,
-        outstanding: 30000,
+        totalCollected,
+        pending,
+        failed,
+        outstanding: failed,
       },
       payments: paymentsList,
     };
   } catch (error) {
     console.error("[AdminActions] Error in getAdminPaymentsData:", error);
     return {
-      kpis: { totalCollected: 345000, pending: 45000, failed: 15000, outstanding: 30000 },
+      kpis: { totalCollected: 0, pending: 0, failed: 0, outstanding: 0 },
       payments: [],
     };
   }
@@ -551,51 +638,16 @@ export async function getAdminNotificationsList() {
       take: 20,
     });
 
-    if (notifications.length > 0) {
-      return notifications.map((n) => ({
-        id: n.id,
-        title: n.title,
-        message: n.body,
-        recipient: "All Chapters",
-        type: n.type,
-        createdAt: n.createdAt.toISOString(),
-        isRead: n.isRead,
-        priority: "NORMAL",
-      }));
-    }
-
-    return [
-      {
-        id: "notif-1",
-        title: "Q1 Chapter Dues Billing Open",
-        message: "Invoices for Q1 chapter membership have been generated and sent to all active members.",
-        recipient: "All Members",
-        type: "BILLING",
-        createdAt: "2025-03-10T10:00:00Z",
-        isRead: true,
-        priority: "HIGH",
-      },
-      {
-        id: "notif-2",
-        title: "Platform Maintenance Window",
-        message: "Scheduled cloud infrastructure upgrades this Sunday from 02:00 AM to 03:00 AM UTC.",
-        recipient: "All Chapters",
-        type: "SYSTEM",
-        createdAt: "2025-03-08T15:30:00Z",
-        isRead: true,
-        priority: "NORMAL",
-      },
-      {
-        id: "notif-3",
-        title: "New Chapter Launch Approved",
-        message: "Marin County Professionals chapter has met its induction quorum and will launch next month.",
-        recipient: "Directors",
-        type: "ANNOUNCEMENT",
-        createdAt: "2025-03-05T09:15:00Z",
-        isRead: true,
-        priority: "NORMAL",
-      },
-    ];
+    return notifications.map((n) => ({
+      id: n.id,
+      title: n.title,
+      message: n.body,
+      recipient: "All Chapters",
+      type: n.type,
+      createdAt: n.createdAt.toISOString(),
+      isRead: n.isRead,
+      priority: "NORMAL",
+    }));
   } catch (error) {
     console.error("[AdminActions] Error in getAdminNotificationsList:", error);
     return [];
@@ -646,71 +698,16 @@ export async function getAdminAuditLogsList(filterAction?: string) {
       take: 50,
     });
 
-    if (logs.length > 0) {
-      return logs.map((l) => ({
-        id: l.id,
-        actor: l.who || "System Admin",
-        action: l.action,
-        entity: l.entity,
-        entityId: l.entityId || "N/A",
-        timestamp: l.createdAt.toISOString(),
-        ipAddress: l.ipAddress || "127.0.0.1",
-        result: "SUCCESS",
-      }));
-    }
-
-    return [
-      {
-        id: "audit-1",
-        actor: "Alexandra Chen",
-        action: "CREATE_CHAPTER",
-        entity: "Chapter",
-        entityId: "CHP-9912",
-        timestamp: new Date().toISOString(),
-        ipAddress: "192.168.1.104",
-        result: "SUCCESS",
-      },
-      {
-        id: "audit-2",
-        actor: "Alexandra Chen",
-        action: "ASSIGN_DIRECTOR",
-        entity: "Director",
-        entityId: "dir-1",
-        timestamp: new Date(Date.now() - 3600000).toISOString(),
-        ipAddress: "192.168.1.104",
-        result: "SUCCESS",
-      },
-      {
-        id: "audit-3",
-        actor: "Marcus Vance",
-        action: "CORRECT_ATTENDANCE",
-        entity: "MeetingAttendance",
-        entityId: "att-382",
-        timestamp: new Date(Date.now() - 7200000).toISOString(),
-        ipAddress: "192.168.1.18",
-        result: "SUCCESS",
-      },
-      {
-        id: "audit-4",
-        actor: "Alexandra Chen",
-        action: "UPDATE_PERMISSIONS",
-        entity: "Role",
-        entityId: "role-director",
-        timestamp: new Date(Date.now() - 86400000).toISOString(),
-        ipAddress: "192.168.1.104",
-        result: "SUCCESS",
-      },
-      {
-        id: "audit-5",
-        actor: "System Gateway",
-        action: "PROCESS_INVOICE",
-        entity: "Payment",
-        entityId: "INV-1092",
-        timestamp: new Date(Date.now() - 172800000).toISOString(),
-        ipAddress: "10.0.4.1",
-        result: "SUCCESS",
-      },
-    ];
+    return logs.map((l) => ({
+      id: l.id,
+      actor: l.who || "System Admin",
+      action: l.action,
+      entity: l.entity,
+      entityId: l.entityId || "N/A",
+      timestamp: l.createdAt.toISOString(),
+      ipAddress: l.ipAddress || "127.0.0.1",
+      result: "SUCCESS",
+    }));
   } catch (error) {
     console.error("[AdminActions] Error in getAdminAuditLogsList:", error);
     return [];

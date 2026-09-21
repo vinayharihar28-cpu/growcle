@@ -3,7 +3,23 @@
 import * as React from "react";
 import { useSidebarStore } from "@/shared/stores/sidebar";
 import { Button } from "@/shared/components/ui/button";
-import { Menu, Bell, User, Settings, LogOut, CheckCircle2, Clock, Info } from "lucide-react";
+import {
+  Menu,
+  Bell,
+  User,
+  Settings,
+  LogOut,
+  Building2,
+  Calendar,
+  Users,
+  Handshake,
+  Sparkles,
+  Plus,
+  Trash2,
+  Check,
+  Briefcase,
+  Shield,
+} from "lucide-react";
 import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
 import { useAuthStore } from "@/shared/stores/auth";
 import { ThemeToggle } from "@/shared/components/theme-toggle";
@@ -30,76 +46,249 @@ import {
   PopoverTrigger,
 } from "@/shared/components/ui/popover";
 import { useRouter } from "next/navigation";
+import { getChapterTheme } from "@/lib/chapter-themes";
+import {
+  getHeaderNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  clearAllNotifications,
+  createTestNotification,
+  HeaderNotification,
+} from "@/shared/actions/notification-actions";
 
 export function Header() {
   const { toggle } = useSidebarStore();
-  const { user, logout } = useAuthStore();
-  const { activeRole, availableRoles, setActiveRole } = useWorkspaceStore();
+  const { user, currentMember, logout } = useAuthStore();
+  const {
+    activeRole,
+    availableRoles,
+    setActiveRole,
+    selectedChapterId,
+    setSelectedChapterId,
+    availableChapters,
+    startRoleSwitch,
+  } = useWorkspaceStore();
   const router = useRouter();
 
-  const [notifications, setNotifications] = React.useState([
-    {
-      id: "1",
-      title: "New Member Registration",
-      message: "Sarah Jenkins submitted a membership request for Silicon Valley Chapter.",
-      time: "10m ago",
-      read: false,
-      icon: User,
-    },
-    {
-      id: "2",
-      title: "Referral Closed Business",
-      message: "₹12,500 closed business logged by Marcus Vance.",
-      time: "1h ago",
-      read: false,
-      icon: CheckCircle2,
-    },
-    {
-      id: "3",
-      title: "Upcoming 1-to-1 Meeting",
-      message: "Scheduled meeting tomorrow at 10:00 AM with Tech Leaders Chapter.",
-      time: "3h ago",
-      read: true,
-      icon: Clock,
-    },
-  ]);
+  const [notifications, setNotifications] = React.useState<HeaderNotification[]>([]);
+  const [isLoadingNotifs, setIsLoadingNotifs] = React.useState(false);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  // Load real notifications on mount
+  const fetchNotifications = React.useCallback(async () => {
+    try {
+      const data = await getHeaderNotifications();
+      setNotifications(data);
+    } catch (err) {
+      console.error("Failed to fetch notifications", err);
+    }
+  }, []);
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  React.useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const handleMarkAllAsRead = async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    await markAllNotificationsAsRead();
+  };
+
+  const handleNotificationClick = async (notif: HeaderNotification) => {
+    if (!notif.isRead) {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notif.id ? { ...n, isRead: true } : n))
+      );
+      await markNotificationAsRead(notif.id);
+    }
+  };
+
+  const handleClearAll = async () => {
+    setNotifications([]);
+    await clearAllNotifications();
+  };
+
+  const handleSendTestAlert = async () => {
+    setIsLoadingNotifs(true);
+    await createTestNotification();
+    await fetchNotifications();
+    setIsLoadingNotifs(false);
+  };
+
+  const handleRoleChange = (val: Role) => {
+    if (val === activeRole) return;
+    startRoleSwitch(val);
+    setActiveRole(val);
+    if (val === "Admin" || val === "Organization Administrator" || val === "SuperAdmin") {
+      router.push("/dashboard/admin");
+    } else if (val === "Director") {
+      router.push("/dashboard/director");
+    } else if (val === "Leadership Team" || val === "President" || val === "Vice President" || val === "Treasurer") {
+      router.push("/dashboard/leadership");
+    } else {
+      router.push("/dashboard/member");
+    }
+  };
+
+  const handleChapterChange = (chapterId: string) => {
+    setSelectedChapterId(chapterId);
+    if (typeof document !== "undefined") {
+      document.cookie = `active-chapter-id=${chapterId}; path=/; max-age=31536000; SameSite=Lax`;
+    }
+    router.refresh();
   };
 
   const handleLogout = async () => {
     try {
-      await authClient.signOut({
-        fetchOptions: {
-          onSuccess: () => {
-            logout();
-            router.push("/login");
-            router.refresh();
-          },
-        },
-      });
+      await authClient.signOut();
     } catch (err) {
       console.error("Sign out error", err);
+    } finally {
       logout();
-      router.push("/login");
+      if (typeof document !== "undefined") {
+        document.cookie = "active-chapter-id=; path=/; max-age=0";
+        document.cookie = "better-auth.session_token=; path=/; max-age=0";
+      }
+      window.location.href = "/login";
+    }
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case "VISITOR":
+        return Users;
+      case "MEETING":
+        return Calendar;
+      case "REFERRAL":
+        return Handshake;
+      case "CHAPTER":
+        return Building2;
+      default:
+        return Sparkles;
     }
   };
 
   return (
-    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b bg-background px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-3 border-b bg-background px-4 shadow-xs sm:gap-x-4 sm:px-6 lg:px-8">
       <Button variant="ghost" size="icon" onClick={toggle} className="lg:hidden">
         <Menu className="h-5 w-5" />
       </Button>
 
-      <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
-        <div className="flex flex-1"></div>
-        <div className="flex items-center gap-x-2 sm:gap-x-4 lg:gap-x-6">
-          <Select value={activeRole ?? undefined} onValueChange={(val: any) => setActiveRole(val as Role)}>
-            <SelectTrigger className="w-[120px] xs:w-[140px] sm:w-[180px] text-xs sm:text-sm">
-              <SelectValue placeholder="Select Role" />
+      <div className="flex flex-1 gap-x-3 sm:gap-x-4 self-stretch items-center justify-between">
+        {/* Left: Chapter Selector or Active Chapter Badge */}
+        <div className="flex items-center gap-2">
+          {/* Chapter Selector for Admin and Director */}
+          {(activeRole === "Admin" || activeRole === "Director") && availableChapters.length > 0 && (
+            <div className="flex items-center">
+              <Select
+                value={selectedChapterId || "all"}
+                onValueChange={(val: any) => {
+                  if (val) handleChapterChange(val);
+                }}
+              >
+                <SelectTrigger
+                  id="header-chapter-selector"
+                  className="h-9 px-3 w-auto min-w-[170px] sm:min-w-[240px] md:min-w-[280px] max-w-[250px] sm:max-w-xs md:max-w-sm bg-muted/40 border-border/80 text-xs sm:text-sm font-medium transition-all"
+                >
+                  <SelectValue placeholder="All Chapters">
+                    {(() => {
+                      const activeChap = availableChapters.find((c) => c.id === selectedChapterId);
+                      if (activeChap) {
+                        const theme = getChapterTheme(activeChap.themeColor);
+                        return (
+                          <div className="flex items-center gap-2 truncate">
+                            <span
+                              className="inline-block w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-background shadow-xs"
+                              style={{ backgroundColor: theme.hex }}
+                            />
+                            <span className="truncate font-semibold text-foreground">
+                              {activeChap.name} {activeChap.chapterCode ? `(${activeChap.chapterCode})` : ""}
+                            </span>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500 shrink-0" />
+                          <span className="font-semibold text-primary truncate">
+                            All Chapters (Platform Aggregate)
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
+                  <SelectItem value="all">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500 shrink-0" />
+                      <span className="font-semibold text-primary">All Chapters (Platform Aggregate)</span>
+                    </div>
+                  </SelectItem>
+                  {availableChapters.map((chap) => {
+                    const chapTheme = getChapterTheme(chap.themeColor);
+                    return (
+                      <SelectItem key={chap.id} value={chap.id}>
+                        <div className="flex items-center gap-2 w-full">
+                          <span
+                            className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: chapTheme.hex }}
+                          />
+                          <span className="truncate font-medium">
+                            {chap.name} {chap.chapterCode ? `(${chap.chapterCode})` : ""}
+                          </span>
+                          <span
+                            className="ml-auto text-[10px] font-semibold px-1.5 py-0.5 rounded-full shrink-0 hidden sm:inline-block"
+                            style={{
+                              backgroundColor: `${chapTheme.hex}20`,
+                              color: chapTheme.hex,
+                            }}
+                          >
+                            {chapTheme.name}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          {/* Chapter Display Badge for Leadership Team and Member */}
+          {activeRole !== "Admin" && activeRole !== "Director" && (
+            (() => {
+              const activeChap =
+                availableChapters.find((c) => c.id === (currentMember?.chapterId || selectedChapterId)) ||
+                availableChapters[0];
+              if (!activeChap) return null;
+              const chapTheme = getChapterTheme(activeChap.themeColor);
+              return (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-muted/40 border border-border/80 text-xs sm:text-sm font-medium shadow-2xs">
+                  <span
+                    className="inline-block w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-background shadow-xs"
+                    style={{ backgroundColor: chapTheme.hex }}
+                  />
+                  <span className="font-semibold text-foreground truncate max-w-[150px] sm:max-w-[240px]">
+                    {activeChap.name}
+                  </span>
+                  {activeChap.chapterCode && (
+                    <span className="text-[11px] text-muted-foreground hidden sm:inline">
+                      ({activeChap.chapterCode})
+                    </span>
+                  )}
+                </div>
+              );
+            })()
+          )}
+        </div>
+
+        {/* Right: Role Switcher, Theme Toggle, Notifications, User Menu */}
+        <div className="flex items-center gap-x-1.5 sm:gap-x-2.5">
+          {/* Role Switcher */}
+          <Select value={activeRole ?? undefined} onValueChange={(val: any) => handleRoleChange(val as Role)}>
+            <SelectTrigger className="w-[105px] xs:w-[125px] sm:w-[160px] text-xs sm:text-sm h-9">
+              <SelectValue placeholder="Role" />
             </SelectTrigger>
             <SelectContent>
               {availableRoles.map((role: string) => (
@@ -114,97 +303,188 @@ export function Header() {
 
           {/* Notifications Popover */}
           <Popover>
-            <PopoverTrigger>
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5 text-muted-foreground" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-600"></span>
-                  </span>
-                )}
-              </Button>
+            <PopoverTrigger
+              id="header-notifications-trigger"
+              className="relative p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground inline-flex items-center justify-center cursor-pointer transition-colors"
+              aria-label="View notifications"
+            >
+              <Bell className="h-5 w-5 text-muted-foreground" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
+                </span>
+              )}
             </PopoverTrigger>
-            <PopoverContent className="w-[calc(100vw-2rem)] max-w-xs sm:w-80 p-0" align="end">
-              <div className="flex items-center justify-between p-4 border-b">
+            <PopoverContent className="w-[calc(100vw-2rem)] max-w-sm sm:w-96 p-0 shadow-xl border" align="end">
+              <div className="flex items-center justify-between p-3.5 border-b bg-muted/30">
                 <div className="flex items-center gap-2">
                   <h4 className="font-semibold text-sm">Notifications</h4>
-                  {unreadCount > 0 && (
-                    <span className="bg-indigo-500/10 text-indigo-500 text-xs px-2 py-0.5 rounded-full font-medium">
+                  {unreadCount > 0 ? (
+                    <span className="bg-primary/15 text-primary text-[11px] px-2 py-0.5 rounded-full font-bold">
                       {unreadCount} new
                     </span>
+                  ) : (
+                    <span className="text-muted-foreground text-xs font-normal">All caught up</span>
                   )}
                 </div>
-                {unreadCount > 0 && (
-                  <Button variant="ghost" size="sm" onClick={markAllAsRead} className="text-xs h-auto p-0 text-muted-foreground hover:text-foreground">
-                    Mark all as read
+                <div className="flex items-center gap-1">
+                  {unreadCount > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleMarkAllAsRead}
+                      className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground"
+                    >
+                      <Check className="h-3.5 w-3.5 mr-1" /> Mark read
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={isLoadingNotifs}
+                    onClick={handleSendTestAlert}
+                    className="text-xs h-7 px-2 text-primary hover:text-primary/80"
+                    title="Generate test notification"
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Test
                   </Button>
+                </div>
+              </div>
+
+              {/* Notifications List */}
+              <div className="divide-y max-h-80 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="p-8 text-center space-y-2">
+                    <Bell className="h-8 w-8 text-muted-foreground/50 mx-auto" />
+                    <p className="text-xs font-medium text-foreground">No notifications</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      New alerts and updates will appear here.
+                    </p>
+                  </div>
+                ) : (
+                  notifications.map((n) => {
+                    const IconComponent = getNotificationIcon(n.type);
+                    return (
+                      <div
+                        key={n.id}
+                        onClick={() => handleNotificationClick(n)}
+                        className={`p-3.5 flex items-start gap-3 transition-colors hover:bg-muted/60 cursor-pointer ${
+                          !n.isRead ? "bg-primary/5" : ""
+                        }`}
+                      >
+                        <div
+                          className={`p-2 rounded-lg shrink-0 ${
+                            !n.isRead ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          <IconComponent className="h-4 w-4" />
+                        </div>
+                        <div className="space-y-1 flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1">
+                            <p
+                              className={`text-xs font-semibold leading-tight truncate ${
+                                !n.isRead ? "text-foreground" : "text-muted-foreground"
+                              }`}
+                            >
+                              {n.title}
+                            </p>
+                            <span className="text-[10px] text-muted-foreground shrink-0">{n.timeAgo}</span>
+                          </div>
+                          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                            {n.body}
+                          </p>
+                        </div>
+                        {!n.isRead && (
+                          <span className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1.5 ring-2 ring-background" />
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
-              <div className="divide-y max-h-80 overflow-y-auto">
-                {notifications.map((n) => {
-                  const NotificationIcon = n.icon;
-                  return (
-                    <div
-                      key={n.id}
-                      className={`p-3.5 flex items-start gap-3 transition-colors hover:bg-muted/50 cursor-pointer ${
-                        !n.read ? "bg-indigo-500/5" : ""
-                      }`}
-                      onClick={() =>
-                        setNotifications((prev) =>
-                          prev.map((item) => (item.id === n.id ? { ...item, read: true } : item))
-                        )
-                      }
-                    >
-                      <div className="p-2 rounded-lg bg-muted shrink-0 text-foreground">
-                        <NotificationIcon className="h-4 w-4" />
-                      </div>
-                      <div className="space-y-1 flex-1">
-                        <p className="text-xs font-semibold leading-none">{n.title}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-2">{n.message}</p>
-                        <p className="text-[10px] text-muted-foreground pt-1">{n.time}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+
+              {/* Popover Footer */}
+              {notifications.length > 0 && (
+                <div className="p-2.5 border-t bg-muted/20 flex items-center justify-between text-xs">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearAll}
+                    className="text-[11px] h-7 px-2 text-muted-foreground hover:text-destructive"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" /> Clear all
+                  </Button>
+                  <span className="text-[10px] text-muted-foreground">
+                    {notifications.length} total alerts
+                  </span>
+                </div>
+              )}
             </PopoverContent>
           </Popover>
 
           {/* User Profile Dropdown Menu */}
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <Avatar className="h-8 w-8 cursor-pointer">
-                  <AvatarFallback className="bg-indigo-600 text-white font-semibold">
-                    {user?.name?.charAt(0) || "U"}
-                  </AvatarFallback>
-                </Avatar>
-              </Button>
+            <DropdownMenuTrigger
+              id="header-user-menu-trigger"
+              className="relative h-9 w-9 rounded-full inline-flex items-center justify-center p-0.5 hover:ring-2 hover:ring-primary/40 transition-all cursor-pointer outline-hidden"
+              aria-label="User account menu"
+            >
+              <Avatar className="h-8 w-8 cursor-pointer border border-border">
+                <AvatarFallback className="bg-primary text-primary-foreground font-semibold text-xs">
+                  {user?.name?.charAt(0) || "U"}
+                </AvatarFallback>
+              </Avatar>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end">
-              <DropdownMenuLabel className="font-normal">
+            <DropdownMenuContent className="w-60 shadow-xl border" align="end">
+              <DropdownMenuLabel className="font-normal p-3 bg-muted/30 border-b">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{user?.name || "User Account"}</p>
-                  <p className="text-xs leading-none text-muted-foreground">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold leading-none text-foreground">
+                      {user?.name || "User Account"}
+                    </p>
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">
+                      {activeRole}
+                    </span>
+                  </div>
+                  <p className="text-xs leading-none text-muted-foreground truncate">
                     {user?.email || "user@example.com"}
                   </p>
                 </div>
               </DropdownMenuLabel>
+              <div className="p-1">
+                <DropdownMenuItem
+                  onClick={() => router.push("/dashboard/member/profile")}
+                  className="cursor-pointer py-2 px-2.5 text-xs font-medium"
+                >
+                  <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <span>My Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => router.push("/dashboard/member/business")}
+                  className="cursor-pointer py-2 px-2.5 text-xs font-medium"
+                >
+                  <Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <span>Business Portfolio</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => router.push("/dashboard/settings")}
+                  className="cursor-pointer py-2 px-2.5 text-xs font-medium"
+                >
+                  <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <span>Settings</span>
+                </DropdownMenuItem>
+              </div>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => router.push("/dashboard/members")} className="cursor-pointer">
-                <User className="mr-2 h-4 w-4" />
-                <span>Profile</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/dashboard/settings")} className="cursor-pointer">
-                <Settings className="mr-2 h-4 w-4" />
-                <span>Settings</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer">
-                <LogOut className="mr-2 h-4 w-4" />
-                <span>Log out</span>
-              </DropdownMenuItem>
+              <div className="p-1">
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer py-2 px-2.5 text-xs font-semibold"
+                >
+                  <LogOut className="mr-2 h-4 w-4 text-destructive" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

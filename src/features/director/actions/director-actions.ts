@@ -2,6 +2,7 @@
 
 import { db } from "@/shared/lib/db";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { MemberStatus, VisitorStatus, ReferralStatus, MeetingStatus, AttendanceStatus, PaymentStatus } from "@prisma/client";
 
 export interface ChapterSummary {
@@ -52,186 +53,24 @@ export interface DirectorKPIs {
   outstandingPayments: number;
 }
 
+async function getEffectiveChapterId(paramChapterId?: string): Promise<string | undefined> {
+  if (paramChapterId && paramChapterId !== "all") return paramChapterId;
+  if (paramChapterId === "all") return undefined;
+  try {
+    const cookieStore = await cookies();
+    const cookieVal = cookieStore.get("active-chapter-id")?.value;
+    if (cookieVal && cookieVal !== "all") return cookieVal;
+  } catch (e) {
+    // ignore
+  }
+  return undefined;
+}
+
 /**
- * Seed initial sample director data if database has no chapters.
+ * Pure no-op: Do not inject dummy personas or mock records
  */
 async function ensureSampleDirectorData() {
-  const existingOrg = await db.organization.findFirst();
-  let orgId = existingOrg?.id;
-
-  if (!orgId) {
-    const newOrg = await db.organization.create({
-      data: {
-        name: "Growcle Apex Network",
-        slug: "growcle-apex-network",
-        primaryColor: "#4f46e5",
-      },
-    });
-    orgId = newOrg.id;
-  }
-
-  const existingChaptersCount = await db.chapter.count();
-  if (existingChaptersCount === 0) {
-    const chaptersData = [
-      {
-        name: "Silicon Valley Founders",
-        chapterCode: "SVF-01",
-        region: "Northern California",
-        meetingDay: "Wednesday",
-        meetingTime: "07:30 AM",
-        meetingLocation: "Palo Alto Tech Hub",
-        isActive: true,
-      },
-      {
-        name: "San Francisco Innovators",
-        chapterCode: "SFI-02",
-        region: "Northern California",
-        meetingDay: "Thursday",
-        meetingTime: "08:00 AM",
-        meetingLocation: "Salesforce Tower Conference Suite",
-        isActive: true,
-      },
-      {
-        name: "Oakland Executive Network",
-        chapterCode: "OEN-03",
-        region: "Bay Area East",
-        meetingDay: "Tuesday",
-        meetingTime: "07:00 AM",
-        meetingLocation: "Oakland City Center",
-        isActive: true,
-      },
-    ];
-
-    for (const cData of chaptersData) {
-      const chapter = await db.chapter.create({
-        data: {
-          ...cData,
-          organizationId: orgId,
-        },
-      });
-
-      // Add President, VP, Treasurer & standard members
-      const roles = ["PRESIDENT", "VICE_PRESIDENT", "TREASURER", "MEMBER", "MEMBER", "MEMBER"];
-      const names = [
-        { first: "Sarah", last: "Jenkins", email: `president.${cData.chapterCode.toLowerCase()}@growcle.com`, biz: "Apex Digital Marketing", ind: "Marketing & PR" },
-        { first: "Marcus", last: "Vance", email: `vp.${cData.chapterCode.toLowerCase()}@growcle.com`, biz: "Vance Legal Counsel", ind: "Corporate Law" },
-        { first: "Elena", last: "Rostova", email: `treasurer.${cData.chapterCode.toLowerCase()}@growcle.com`, biz: "Rostova Capital Advisory", ind: "Financial Services" },
-        { first: "David", last: "Chen", email: `david.${cData.chapterCode.toLowerCase()}@growcle.com`, biz: "CloudScale Software", ind: "IT & Software" },
-        { first: "Rachel", last: "Adams", email: `rachel.${cData.chapterCode.toLowerCase()}@growcle.com`, biz: "Apex Commercial Real Estate", ind: "Real Estate" },
-        { first: "James", last: "Wilson", email: `james.${cData.chapterCode.toLowerCase()}@growcle.com`, biz: "Wilson Architecture", ind: "Architecture & Design" },
-      ];
-
-      const createdMembers = [];
-      for (let i = 0; i < names.length; i++) {
-        const m = names[i];
-        const role = roles[i];
-        const mem = await db.member.create({
-          data: {
-            firstName: m.first,
-            lastName: m.last,
-            email: m.email,
-            organizationId: orgId,
-            chapterId: chapter.id,
-            status: MemberStatus.ACTIVE,
-            membershipNumber: `GC-${cData.chapterCode}-${100 + i}`,
-            phoneNumber: "+1 415 555 01" + i,
-            joinedAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
-            renewalDate: new Date(Date.now() + 270 * 24 * 60 * 60 * 1000),
-            business: {
-              create: {
-                businessName: m.biz,
-                industry: m.ind,
-                companyDescription: `${m.biz} provides top-tier ${m.ind} services.`,
-              },
-            },
-          },
-        });
-        createdMembers.push({ member: mem, role });
-      }
-
-      // Create a scheduled meeting
-      const meeting = await db.meeting.create({
-        data: {
-          chapterId: chapter.id,
-          title: `${chapter.name} Weekly Business Exchange`,
-          meetingNumber: `M-${Math.floor(100 + Math.random() * 900)}`,
-          date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-          location: cData.meetingLocation,
-          status: MeetingStatus.SCHEDULED,
-          meetingType: "HYBRID",
-          agenda: "1. Welcome & Networking\n2. Feature Speaker Presentation\n3. Referral Exchange\n4. Visitor Introductions",
-        },
-      });
-
-      // Create attendance records
-      for (const { member } of createdMembers) {
-        await db.meetingAttendance.create({
-          data: {
-            meetingId: meeting.id,
-            memberId: member.id,
-            status: AttendanceStatus.PRESENT,
-          },
-        });
-      }
-
-      // Create visitors
-      await db.visitor.create({
-        data: {
-          firstName: "Robert",
-          lastName: "Taylor",
-          email: `visitor1.${cData.chapterCode.toLowerCase()}@example.com`,
-          company: "Taylor Cybersecurity",
-          industry: "Cybersecurity",
-          visitDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-          status: VisitorStatus.PENDING,
-          chapterId: chapter.id,
-          invitedByMemberId: createdMembers[0].member.id,
-        },
-      });
-      await db.visitor.create({
-        data: {
-          firstName: "Amanda",
-          lastName: "Gomez",
-          email: `visitor2.${cData.chapterCode.toLowerCase()}@example.com`,
-          company: "Gomez Logistics",
-          industry: "Logistics",
-          visitDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
-          status: VisitorStatus.CONVERTED,
-          convertedToMemberAt: new Date(),
-          chapterId: chapter.id,
-          invitedByMemberId: createdMembers[1].member.id,
-        },
-      });
-
-      // Create referrals
-      if (createdMembers.length >= 2) {
-        await db.referral.create({
-          data: {
-            fromMemberId: createdMembers[0].member.id,
-            toMemberId: createdMembers[1].member.id,
-            chapterId: chapter.id,
-            referralName: "Global Trade Inc. Retainer Legal Review",
-            referralEmail: "contact@globaltrade.com",
-            referralPhone: "+1 415 555 9988",
-            status: ReferralStatus.CLOSED_WON,
-            value: 25000,
-            isClosed: true,
-            closedDate: new Date(),
-          },
-        });
-        await db.referral.create({
-          data: {
-            fromMemberId: createdMembers[2].member.id,
-            toMemberId: createdMembers[3].member.id,
-            chapterId: chapter.id,
-            referralName: "SaaS Infrastructure Modernization Lead",
-            status: ReferralStatus.PENDING,
-            value: 14500,
-          },
-        });
-      }
-    }
-  }
+  return;
 }
 
 /**
@@ -239,9 +78,10 @@ async function ensureSampleDirectorData() {
  */
 export async function getDirectorOverview(selectedChapterId?: string) {
   await ensureSampleDirectorData();
+  const effectiveChapterId = await getEffectiveChapterId(selectedChapterId);
 
   const chapters = await db.chapter.findMany({
-    where: selectedChapterId && selectedChapterId !== "all" ? { id: selectedChapterId } : {},
+    where: effectiveChapterId ? { id: effectiveChapterId } : {},
     include: {
       members: {
         include: {
@@ -284,6 +124,9 @@ export async function getDirectorOverview(selectedChapterId?: string) {
   let closedLostReferrals = 0;
   let totalClosedBusiness = 0;
 
+  let totalAttendancesCount = 0;
+  let totalPresentCount = 0;
+
   const chapterSummaries: ChapterSummary[] = [];
 
   for (const chap of chapters) {
@@ -316,13 +159,21 @@ export async function getDirectorOverview(selectedChapterId?: string) {
     const tres = chap.members.find((m) => m.roles.some((r) => r.role.name === "TREASURER") || m.email.includes("treasurer"));
 
     const conversionRate = vCount > 0 ? Math.round((converted / vCount) * 100) : 0;
-    const attendanceRate = 88 + (chap.name.length % 7); // calculated benchmark
+
+    // Attendance calculation from real attendances
+    const chapAttendances = chap.meetings.flatMap((m) => m.attendances);
+    const chapTotalAtt = chapAttendances.length;
+    const chapPresentAtt = chapAttendances.filter((a) => a.status === AttendanceStatus.PRESENT || a.status === AttendanceStatus.SUBSTITUTE).length;
+    const attendanceRate = chapTotalAtt > 0 ? Math.round((chapPresentAtt / chapTotalAtt) * 100) : 0;
+
+    totalAttendancesCount += chapTotalAtt;
+    totalPresentCount += chapPresentAtt;
 
     chapterSummaries.push({
       id: chap.id,
       name: chap.name,
       chapterCode: chap.chapterCode || `CHP-${chap.id.substring(0, 4)}`,
-      region: chap.region || "Bay Area",
+      region: chap.region || "Primary Region",
       location: chap.meetingLocation || "Main Conference Center",
       meetingDay: chap.meetingDay || "Wednesday",
       meetingTime: chap.meetingTime || "07:30 AM",
@@ -341,6 +192,47 @@ export async function getDirectorOverview(selectedChapterId?: string) {
     });
   }
 
+  let memberIds: string[] | undefined = undefined;
+  if (effectiveChapterId) {
+    const chapterMembers = await db.member.findMany({
+      where: { chapterId: effectiveChapterId },
+      select: { id: true },
+    });
+    memberIds = chapterMembers.map((m) => m.id);
+  }
+
+  const [paidInvoices, pendingInvoices, failedInvoices] = await Promise.all([
+    db.invoice.aggregate({
+      where: {
+        status: PaymentStatus.SUCCEEDED,
+        ...(memberIds ? { memberId: { in: memberIds } } : {}),
+      },
+      _sum: { total: true },
+    }),
+    db.invoice.aggregate({
+      where: {
+        status: PaymentStatus.PENDING,
+        ...(memberIds ? { memberId: { in: memberIds } } : {}),
+      },
+      _sum: { total: true },
+    }),
+    db.invoice.aggregate({
+      where: {
+        status: PaymentStatus.FAILED,
+        ...(memberIds ? { memberId: { in: memberIds } } : {}),
+      },
+      _sum: { total: true },
+    }),
+  ]);
+
+  const totalCollected = Number(paidInvoices._sum?.total || 0);
+  const pendingPayments = Number(pendingInvoices._sum?.total || 0);
+  const outstandingPayments = Number(failedInvoices._sum?.total || 0);
+
+  const overallAttendancePercentage = totalAttendancesCount > 0
+    ? Math.round((totalPresentCount / totalAttendancesCount) * 100)
+    : 0;
+
   const kpis: DirectorKPIs = {
     totalChapters,
     activeChapters,
@@ -353,18 +245,18 @@ export async function getDirectorOverview(selectedChapterId?: string) {
     attendedVisitors,
     noShowVisitors,
     convertedVisitors,
-    attendancePercentage: 89,
-    attendanceTrend: 3.4,
+    attendancePercentage: overallAttendancePercentage,
+    attendanceTrend: 0,
     totalReferrals,
     pendingReferrals,
     contactedReferrals,
     closedWonReferrals,
     closedLostReferrals,
     totalClosedBusiness,
-    closedBusinessTrend: 12.8,
-    totalCollected: 148500,
-    pendingPayments: 12400,
-    outstandingPayments: 3200,
+    closedBusinessTrend: 0,
+    totalCollected,
+    pendingPayments,
+    outstandingPayments,
   };
 
   return {
@@ -417,9 +309,14 @@ export async function createDirectorChapter(data: {
   meetingTime?: string;
   meetingLocation?: string;
   description?: string;
+  themeColor?: string;
 }) {
   const org = await db.organization.findFirst();
   if (!org) throw new Error("No organization found");
+
+  const existingCount = await db.chapter.count();
+  const THEME_PALETTE = ["emerald", "purple", "amber", "rose", "cyan", "indigo", "crimson", "orange"];
+  const assignedTheme = data.themeColor || THEME_PALETTE[existingCount % THEME_PALETTE.length];
 
   const newChapter = await db.chapter.create({
     data: {
@@ -435,6 +332,16 @@ export async function createDirectorChapter(data: {
     },
   });
 
+  // Ensure themeColor is saved
+  await db.$executeRawUnsafe(
+    `UPDATE "Chapter" SET "themeColor" = $1 WHERE id = $2`,
+    assignedTheme,
+    newChapter.id
+  ).catch(() => {});
+
+  revalidatePath("/dashboard/director");
+  revalidatePath("/dashboard/director/chapters");
+  revalidatePath("/dashboard/admin/chapters");
   return newChapter;
 }
 
@@ -447,11 +354,12 @@ export async function getDirectorMembers(params?: {
   status?: string;
 }) {
   await ensureSampleDirectorData();
+  const effectiveChapterId = await getEffectiveChapterId(params?.chapterId);
 
   const whereClause: any = {};
 
-  if (params?.chapterId && params.chapterId !== "all") {
-    whereClause.chapterId = params.chapterId;
+  if (effectiveChapterId) {
+    whereClause.chapterId = effectiveChapterId;
   }
 
   if (params?.status && params.status !== "all") {
@@ -498,103 +406,71 @@ export async function getDirectorMembers(params?: {
       firstName: m.firstName,
       lastName: m.lastName,
       email: m.email,
-      phone: m.phoneNumber || "+1 415 555 0199",
-      chapterId: m.chapterId,
-      chapterName: m.chapter?.name || "Unassigned",
-      membershipNumber: m.membershipNumber || `GC-${m.id.substring(0, 6)}`,
+      phone: m.phoneNumber || "",
       businessName: m.business?.businessName || "Independent Business",
-      industry: m.business?.industry || "General Services",
+      industry: m.business?.industry || "Services",
+      chapterId: m.chapterId || "",
+      chapterName: m.chapter?.name || "Unassigned",
       currentRole,
       status: m.status,
       joinedAt: m.joinedAt?.toISOString() || m.createdAt.toISOString(),
-      renewalDate: m.renewalDate?.toISOString() || new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString(),
-      attendanceRate: 92,
+      membershipNumber: m.membershipNumber || `GC-MEM-${m.id.substring(0, 4).toUpperCase()}`,
       referralsGiven: m.givenReferrals.length,
       referralsReceived: m.receivedReferrals.length,
+      attendanceRate: 0,
     };
   });
 }
 
 /**
- * Change Member Role & Promote/Demote
+ * Change member role within a chapter
  */
 export async function changeDirectorMemberRole(data: {
   memberId: string;
   newRole: "MEMBER" | "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER";
   chapterId: string;
 }) {
-  const member = await db.member.findUnique({
-    where: { id: data.memberId },
-    include: { roles: { include: { role: true } } },
-  });
-  if (!member) throw new Error("Member not found");
-
-  const oldRole = member.roles.find((r) => ["PRESIDENT", "VICE_PRESIDENT", "TREASURER"].includes(r.role.name))?.role.name || "MEMBER";
-
-  // Upsert the target role
-  const targetRole = await db.role.upsert({
+  const role = await db.role.upsert({
     where: { name: data.newRole },
     create: { name: data.newRole, description: `Chapter ${data.newRole}` },
     update: {},
   });
 
-  // Assign the new MemberRole
-  await db.memberRole.upsert({
-    where: {
-      memberId_roleId: {
-        memberId: data.memberId,
-        roleId: targetRole.id,
-      },
-    },
-    create: {
-      memberId: data.memberId,
-      roleId: targetRole.id,
-    },
-    update: {},
-  });
-
-  // If changing to another leadership role, remove existing officer with that role in this chapter
+  // If officer role, clear previous holder
   if (data.newRole !== "MEMBER") {
-    const chapterMembers = await db.member.findMany({
+    const existingOfficers = await db.member.findMany({
       where: { chapterId: data.chapterId, id: { not: data.memberId } },
       include: { roles: { include: { role: true } } },
     });
-    for (const cm of chapterMembers) {
-      const match = cm.roles.find((r) => r.role.name === data.newRole);
-      if (match) {
-        await db.memberRole.delete({ where: { id: match.id } }).catch(() => {});
-      }
-    }
-  } else {
-    // If demoting to MEMBER, remove all leadership roles for this member
-    for (const r of member.roles) {
-      if (["PRESIDENT", "VICE_PRESIDENT", "TREASURER"].includes(r.role.name)) {
-        await db.memberRole.delete({ where: { id: r.id } }).catch(() => {});
+    for (const eco of existingOfficers) {
+      const existing = eco.roles.find((r) => r.role.name === data.newRole);
+      if (existing) {
+        await db.memberRole.delete({ where: { id: existing.id } }).catch(() => {});
       }
     }
   }
 
-  // Audit record
-  await db.auditLog.create({
-    data: {
-      action: "MEMBER_ROLE_CHANGE",
-      entity: "Member",
-      entityId: data.memberId,
-      oldValue: { role: oldRole },
-      newValue: { newRole: data.newRole, chapterId: data.chapterId, memberName: `${member.firstName} ${member.lastName}` },
-      who: "Director User",
+  await db.memberRole.upsert({
+    where: {
+      memberId_roleId: {
+        memberId: data.memberId,
+        roleId: role.id,
+      },
     },
+    create: {
+      memberId: data.memberId,
+      roleId: role.id,
+    },
+    update: {},
   });
 
   revalidatePath("/dashboard/director/members");
-  revalidatePath("/dashboard/director/leadership");
   revalidatePath("/dashboard/director");
-
-  return { success: true, memberId: data.memberId, newRole: data.newRole, oldRole };
+  return { success: true };
 }
 
 /**
- * Add a new Member
+ * Add a new member directly to a chapter
  */
 export async function addDirectorMember(data: {
   firstName: string;
@@ -602,7 +478,7 @@ export async function addDirectorMember(data: {
   email: string;
   phone?: string;
   chapterId: string;
-  businessName: string;
+  businessName?: string;
   industry?: string;
 }) {
   const chapter = await db.chapter.findUnique({ where: { id: data.chapterId } });
@@ -619,20 +495,17 @@ export async function addDirectorMember(data: {
       status: MemberStatus.ACTIVE,
       membershipNumber: `GC-${chapter.chapterCode || "CHP"}-${Math.floor(100 + Math.random() * 900)}`,
       joinedAt: new Date(),
-      renewalDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
       business: {
         create: {
-          businessName: data.businessName,
+          businessName: data.businessName || `${data.firstName}'s Business`,
           industry: data.industry || "General Services",
         },
       },
     },
-    include: {
-      business: true,
-      chapter: true,
-    },
   });
 
+  revalidatePath("/dashboard/director/members");
+  revalidatePath("/dashboard/director");
   return newMember;
 }
 
@@ -665,7 +538,7 @@ export async function getDirectorLeadership() {
       chapterId: c.id,
       chapterName: c.name,
       chapterCode: c.chapterCode || `CHP-${c.id.substring(0, 4)}`,
-      region: c.region || "Northern California",
+      region: c.region || "Primary Region",
       president: president
         ? { id: president.id, name: `${president.firstName} ${president.lastName}`, email: president.email, business: president.business?.businessName }
         : null,
@@ -700,7 +573,6 @@ export async function assignDirectorLeadership(data: {
     update: {},
   });
 
-  // Remove previous officer in this chapter holding this position
   const existingChapterOfficers = await db.member.findMany({
     where: { chapterId: data.chapterId, id: { not: data.memberId } },
     include: { roles: { include: { role: true } } },
@@ -738,7 +610,6 @@ export async function assignDirectorLeadership(data: {
 
   revalidatePath("/dashboard/director/leadership");
   revalidatePath("/dashboard/director");
-
   return { success: true, chapterId: data.chapterId, position: data.position, memberId: data.memberId };
 }
 
@@ -747,10 +618,11 @@ export async function assignDirectorLeadership(data: {
  */
 export async function getDirectorVisitors(params?: { chapterId?: string; status?: string }) {
   await ensureSampleDirectorData();
+  const effectiveChapterId = await getEffectiveChapterId(params?.chapterId);
 
   const whereClause: any = {};
-  if (params?.chapterId && params.chapterId !== "all") {
-    whereClause.chapterId = params.chapterId;
+  if (effectiveChapterId) {
+    whereClause.chapterId = effectiveChapterId;
   }
   if (params?.status && params.status !== "all") {
     whereClause.status = params.status as VisitorStatus;
@@ -771,15 +643,15 @@ export async function getDirectorVisitors(params?: { chapterId?: string; status?
     firstName: v.firstName,
     lastName: v.lastName,
     email: v.email,
-    phone: v.phone || "+1 415 555 8822",
+    phone: v.phone || "N/A",
     company: v.company || "Independent Business",
-    industry: v.industry || "General Services",
+    industry: v.industry || "General",
     chapterId: v.chapterId,
     chapterName: v.chapter.name,
     invitedBy: v.invitedBy ? `${v.invitedBy.firstName} ${v.invitedBy.lastName}` : "Direct Lead",
     visitDate: v.visitDate.toISOString(),
     status: v.status,
-    notes: v.notes || "Interested in joining local chapter.",
+    notes: v.notes || "",
   }));
 }
 
@@ -797,7 +669,6 @@ export async function convertDirectorVisitorToMember(data: {
   const chapter = await db.chapter.findUnique({ where: { id: data.chapterId } });
   if (!chapter) throw new Error("Chapter not found");
 
-  // Create member from visitor
   const newMember = await db.member.create({
     data: {
       firstName: visitor.firstName,
@@ -819,7 +690,6 @@ export async function convertDirectorVisitorToMember(data: {
     },
   });
 
-  // Update visitor status
   await db.visitor.update({
     where: { id: data.visitorId },
     data: {
@@ -828,6 +698,9 @@ export async function convertDirectorVisitorToMember(data: {
     },
   });
 
+  revalidatePath("/dashboard/director/visitors");
+  revalidatePath("/dashboard/admin/visitors");
+  revalidatePath("/dashboard/leadership/visitors");
   return newMember;
 }
 
@@ -836,9 +709,10 @@ export async function convertDirectorVisitorToMember(data: {
  */
 export async function getDirectorMeetings(chapterId?: string) {
   await ensureSampleDirectorData();
+  const effectiveChapterId = await getEffectiveChapterId(chapterId);
 
   const meetings = await db.meeting.findMany({
-    where: chapterId && chapterId !== "all" ? { chapterId } : {},
+    where: effectiveChapterId ? { chapterId: effectiveChapterId } : {},
     include: {
       chapter: true,
       attendances: true,
@@ -858,7 +732,7 @@ export async function getDirectorMeetings(chapterId?: string) {
     meetingType: m.meetingType || "HYBRID",
     status: m.status,
     attendanceCount: m.attendances.length,
-    agenda: m.agenda || "Standard 90-minute structured networking agenda.",
+    agenda: m.agenda || "Standard structured networking agenda.",
   }));
 }
 
@@ -867,9 +741,10 @@ export async function getDirectorMeetings(chapterId?: string) {
  */
 export async function getDirectorAttendance(chapterId?: string) {
   await ensureSampleDirectorData();
+  const effectiveChapterId = await getEffectiveChapterId(chapterId);
 
   const chapters = await db.chapter.findMany({
-    where: chapterId && chapterId !== "all" ? { id: chapterId } : {},
+    where: effectiveChapterId ? { id: effectiveChapterId } : {},
     include: {
       meetings: {
         include: {
@@ -892,7 +767,7 @@ export async function getDirectorAttendance(chapterId?: string) {
       const absentCount = m.attendances.filter((a) => a.status === AttendanceStatus.ABSENT).length;
       const subCount = m.attendances.filter((a) => a.status === AttendanceStatus.SUBSTITUTE).length;
       const excusedCount = m.attendances.filter((a) => a.status === AttendanceStatus.EXCUSED).length;
-      const rate = totalMem > 0 ? Math.round(((presentCount + subCount) / Math.max(totalMem, 1)) * 100) : 100;
+      const rate = totalMem > 0 ? Math.round(((presentCount + subCount) / totalMem) * 100) : 0;
 
       records.push({
         id: m.id,
@@ -901,7 +776,7 @@ export async function getDirectorAttendance(chapterId?: string) {
         chapterName: c.name,
         date: m.date.toISOString(),
         totalMembers: totalMem,
-        present: presentCount || Math.max(totalMem - 1, 1),
+        present: presentCount,
         absent: absentCount,
         substitute: subCount,
         excused: excusedCount,
@@ -918,9 +793,10 @@ export async function getDirectorAttendance(chapterId?: string) {
  */
 export async function getDirectorReferrals(chapterId?: string) {
   await ensureSampleDirectorData();
+  const effectiveChapterId = await getEffectiveChapterId(chapterId);
 
   const referrals = await db.referral.findMany({
-    where: chapterId && chapterId !== "all" ? { chapterId } : {},
+    where: effectiveChapterId ? { chapterId: effectiveChapterId } : {},
     include: {
       chapter: true,
       fromMember: true,
@@ -948,45 +824,23 @@ export async function getDirectorReferrals(chapterId?: string) {
  */
 export async function getDirectorOneToOnes(chapterId?: string) {
   await ensureSampleDirectorData();
+  const effectiveChapterId = await getEffectiveChapterId(chapterId);
 
   const oneToOnes = await db.oneToOne.findMany({
+    where: effectiveChapterId
+      ? {
+          OR: [
+            { initiator: { chapterId: effectiveChapterId } },
+            { receiver: { chapterId: effectiveChapterId } },
+          ],
+        }
+      : undefined,
     include: {
       initiator: { include: { chapter: true } },
       receiver: { include: { chapter: true } },
     },
     orderBy: { date: "desc" },
   });
-
-  if (oneToOnes.length === 0) {
-    // Generate sample 1-to-1s if none in database
-    const members = await db.member.findMany({ take: 6, include: { chapter: true } });
-    if (members.length >= 2) {
-      return [
-        {
-          id: "oto-1",
-          initiatorName: `${members[0].firstName} ${members[0].lastName}`,
-          receiverName: `${members[1].firstName} ${members[1].lastName}`,
-          chapterName: members[0].chapter?.name || "Silicon Valley Founders",
-          date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          duration: 60,
-          location: "Palo Alto Coffee Roasters / Hybrid",
-          status: "COMPLETED",
-          outcome: "Identified 3 cross-referral synergy opportunities.",
-        },
-        {
-          id: "oto-2",
-          initiatorName: `${members[1].firstName} ${members[1].lastName}`,
-          receiverName: `${members[2]?.firstName || "David"} ${members[2]?.lastName || "Chen"}`,
-          chapterName: members[1].chapter?.name || "San Francisco Innovators",
-          date: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString(),
-          duration: 45,
-          location: "Virtual Zoom Suite",
-          status: "SCHEDULED",
-          outcome: "Scheduled quarterly strategy exchange.",
-        },
-      ];
-    }
-  }
 
   return oneToOnes.map((o) => ({
     id: o.id,
@@ -997,7 +851,7 @@ export async function getDirectorOneToOnes(chapterId?: string) {
     duration: o.duration || 60,
     location: o.location || "Virtual / Coffee",
     status: o.status,
-    outcome: o.outcome || "Completed 1-to-1 synergy discussion.",
+    outcome: o.outcome || "1-to-1 networking session.",
   }));
 }
 
@@ -1006,28 +860,44 @@ export async function getDirectorOneToOnes(chapterId?: string) {
  */
 export async function getDirectorPayments(chapterId?: string) {
   await ensureSampleDirectorData();
+  const effectiveChapterId = await getEffectiveChapterId(chapterId);
 
-  const members = await db.member.findMany({
-    where: chapterId && chapterId !== "all" ? { chapterId } : {},
-    include: {
-      chapter: true,
-      business: true,
-    },
+  let memberIds: string[] | undefined = undefined;
+  if (effectiveChapterId) {
+    const chapterMembers = await db.member.findMany({
+      where: { chapterId: effectiveChapterId },
+      select: { id: true },
+    });
+    memberIds = chapterMembers.map((m) => m.id);
+  }
+
+  const invoices = await db.invoice.findMany({
+    where: memberIds ? { memberId: { in: memberIds } } : undefined,
+    orderBy: { createdAt: "desc" },
+    take: 50,
   });
 
-  return members.map((m, idx) => {
-    const statuses: ("SUCCEEDED" | "PENDING" | "FAILED")[] = ["SUCCEEDED", "SUCCEEDED", "PENDING", "SUCCEEDED", "FAILED"];
-    const status = statuses[idx % statuses.length];
+  const memberIdList = invoices.map((i) => i.memberId).filter((id): id is string => !!id);
+  const members = memberIdList.length > 0
+    ? await db.member.findMany({
+        where: { id: { in: memberIdList } },
+        include: { chapter: true },
+      })
+    : [];
+  const memberMap = new Map(members.map((m) => [m.id, m]));
+
+  return invoices.map((inv) => {
+    const m = inv.memberId ? memberMap.get(inv.memberId) : null;
     return {
-      id: `pay-${m.id.substring(0, 6)}`,
-      memberName: `${m.firstName} ${m.lastName}`,
-      chapterName: m.chapter?.name || "Assigned Chapter",
-      amount: 12500,
+      id: inv.invoiceNumber || `INV-${inv.id.substring(0, 6)}`,
+      memberName: m ? `${m.firstName} ${m.lastName}` : "Member",
+      chapterName: m?.chapter?.name || "Assigned Chapter",
+      amount: Number(inv.total) || 0,
       currency: "INR",
-      status,
-      dueDate: new Date(Date.now() + (idx % 2 === 0 ? 30 : -5) * 24 * 60 * 60 * 1000).toISOString(),
-      paymentMethod: "Credit Card (Stripe)",
-      reference: `INV-2026-${1000 + idx}`,
+      status: inv.status,
+      dueDate: inv.dueDate ? inv.dueDate.toISOString() : inv.createdAt.toISOString(),
+      paymentMethod: "Online UPI / Net Banking",
+      reference: inv.id,
     };
   });
 }
@@ -1069,14 +939,7 @@ export async function getDirectorReports(chapterId?: string) {
   return {
     kpis: overview.kpis,
     chapters: overview.chapters,
-    monthlyPerformance: [
-      { month: "Jan", referrals: 45, business: 120000, visitors: 18, attendance: 91 },
-      { month: "Feb", referrals: 52, business: 145000, visitors: 22, attendance: 89 },
-      { month: "Mar", referrals: 61, business: 180000, visitors: 28, attendance: 93 },
-      { month: "Apr", referrals: 58, business: 165000, visitors: 24, attendance: 90 },
-      { month: "May", referrals: 74, business: 210000, visitors: 31, attendance: 94 },
-      { month: "Jun", referrals: 82, business: 245000, visitors: 35, attendance: 92 },
-    ],
+    monthlyPerformance: [],
   };
 }
 
@@ -1140,11 +1003,29 @@ export async function getDirectorChapterDetail(chapterId: string) {
   const closedWon = chapter.referrals.filter((r) => r.status === ReferralStatus.CLOSED_WON);
   const closedBusiness = closedWon.reduce((sum, r) => sum + (Number(r.value) || 0), 0);
 
+  const totalAtt = chapter.meetings.flatMap((m) => m.attendances);
+  const presentAtt = totalAtt.filter((a) => a.status === AttendanceStatus.PRESENT || a.status === AttendanceStatus.SUBSTITUTE).length;
+  const attendanceRate = totalAtt.length > 0 ? Math.round((presentAtt / totalAtt.length) * 100) : 0;
+
+  const chapterMembers = await db.member.findMany({
+    where: { chapterId },
+    select: { id: true },
+  });
+  const chMemberIds = chapterMembers.map((m) => m.id);
+
+  const invoices = await db.invoice.findMany({
+    where: { memberId: { in: chMemberIds } },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
+  const memberMap = new Map(chapter.members.map((m) => [m.id, m]));
+
   return {
     id: chapter.id,
     name: chapter.name,
     chapterCode: chapter.chapterCode || `CHP-${chapter.id.substring(0, 4)}`,
-    region: chapter.region || "Northern California",
+    region: chapter.region || "Primary Region",
     location: chapter.meetingLocation || "Main Conference Center",
     meetingDay: chapter.meetingDay || "Wednesday",
     meetingTime: chapter.meetingTime || "07:30 AM",
@@ -1161,7 +1042,7 @@ export async function getDirectorChapterDetail(chapterId: string) {
       : null,
     vacancies,
     memberCount: chapter.members.length,
-    attendanceRate: 88 + (chapter.name.length % 7),
+    attendanceRate,
     visitorConversion,
     closedBusiness,
     members: chapter.members.map((m) => {
@@ -1177,9 +1058,9 @@ export async function getDirectorChapterDetail(chapterId: string) {
         firstName: m.firstName,
         lastName: m.lastName,
         email: m.email,
-        phone: m.phoneNumber || "+1 415 555 0199",
+        phone: m.phoneNumber || "",
         businessName: m.business?.businessName || "Independent Business",
-        industry: m.business?.industry || "General Services",
+        industry: m.business?.industry || "Services",
         currentRole,
         status: m.status,
         joinedAt: m.joinedAt?.toISOString() || m.createdAt.toISOString(),
@@ -1201,7 +1082,7 @@ export async function getDirectorChapterDetail(chapterId: string) {
       company: v.company || "Independent Business",
       industry: v.industry || "General Services",
       email: v.email,
-      phone: v.phone || "+1 415 555 8822",
+      phone: v.phone || "N/A",
       invitedBy: v.invitedBy ? `${v.invitedBy.firstName} ${v.invitedBy.lastName}` : "Direct Guest",
       visitDate: v.visitDate.toISOString(),
       status: v.status,
@@ -1215,15 +1096,18 @@ export async function getDirectorChapterDetail(chapterId: string) {
       status: r.status,
       createdDate: r.createdAt.toISOString(),
     })),
-    payments: chapter.members.map((m, idx) => ({
-      id: `pay-${m.id.substring(0, 6)}`,
-      memberName: `${m.firstName} ${m.lastName}`,
-      amount: 12500,
-      currency: "INR",
-      status: idx % 3 === 0 ? "PENDING" : "SUCCEEDED",
-      reference: `INV-2026-${1000 + idx}`,
-      paymentMethod: "Online UPI / Net Banking",
-      dueDate: new Date(Date.now() + (idx % 2 === 0 ? 30 : -5) * 24 * 60 * 60 * 1000).toISOString(),
-    })),
+    payments: invoices.map((inv) => {
+      const m = inv.memberId ? memberMap.get(inv.memberId) : null;
+      return {
+        id: inv.invoiceNumber || `INV-${inv.id.substring(0, 6)}`,
+        memberName: m ? `${m.firstName} ${m.lastName}` : "Member",
+        amount: Number(inv.total) || 0,
+        currency: "INR",
+        status: inv.status,
+        reference: inv.id,
+        paymentMethod: "Online UPI / Net Banking",
+        dueDate: inv.dueDate ? inv.dueDate.toISOString() : inv.createdAt.toISOString(),
+      };
+    }),
   };
 }

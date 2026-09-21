@@ -2,64 +2,42 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  // Validate session by hitting the better-auth endpoint directly.
-  // We use native fetch to ensure compatibility with Edge Runtime.
-  const authUrl = request.nextUrl.origin || process.env.BETTER_AUTH_URL;
-  
-  try {
-    const res = await fetch(`${authUrl}/api/auth/get-session`, {
-      headers: {
-        cookie: request.headers.get("cookie") || "",
-      },
-    });
+  // DashboardLayout validates Better Auth sessions. Performing the same lookup
+  // here through an internal HTTP request added a full extra round trip to every
+  // dashboard navigation.
+  const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "unknown";
+  const key = `ratelimit:${ip}:${new Date().getUTCMinutes()}`;
+  const limit = 200;
+  const currentRequests = (globalThis as any).__rateLimitMap?.get(key) || 0;
 
-    const session = await res.json();
+  if (currentRequests >= limit) {
+    return new NextResponse(JSON.stringify({ error: "Too many requests" }), { status: 429 });
+  }
 
-    // If no session data is returned, user is not authenticated
-    if (!res.ok || !session || !session.session) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
+  if (!(globalThis as any).__rateLimitMap) {
+    (globalThis as any).__rateLimitMap = new Map();
+  }
 
-    // Attach user information to headers if downstream components need it
-    const response = NextResponse.next();
-    response.headers.set("x-user-id", session.user.id);
+  (globalThis as any).__rateLimitMap.set(key, currentRequests + 1);
 
-    // Security headers
-    response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
-    response.headers.set("X-Content-Type-Options", "nosniff");
-    response.headers.set("X-Frame-Options", "DENY");
-    response.headers.set("Referrer-Policy", "no-referrer");
-    response.headers.set("Permissions-Policy", "geolocation=(), microphone=()");
-
-    // Content Security Policy - minimal default
-    const csp = [
+  const response = NextResponse.next();
+  response.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("Referrer-Policy", "no-referrer");
+  response.headers.set("Permissions-Policy", "geolocation=(), microphone=()");
+  response.headers.set(
+    "Content-Security-Policy",
+    [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data:",
       "font-src 'self' data:",
-    ].join('; ');
-    response.headers.set("Content-Security-Policy", csp);
+    ].join("; "),
+  );
 
-    // Simple in-memory rate limiting per IP for middleware
-    const ip = request.headers.get('x-forwarded-for') || (request as any).ip || request.headers.get('x-real-ip') || 'unknown';
-    const key = `ratelimit:${ip}:${new Date().getUTCMinutes()}`;
-    const limit = 200; // requests per minute
-    const currentRequests = (globalThis as any).__rateLimitMap?.get(key) || 0;
-    if (currentRequests > limit) {
-      return new NextResponse(JSON.stringify({ error: 'Too many requests' }), { status: 429 });
-    }
-    if (!(globalThis as any).__rateLimitMap) {
-      (globalThis as any).__rateLimitMap = new Map();
-    }
-    (globalThis as any).__rateLimitMap.set(key, currentRequests + 1);
-
-    return response;
-    
-  } catch (error) {
-    console.error("[Auth Middleware] Failed to validate session:", error);
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
+  return response;
 }
 
 export const config = {
