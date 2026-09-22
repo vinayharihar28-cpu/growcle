@@ -110,3 +110,77 @@ export async function updateMemberProfile(
     return { success: false, error: "Failed to update profile" };
   }
 }
+
+import { validateMemberEmail, provisionMemberAuthAccount } from "@/lib/auth/member-auth-sync";
+import { MemberStatus } from "@prisma/client";
+import { revalidatePath } from "next/cache";
+
+export async function createMemberAction(data: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber?: string;
+  chapterId: string;
+  businessName?: string;
+  industry?: string;
+  initialPassword?: string;
+  roleCode?: string;
+}) {
+  try {
+    const { isValid, normalizedEmail, error: emailError } = validateMemberEmail(data.email);
+    if (!isValid) {
+      return { success: false, error: emailError || "Invalid email address format." };
+    }
+
+    const existing = await db.member.findFirst({
+      where: {
+        email: { equals: normalizedEmail, mode: "insensitive" },
+        deletedAt: null,
+      },
+    });
+    if (existing) {
+      return { success: false, error: `A member with email ${normalizedEmail} is already registered.` };
+    }
+
+    const chapter = await db.chapter.findUnique({ where: { id: data.chapterId } });
+    if (!chapter) return { success: false, error: "Chapter not found." };
+
+    const member = await db.member.create({
+      data: {
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        email: normalizedEmail,
+        phoneNumber: data.phoneNumber,
+        chapterId: data.chapterId,
+        organizationId: chapter.organizationId,
+        status: MemberStatus.ACTIVE,
+        membershipNumber: `GC-${chapter.chapterCode || "CHP"}-${Math.floor(100 + Math.random() * 900)}`,
+        joinedAt: new Date(),
+        business: {
+          create: {
+            businessName: data.businessName || `${data.firstName}'s Business`,
+            industry: data.industry || "General Industry",
+          },
+        },
+      },
+    });
+
+    // Provision auth credentials for BOTH Google OAuth and Password logins
+    await provisionMemberAuthAccount({
+      memberId: member.id,
+      email: normalizedEmail,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      initialPassword: data.initialPassword,
+      roleCode: data.roleCode || "MEMBER",
+    });
+
+    revalidatePath("/dashboard/members");
+    revalidatePath("/dashboard/admin/members");
+    return { success: true, member };
+  } catch (error: any) {
+    console.error("Failed to create member:", error);
+    return { success: false, error: error?.message || "Failed to create member." };
+  }
+}
+

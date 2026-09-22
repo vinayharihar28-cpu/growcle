@@ -27,14 +27,9 @@ export const memberNavigation: NavigationConfig = [
     title: "My Identity",
     items: [
       {
-        title: "My Profile",
+        title: "My Profile & Portfolio",
         href: "/dashboard/member/profile",
         icon: UserCircle,
-      },
-      {
-        title: "Business Profile",
-        href: "/dashboard/member/business",
-        icon: Building2,
       },
     ],
   },
@@ -55,6 +50,11 @@ export const memberNavigation: NavigationConfig = [
         title: "1-to-1 Synergy Sessions",
         href: "/dashboard/member/one-to-ones",
         icon: MessagesSquare,
+      },
+      {
+        title: "TYFCB (Closed Business)",
+        href: "/dashboard/member/tyfcb",
+        icon: BarChart3,
       },
       {
         title: "Invited Visitors",

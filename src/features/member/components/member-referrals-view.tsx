@@ -7,16 +7,23 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   CheckCircle2,
-  Clock,
   Search,
   IndianRupee,
-  MoreVertical,
+  Building2,
+  User,
+  Users,
+  Globe,
+  Quote,
 } from "lucide-react";
 import {
   getMemberContext,
   getMemberReferrals,
   giveMemberReferral,
   updateMemberReferralStatus,
+  markReferralConvertedAndTYFCB,
+  getAllChaptersForSelection,
+  getChapterMembersForSelection,
+  getChapterVisitorsForSelection,
   getChapterMemberDirectory,
   MemberContext,
 } from "../actions/member-actions";
@@ -29,13 +36,19 @@ export function MemberReferralsView() {
     given: [],
     received: [],
   });
-  const [activeTab, setActiveTab] = useState<"given" | "received">("given");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [chapterMembers, setChapterMembers] = useState<any[]>([]);
+  const [allChapters, setAllChapters] = useState<any[]>([]);
 
-  // Give modal
+  // Pass Referral modal state
   const [isGiveOpen, setIsGiveOpen] = useState(false);
+  const [recipientType, setRecipientType] = useState<"LOCAL_MEMBER" | "CROSS_CHAPTER" | "VISITOR">("LOCAL_MEMBER");
+  const [selectedCrossChapterId, setSelectedCrossChapterId] = useState<string>("");
+  const [crossChapterMembers, setCrossChapterMembers] = useState<any[]>([]);
+  const [chapterVisitors, setChapterVisitors] = useState<any[]>([]);
+  const [loadingCrossMembers, setLoadingCrossMembers] = useState(false);
+
   const [giveForm, setGiveForm] = useState({
     toMemberId: "",
     referralName: "",
@@ -47,15 +60,29 @@ export function MemberReferralsView() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  // TYFCB Converted Modal State
+  const [selectedReferralForTYFCB, setSelectedReferralForTYFCB] = useState<any | null>(null);
+  const [tyfcbForm, setTyfcbForm] = useState({
+    amount: 0,
+    testimonialText: "",
+  });
+  const [submittingTYFCB, setSubmittingTYFCB] = useState(false);
+
   const loadData = async () => {
     setLoading(true);
     try {
       const ctx = await getMemberContext();
       setContext(ctx);
-      const res = await getMemberReferrals(ctx.memberId);
+      const [res, members, chapters, visitors] = await Promise.all([
+        getMemberReferrals(ctx.memberId),
+        getChapterMemberDirectory(ctx.chapterId),
+        getAllChaptersForSelection(),
+        getChapterVisitorsForSelection(ctx.chapterId),
+      ]);
       setReferrals(res);
-      const members = await getChapterMemberDirectory(ctx.chapterId);
       setChapterMembers(members.filter((m) => m.id !== ctx.memberId));
+      setAllChapters(chapters);
+      setChapterVisitors(visitors);
     } catch (err) {
       console.error("Failed to load referrals", err);
     } finally {
@@ -66,6 +93,24 @@ export function MemberReferralsView() {
   useEffect(() => {
     loadData();
   }, []);
+
+  // When selecting a different chapter for cross-chapter referral
+  const handleCrossChapterChange = async (chapterId: string) => {
+    setSelectedCrossChapterId(chapterId);
+    if (!chapterId) {
+      setCrossChapterMembers([]);
+      return;
+    }
+    setLoadingCrossMembers(true);
+    try {
+      const members = await getChapterMembersForSelection(chapterId);
+      setCrossChapterMembers(members.filter((m) => m.id !== context?.memberId));
+    } catch (e) {
+      console.error("Failed to load cross-chapter members", e);
+    } finally {
+      setLoadingCrossMembers(false);
+    }
+  };
 
   const formatINR = (val: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -80,10 +125,15 @@ export function MemberReferralsView() {
     if (!context || !giveForm.toMemberId || !giveForm.referralName) return;
     setSubmitting(true);
     try {
+      const isCross = recipientType === "CROSS_CHAPTER";
+      const isVisitor = recipientType === "VISITOR";
+
       await giveMemberReferral({
         fromMemberId: context.memberId,
         toMemberId: giveForm.toMemberId,
         chapterId: context.chapterId,
+        crossChapterId: isCross ? selectedCrossChapterId : undefined,
+        isVisitorReferral: isVisitor,
         referralName: giveForm.referralName,
         clientName: giveForm.clientName,
         clientEmail: giveForm.clientEmail,
@@ -91,6 +141,7 @@ export function MemberReferralsView() {
         value: Number(giveForm.value) || 0,
         notes: giveForm.notes,
       });
+
       setIsGiveOpen(false);
       setGiveForm({
         toMemberId: "",
@@ -101,11 +152,41 @@ export function MemberReferralsView() {
         value: 0,
         notes: "",
       });
+      setRecipientType("LOCAL_MEMBER");
+      setSelectedCrossChapterId("");
       await loadData();
     } catch (err) {
       console.error("Failed to pass referral", err);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleOpenTYFCB = (ref: any) => {
+    setSelectedReferralForTYFCB(ref);
+    setTyfcbForm({
+      amount: ref.value || 0,
+      testimonialText: `Thank you to ${ref.partnerName} for connecting us. The business deal was successfully closed and we are extremely satisfied with their strategic collaboration!`,
+    });
+  };
+
+  const handleTYFCBSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!context || !selectedReferralForTYFCB) return;
+    setSubmittingTYFCB(true);
+    try {
+      await markReferralConvertedAndTYFCB({
+        referralId: selectedReferralForTYFCB.id,
+        memberId: context.memberId,
+        tyfcbAmount: Number(tyfcbForm.amount) || 0,
+        testimonialText: tyfcbForm.testimonialText,
+      });
+      setSelectedReferralForTYFCB(null);
+      await loadData();
+    } catch (err) {
+      console.error("Failed to mark referral as converted", err);
+    } finally {
+      setSubmittingTYFCB(false);
     }
   };
 
@@ -119,233 +200,445 @@ export function MemberReferralsView() {
     }
   };
 
-  const currentList = activeTab === "given" ? referrals.given : referrals.received;
-  const filteredList = currentList.filter((r) => {
+  const filterReferral = (r: any) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
       r.title.toLowerCase().includes(q) ||
       r.partnerName.toLowerCase().includes(q) ||
-      r.clientName.toLowerCase().includes(q)
+      r.clientName.toLowerCase().includes(q) ||
+      (r.chapterName && r.chapterName.toLowerCase().includes(q))
     );
-  });
+  };
 
-  const allList = [...referrals.given, ...referrals.received];
-  const closedWonDeals = allList.filter((r) => r.status === "CLOSED_WON");
-  const closedRevenue = closedWonDeals.reduce((sum, r) => sum + r.value, 0);
+  const filteredGiven = referrals.given.filter(filterReferral);
+  const filteredReceived = referrals.received.filter(filterReferral);
+
+  const getChapterBadgeClass = (themeColor: string) => {
+    switch (themeColor) {
+      case "blue":
+        return "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20";
+      case "indigo":
+        return "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20";
+      case "amber":
+        return "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20";
+      case "rose":
+        return "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20";
+      default:
+        return "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20";
+    }
+  };
 
   return (
     <div className="space-y-6">
       {context && <MemberHeaderBar context={context} />}
 
-      {/* Header and Give Action */}
+      {/* Header Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-foreground">My Chapter Referrals</h2>
+          <h2 className="text-xl font-bold text-foreground">Member Referrals Exchange</h2>
           <p className="text-sm text-muted-foreground">
-            Track business referrals you have passed to chapter peers or received for your enterprise.
+            Pass client opportunities across your chapter, cross-chapter network, and chapter visitors.
           </p>
         </div>
 
         <button
           onClick={() => setIsGiveOpen(true)}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity shadow-sm"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity shadow-sm cursor-pointer"
         >
           <Plus className="h-4 w-4" />
-          <span>Give New Referral</span>
+          <span>Pass Referral</span>
         </button>
       </div>
 
-      {/* Referral KPI Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Referrals Given</span>
-            <ArrowUpRight className="h-4 w-4 text-primary" />
-          </div>
-          <p className="text-2xl font-bold text-foreground mt-1">{referrals.given.length}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Referrals Received</span>
-            <ArrowDownLeft className="h-4 w-4 text-blue-500" />
-          </div>
-          <p className="text-2xl font-bold text-foreground mt-1">{referrals.received.length}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Won Deals</span>
-            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-          </div>
-          <p className="text-2xl font-bold text-emerald-500 mt-1">{closedWonDeals.length}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Closed Business (INR)</span>
-          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">
-            {formatINR(closedRevenue || 0)}
-          </p>
-        </div>
+      {/* Search Bar */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          type="text"
+          placeholder="Search opportunity title, colleague, or chapter..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-9 pr-4 py-2 rounded-xl bg-card border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 shadow-xs"
+        />
       </div>
 
-      {/* Tabs and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl w-fit">
-          <button
-            onClick={() => setActiveTab("given")}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === "given"
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
-            <span>Given Referrals ({referrals.given.length})</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("received")}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === "received"
-                ? "bg-card text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <ArrowDownLeft className="h-3.5 w-3.5 text-blue-500" />
-            <span>Received Referrals ({referrals.received.length})</span>
-          </button>
+      {/* Two Separate Columns: Given & Received (As requested in requirements) */}
+      {loading ? (
+        <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground">
+          Loading referrals exchange...
         </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          {/* COLUMN 1: GIVEN REFERRALS */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border shadow-xs">
+              <div className="flex items-center gap-2">
+                <ArrowUpRight className="h-4 w-4 text-primary" />
+                <h3 className="font-bold text-sm text-foreground">Given Referrals</h3>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                {referrals.given.length} Passed
+              </span>
+            </div>
 
-        <div className="relative max-w-sm flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="text"
-            placeholder="Search referral title or partner..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 rounded-lg bg-card border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-          />
+            {filteredGiven.length === 0 ? (
+              <div className="bg-card border border-dashed border-border rounded-xl p-8 text-center text-xs text-muted-foreground space-y-2">
+                <p>No given referrals logged yet.</p>
+                <button
+                  onClick={() => setIsGiveOpen(true)}
+                  className="text-primary font-semibold hover:underline"
+                >
+                  Pass your first referral →
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredGiven.map((r) => {
+                  const isVisitor = r.isVisitorReferral;
+                  const isCross = r.isCrossChapter;
+
+                  return (
+                    <div
+                      key={r.id}
+                      className={`p-4 rounded-xl border shadow-xs transition-all flex flex-col justify-between space-y-3 ${
+                        isVisitor
+                          ? "border-purple-500/40 bg-purple-500/[0.03]"
+                          : isCross
+                          ? "border-primary/40 bg-primary/[0.02]"
+                          : "border-border bg-card"
+                      }`}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-bold text-sm text-foreground">{r.title}</span>
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                              r.status === "CLOSED_WON"
+                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                : r.status === "CLOSED_LOST"
+                                ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                                : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                            }`}
+                          >
+                            {r.status.replace("_", " ")}
+                          </span>
+                        </div>
+
+                        {/* Badges for Visitor or Cross-Chapter */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {isVisitor && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                              <Users className="h-3 w-3" /> Visitor Referral
+                            </span>
+                          )}
+                          {isCross && (
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${getChapterBadgeClass(
+                                r.chapterThemeColor
+                              )}`}
+                            >
+                              <Globe className="h-3 w-3" /> Cross-Chapter: {r.chapterName}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <div>
+                            Passed to: <strong className="text-foreground">{r.partnerName}</strong> ({r.partnerBusiness})
+                          </div>
+                          <div>
+                            Client: <span className="text-foreground font-medium">{r.clientName}</span>
+                            {r.clientPhone && ` • ${r.clientPhone}`}
+                          </div>
+                          {r.notes && <p className="text-[11px] italic text-muted-foreground pt-1">&ldquo;{r.notes}&rdquo;</p>}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-border text-xs">
+                        <span className="font-bold text-foreground">
+                          {r.value > 0 ? formatINR(r.value) : "Value Unspecified"}
+                        </span>
+                        <span className="text-muted-foreground">{r.date}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* COLUMN 2: RECEIVED REFERRALS */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border shadow-xs">
+              <div className="flex items-center gap-2">
+                <ArrowDownLeft className="h-4 w-4 text-blue-500" />
+                <h3 className="font-bold text-sm text-foreground">Received Referrals</h3>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                {referrals.received.length} Received
+              </span>
+            </div>
+
+            {filteredReceived.length === 0 ? (
+              <div className="bg-card border border-dashed border-border rounded-xl p-8 text-center text-xs text-muted-foreground">
+                No received referrals logged yet.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredReceived.map((r) => {
+                  const isVisitor = r.isVisitorReferral;
+                  const isCross = r.isCrossChapter;
+                  const isWon = r.status === "CLOSED_WON";
+
+                  return (
+                    <div
+                      key={r.id}
+                      className={`p-4 rounded-xl border shadow-xs transition-all flex flex-col justify-between space-y-3 ${
+                        isVisitor
+                          ? "border-purple-500/40 bg-purple-500/[0.03]"
+                          : isCross
+                          ? "border-primary/40 bg-primary/[0.02]"
+                          : "border-border bg-card"
+                      }`}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="font-bold text-sm text-foreground">{r.title}</span>
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
+                              isWon
+                                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                : r.status === "CLOSED_LOST"
+                                ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
+                                : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                            }`}
+                          >
+                            {r.status.replace("_", " ")}
+                          </span>
+                        </div>
+
+                        {/* Badges for Visitor or Cross-Chapter */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {isVisitor && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                              <Users className="h-3 w-3" /> Visitor Referral
+                            </span>
+                          )}
+                          {isCross && (
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${getChapterBadgeClass(
+                                r.chapterThemeColor
+                              )}`}
+                            >
+                              <Globe className="h-3 w-3" /> Cross-Chapter: {r.chapterName}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <div>
+                            Referred by: <strong className="text-foreground">{r.partnerName}</strong> ({r.partnerBusiness})
+                          </div>
+                          <div>
+                            Client Lead: <span className="text-foreground font-medium">{r.clientName}</span>
+                            {r.clientPhone && ` • ${r.clientPhone}`}
+                          </div>
+                          {r.notes && <p className="text-[11px] italic text-muted-foreground pt-1">&ldquo;{r.notes}&rdquo;</p>}
+                        </div>
+                      </div>
+
+                      {/* Action Bar for Received Referrals (TYFCB Conversion & Status) */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border text-xs">
+                        <div>
+                          <span className="font-bold text-foreground">
+                            {r.value > 0 ? formatINR(r.value) : "—"}
+                          </span>
+                          {r.tyfcbAmount > 0 && (
+                            <span className="ml-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                              (TYFCB: {formatINR(r.tyfcbAmount)})
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {!isWon ? (
+                            <button
+                              onClick={() => handleOpenTYFCB(r)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-xs cursor-pointer"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              <span>Convert (TYFCB)</span>
+                            </button>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                              <CheckCircle2 className="h-3 w-3" /> Business Closed
+                            </span>
+                          )}
+
+                          <select
+                            value={r.status}
+                            onChange={(e) => handleStatusUpdate(r.id, e.target.value as any)}
+                            className="px-2 py-1 rounded-md bg-muted border border-border text-xs text-foreground focus:outline-none"
+                          >
+                            <option value="PENDING">Pending</option>
+                            <option value="CONTACTED">Contacted</option>
+                            <option value="CLOSED_WON">Closed Won</option>
+                            <option value="CLOSED_LOST">Closed Lost</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Referrals Table */}
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="p-12 text-center text-muted-foreground">Loading referrals...</div>
-        ) : filteredList.length === 0 ? (
-          <div className="p-12 text-center text-muted-foreground space-y-2">
-            <p>No referrals found in this tab.</p>
-            <button
-              onClick={() => setIsGiveOpen(true)}
-              className="text-xs font-semibold text-primary hover:underline"
-            >
-              Give a referral now →
-            </button>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead>
-                <tr className="border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  <th className="py-3 px-4">Opportunity</th>
-                  <th className="py-3 px-4">{activeTab === "given" ? "Passed To" : "Received From"}</th>
-                  <th className="py-3 px-4">Client Contact</th>
-                  <th className="py-3 px-4">Deal Value</th>
-                  <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-4">Status</th>
-                  {activeTab === "received" && <th className="py-3 px-4 text-right">Update Status</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filteredList.map((r) => (
-                  <tr key={r.id} className="hover:bg-muted/20 transition-colors">
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-foreground">{r.title}</div>
-                      <div className="text-xs text-muted-foreground line-clamp-1">{r.notes}</div>
-                    </td>
-                    <td className="py-3 px-4 text-xs font-medium text-foreground">
-                      <div>{r.partnerName}</div>
-                      <div className="text-muted-foreground">{r.partnerEmail}</div>
-                    </td>
-                    <td className="py-3 px-4 text-xs">
-                      <div className="font-medium text-foreground">{r.clientName}</div>
-                      <div className="text-muted-foreground">{r.clientPhone || r.clientEmail || "Direct Contact"}</div>
-                    </td>
-                    <td className="py-3 px-4 font-bold text-foreground">
-                      {r.value > 0 ? formatINR(r.value) : "—"}
-                    </td>
-                    <td className="py-3 px-4 text-xs text-muted-foreground">
-                      {r.date}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          r.status === "CLOSED_WON"
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                            : r.status === "CLOSED_LOST"
-                            ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20"
-                            : r.status === "CONTACTED"
-                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
-                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                        }`}
-                      >
-                        {r.status.replace("_", " ")}
-                      </span>
-                    </td>
-                    {activeTab === "received" && (
-                      <td className="py-3 px-4 text-right">
-                        <select
-                          value={r.status}
-                          onChange={(e) => handleStatusUpdate(r.id, e.target.value as any)}
-                          className="px-2 py-1 rounded bg-muted border border-border text-xs font-semibold text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                        >
-                          <option value="PENDING">Pending</option>
-                          <option value="CONTACTED">Contacted</option>
-                          <option value="IN_PROGRESS">In Progress</option>
-                          <option value="CLOSED_WON">Closed Won (Success)</option>
-                          <option value="CLOSED_LOST">Closed Lost</option>
-                        </select>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Give Referral Modal */}
+      {/* Give Referral Modal (Cross-Chapter & Visitor enabled) */}
       {isGiveOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="bg-card border border-border rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-2">
                 <Handshake className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-bold text-foreground">Give Chapter Referral</h3>
+                <h3 className="text-lg font-bold text-foreground">Pass Business Referral</h3>
               </div>
               <button
                 onClick={() => setIsGiveOpen(false)}
-                className="text-muted-foreground hover:text-foreground text-sm"
+                className="text-muted-foreground hover:text-foreground text-sm cursor-pointer"
               >
                 ✕
               </button>
             </div>
 
             <form onSubmit={handleGiveSubmit} className="space-y-4">
+              {/* Recipient Network Selector */}
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Select Recipient Member *</label>
-                <select
-                  required
-                  value={giveForm.toMemberId}
-                  onChange={(e) => setGiveForm({ ...giveForm, toMemberId: e.target.value })}
-                  className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="">Select Chapter Colleague</option>
-                  {chapterMembers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name} — {m.businessName} ({m.industry})
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                  Select Recipient Network *
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRecipientType("LOCAL_MEMBER")}
+                    className={`py-2 px-2.5 rounded-lg text-xs font-semibold border text-center transition-all cursor-pointer ${
+                      recipientType === "LOCAL_MEMBER"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                    }`}
+                  >
+                    My Chapter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRecipientType("CROSS_CHAPTER")}
+                    className={`py-2 px-2.5 rounded-lg text-xs font-semibold border text-center transition-all cursor-pointer ${
+                      recipientType === "CROSS_CHAPTER"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                    }`}
+                  >
+                    Cross-Chapter
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRecipientType("VISITOR")}
+                    className={`py-2 px-2.5 rounded-lg text-xs font-semibold border text-center transition-all cursor-pointer ${
+                      recipientType === "VISITOR"
+                        ? "bg-purple-600 text-white border-purple-600"
+                        : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                    }`}
+                  >
+                    Chapter Visitor
+                  </button>
+                </div>
+              </div>
+
+              {/* Cross-Chapter Chapter Selector */}
+              {recipientType === "CROSS_CHAPTER" && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Select Target Chapter *</label>
+                  <select
+                    required
+                    value={selectedCrossChapterId}
+                    onChange={(e) => handleCrossChapterChange(e.target.value)}
+                    className="w-full mt-1.5 h-10 px-3.5 rounded-xl bg-background/90 border border-input text-foreground text-sm font-medium shadow-xs transition-all duration-150 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary cursor-pointer"
+                  >
+                    <option value="">Choose Target Chapter...</option>
+                    {allChapters.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.chapterCode || "Chapter"})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Recipient Member / Visitor Selection */}
+              <div>
+                <label className="text-xs font-semibold text-foreground/80 flex items-center gap-1.5">
+                  <span>
+                    {recipientType === "VISITOR"
+                      ? "Select Chapter Visitor"
+                      : recipientType === "CROSS_CHAPTER"
+                      ? "Select Cross-Chapter Member"
+                      : "Select Chapter Member"}
+                  </span>
+                  <span className="text-rose-500">*</span>
+                </label>
+
+                {recipientType === "VISITOR" ? (
+                  <select
+                    required
+                    value={giveForm.toMemberId}
+                    onChange={(e) => setGiveForm({ ...giveForm, toMemberId: e.target.value })}
+                    className="w-full mt-1.5 h-10 px-3.5 rounded-xl bg-background/90 border border-input text-foreground text-sm font-medium shadow-xs transition-all duration-150 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary cursor-pointer"
+                  >
+                    <option value="">Select Visitor...</option>
+                    {chapterVisitors.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.name} • {v.businessName || "Visitor"} ({v.industry || "General"})
+                      </option>
+                    ))}
+                    {chapterMembers.length > 0 && (
+                      <option value={chapterMembers[0].id}>Assign to Chapter Sponsor ({chapterMembers[0].name})</option>
+                    )}
+                  </select>
+                ) : recipientType === "CROSS_CHAPTER" ? (
+                  <select
+                    required
+                    disabled={!selectedCrossChapterId || loadingCrossMembers}
+                    value={giveForm.toMemberId}
+                    onChange={(e) => setGiveForm({ ...giveForm, toMemberId: e.target.value })}
+                    className="w-full mt-1.5 h-10 px-3.5 rounded-xl bg-background/90 border border-input text-foreground text-sm font-medium shadow-xs transition-all duration-150 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary disabled:opacity-50 cursor-pointer"
+                  >
+                    <option value="">
+                      {loadingCrossMembers ? "Loading chapter roster..." : "Select Cross-Chapter Member..."}
                     </option>
-                  ))}
-                </select>
+                    {crossChapterMembers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} • {m.businessName || "Member"} ({m.industry || "General"})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <select
+                    required
+                    value={giveForm.toMemberId}
+                    onChange={(e) => setGiveForm({ ...giveForm, toMemberId: e.target.value })}
+                    className="w-full mt-1.5 h-10 px-3.5 rounded-xl bg-background/90 border border-input text-foreground text-sm font-medium shadow-xs transition-all duration-150 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary cursor-pointer"
+                  >
+                    <option value="">Select Chapter Colleague...</option>
+                    {chapterMembers.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name} • {m.businessName || "Member"} ({m.industry || "General"})
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div>
@@ -353,7 +646,7 @@ export function MemberReferralsView() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Retail POS Hardware Upgrade"
+                  placeholder="e.g. ERP Implementation for Logistics Client"
                   value={giveForm.referralName}
                   onChange={(e) => setGiveForm({ ...giveForm, referralName: e.target.value })}
                   className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -362,20 +655,22 @@ export function MemberReferralsView() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">Client Name / Business</label>
+                  <label className="text-xs font-medium text-muted-foreground">Client Name / Business *</label>
                   <input
                     type="text"
-                    placeholder="e.g. Grand Supermarket"
+                    required
+                    placeholder="Company or Contact Name"
                     value={giveForm.clientName}
                     onChange={(e) => setGiveForm({ ...giveForm, clientName: e.target.value })}
                     className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">Estimated Deal Value (₹ INR)</label>
+                  <label className="text-xs font-medium text-muted-foreground">Estimated Deal Size (₹)</label>
                   <input
                     type="number"
-                    placeholder="40000"
+                    min="0"
+                    placeholder="e.g. 50000"
                     value={giveForm.value || ""}
                     onChange={(e) => setGiveForm({ ...giveForm, value: Number(e.target.value) })}
                     className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -384,16 +679,6 @@ export function MemberReferralsView() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground">Client Email</label>
-                  <input
-                    type="email"
-                    placeholder="contact@client.com"
-                    value={giveForm.clientEmail}
-                    onChange={(e) => setGiveForm({ ...giveForm, clientEmail: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Client Phone</label>
                   <input
@@ -404,33 +689,123 @@ export function MemberReferralsView() {
                     className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Client Email</label>
+                  <input
+                    type="email"
+                    placeholder="decisionmaker@company.com"
+                    value={giveForm.clientEmail}
+                    onChange={(e) => setGiveForm({ ...giveForm, clientEmail: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
               </div>
 
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Synergy Notes & Context</label>
+                <label className="text-xs font-medium text-muted-foreground">Introductory Notes & Synergy</label>
                 <textarea
                   rows={2}
-                  placeholder="Explain why the client needs this service now..."
                   value={giveForm.notes}
                   onChange={(e) => setGiveForm({ ...giveForm, notes: e.target.value })}
+                  placeholder="Context about the client's problem, urgency, and expected solution..."
                   className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
                 <button
                   type="button"
                   onClick={() => setIsGiveOpen(false)}
-                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium"
+                  className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-xs font-semibold hover:bg-muted/80 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+                  className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold hover:opacity-90 transition-opacity shadow-sm disabled:opacity-50 cursor-pointer"
                 >
-                  {submitting ? "Passing..." : "Confirm & Pass Referral"}
+                  {submitting ? "Passing Referral..." : "Pass Referral Now"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* TYFCB (Thank You For Closed Business) Modal */}
+      {selectedReferralForTYFCB && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                <h3 className="text-lg font-bold text-foreground">Mark Converted & Record TYFCB</h3>
+              </div>
+              <button
+                onClick={() => setSelectedReferralForTYFCB(null)}
+                className="text-muted-foreground hover:text-foreground text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleTYFCBSubmit} className="space-y-4">
+              <div className="p-3 rounded-lg bg-muted/40 text-xs space-y-1">
+                <div className="text-muted-foreground">
+                  Referral: <strong className="text-foreground">{selectedReferralForTYFCB.title}</strong>
+                </div>
+                <div className="text-muted-foreground">
+                  Referred By: <strong className="text-foreground">{selectedReferralForTYFCB.partnerName}</strong>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Total Closed Business Value (₹) *
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  placeholder="e.g. 75000"
+                  value={tyfcbForm.amount || ""}
+                  onChange={(e) => setTyfcbForm({ ...tyfcbForm, amount: Number(e.target.value) })}
+                  className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                  <Quote className="h-3.5 w-3.5 text-primary" />
+                  <span>Testimonial for {selectedReferralForTYFCB.partnerName}</span>
+                </label>
+                <textarea
+                  rows={3}
+                  value={tyfcbForm.testimonialText}
+                  onChange={(e) => setTyfcbForm({ ...tyfcbForm, testimonialText: e.target.value })}
+                  placeholder="Mention how this member facilitated the business, their reliability, and praise for their support..."
+                  className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  This testimonial will be featured on their member profile and homepage showcase.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setSelectedReferralForTYFCB(null)}
+                  className="px-4 py-2 rounded-lg bg-muted text-muted-foreground text-xs font-semibold hover:bg-muted/80 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingTYFCB}
+                  className="px-5 py-2 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
+                >
+                  {submittingTYFCB ? "Saving Converted Deal..." : "Confirm & Record TYFCB"}
                 </button>
               </div>
             </form>

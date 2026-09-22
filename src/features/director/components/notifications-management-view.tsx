@@ -2,37 +2,33 @@
 
 import React, { useEffect, useState } from "react";
 import { Bell, Send, Plus, CheckCircle2 } from "lucide-react";
-import { getAssignedChapters } from "../actions/director-actions";
+import { getAssignedChapters, getDirectorBroadcastHistory } from "../actions/director-actions";
 import { SendNotificationModal } from "./send-notification-modal";
 
 export function NotificationsManagementView() {
   const [chapters, setChapters] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [sentHistory, setSentHistory] = useState<any[]>([
-    {
-      id: "notif-1",
-      title: "Regional Leadership Strategy Session",
-      chapterName: "All Assigned Chapters",
-      audience: "LEADERSHIP",
-      date: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-      recipients: 18,
-    },
-    {
-      id: "notif-2",
-      title: "Quarterly Visitor Day Guidelines",
-      chapterName: "Silicon Valley Founders",
-      audience: "ALL",
-      date: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-      recipients: 42,
-    },
-  ]);
+  const [sentHistory, setSentHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [chaps, history] = await Promise.all([
+        getAssignedChapters(),
+        getDirectorBroadcastHistory(),
+      ]);
+      setChapters(chaps);
+      setSentHistory(history);
+    } catch (err) {
+      console.error("Failed to load director notifications", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function load() {
-      const chaps = await getAssignedChapters();
-      setChapters(chaps);
-    }
-    load();
+    loadData();
   }, []);
 
   return (
@@ -52,40 +48,38 @@ export function NotificationsManagementView() {
 
       <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
         <h3 className="font-bold text-lg text-foreground">Recent Sent Announcements</h3>
-        <div className="divide-y border-t border-b">
-          {sentHistory.map((item) => (
-            <div key={item.id} className="py-4 flex items-center justify-between">
-              <div>
-                <h4 className="font-semibold text-base text-foreground">{item.title}</h4>
-                <p className="text-xs text-muted-foreground">
-                  Scope: {item.chapterName} • Audience: {item.audience} • Sent: {new Date(item.date).toLocaleString()}
-                </p>
+        {sentHistory.length === 0 ? (
+          <div className="py-12 text-center space-y-2 border-t border-b">
+            <Bell className="h-8 w-8 text-muted-foreground/40 mx-auto" />
+            <p className="text-sm font-semibold text-foreground">No Broadcasts Sent Yet</p>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+              Use the Dispatch Announcement button above to send official memos, meeting updates, or guidelines to your chapter members.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y border-t border-b">
+            {sentHistory.map((item) => (
+              <div key={item.id} className="py-4 flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-base text-foreground">{item.title}</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Scope: {item.chapterName} • Audience: {item.audience} • Sent: {new Date(item.date).toLocaleString()}
+                  </p>
+                </div>
+                <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Dispatched ({item.recipients} Recipients)
+                </span>
               </div>
-              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 flex items-center gap-1">
-                <CheckCircle2 className="h-3.5 w-3.5" /> Dispatched ({item.recipients} Recipients)
-              </span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <SendNotificationModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         chapters={chapters}
-        onSuccess={() => {
-          setSentHistory((prev) => [
-            {
-              id: `notif-${Date.now()}`,
-              title: "Chapter Director Broadcast",
-              chapterName: "Assigned Scope",
-              audience: "ALL",
-              date: new Date().toISOString(),
-              recipients: 35,
-            },
-            ...prev,
-          ]);
-        }}
+        onSuccess={loadData}
       />
     </div>
   );

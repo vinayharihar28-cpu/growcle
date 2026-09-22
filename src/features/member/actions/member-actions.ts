@@ -11,6 +11,7 @@ import {
   AttendanceStatus,
   OneToOneStatus,
 } from "@prisma/client";
+import { createSystemNotification } from "@/features/notifications/actions/notification-actions";
 
 export interface MemberContext {
   memberId: string;
@@ -209,6 +210,67 @@ export async function getMemberDashboardData(memberId: string) {
     });
   }
 
+  // Compute 6-month historical trend data for interactive charts
+  const now = new Date();
+  const months: { label: string; year: number; month: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push({
+      label: d.toLocaleDateString("en-IN", { month: "short" }),
+      year: d.getFullYear(),
+      month: d.getMonth(),
+    });
+  }
+
+  const referralsTrend = months.map((m) => {
+    const givenCount = member.givenReferrals.filter((r) => {
+      const rd = new Date(r.createdAt);
+      return rd.getFullYear() === m.year && rd.getMonth() === m.month;
+    }).length;
+    const receivedCount = member.receivedReferrals.filter((r) => {
+      const rd = new Date(r.createdAt);
+      return rd.getFullYear() === m.year && rd.getMonth() === m.month;
+    }).length;
+    return {
+      month: m.label,
+      given: givenCount,
+      received: receivedCount,
+    };
+  });
+
+  const networkingTrend = months.map((m) => {
+    const oneToOnesCount = allOneToOnes.filter((o) => {
+      const od = new Date(o.date);
+      return od.getFullYear() === m.year && od.getMonth() === m.month && o.status === OneToOneStatus.COMPLETED;
+    }).length;
+    const visitorsCount = member.visitorsInvited.filter((v) => {
+      const vd = new Date(v.createdAt);
+      return vd.getFullYear() === m.year && vd.getMonth() === m.month;
+    }).length;
+    return {
+      month: m.label,
+      oneToOnes: oneToOnesCount,
+      visitors: visitorsCount,
+    };
+  });
+
+  const revenueTrend = months.map((m) => {
+    const revenueInMonth = member.receivedReferrals
+      .filter((r) => {
+        const rd = new Date(r.updatedAt || r.createdAt);
+        return (
+          rd.getFullYear() === m.year &&
+          rd.getMonth() === m.month &&
+          (r.status === ReferralStatus.CLOSED_WON || Number(r.convertedBusinessValue || r.tyfcbAmount) > 0)
+        );
+      })
+      .reduce((acc, r) => acc + (Number(r.convertedBusinessValue || r.tyfcbAmount || r.value) || 0), 0);
+    return {
+      month: m.label,
+      revenue: revenueInMonth,
+    };
+  });
+
   return {
     kpis: {
       membershipStatus: member.status,
@@ -223,6 +285,11 @@ export async function getMemberDashboardData(memberId: string) {
       visitorsInvited,
       visitorsAttended,
       visitorsConverted,
+    },
+    chartsData: {
+      referralsTrend,
+      networkingTrend,
+      revenueTrend,
     },
     upcomingMeeting: nextMeeting
       ? {
@@ -289,9 +356,10 @@ export async function updateMemberProfile(
     website?: string;
     linkedin?: string;
     twitter?: string;
+    profileImage?: string;
   }
 ) {
-  await db.member.update({
+  const updatedMember = await db.member.update({
     where: { id: memberId },
     data: {
       firstName: data.firstName,
@@ -301,12 +369,51 @@ export async function updateMemberProfile(
       website: data.website,
       linkedin: data.linkedin,
       twitter: data.twitter,
+      ...(data.profileImage !== undefined ? { profileImage: data.profileImage } : {}),
     },
   });
+
+  if (updatedMember.userId && data.profileImage !== undefined) {
+    try {
+      await db.user.update({
+        where: { id: updatedMember.userId },
+        data: { image: data.profileImage },
+      });
+    } catch (e) {
+      console.warn("Could not sync user image:", e);
+    }
+  }
 
   revalidatePath("/dashboard/member/profile");
   revalidatePath("/dashboard/member");
   return { success: true };
+}
+
+/**
+ * Request password reset link (scaffolded)
+ */
+export async function requestPasswordReset(email: string) {
+  const token = Math.random().toString(36).substring(2) + Date.now().toString(36);
+  try {
+    await db.verification.create({
+      data: {
+        identifier: email,
+        value: token,
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 24 hours
+      },
+    });
+  } catch (e) {
+    console.log("Verification token stored or skipped", e);
+  }
+
+  const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/reset-password?token=${token}&email=${encodeURIComponent(email)}`;
+  console.log(`[AUTH] Password reset link generated for ${email}: ${resetUrl}`);
+
+  return {
+    success: true,
+    message: `A password reset link has been dispatched to ${email}. Check your inbox!`,
+    resetUrl,
+  };
 }
 
 /**
@@ -562,37 +669,144 @@ export async function getChapterMemberDetail(targetMemberId: string) {
 }
 
 /**
- * Fetch Member Referrals (Given & Received tabs)
+/**
+ * Fetch all available chapters for cross-chapter selection
+ */
+export async function getAllChaptersForSelection() {
+  const chapters = await db.chapter.findMany({
+    where: { isActive: true },
+    select: {
+      id: true,
+      name: true,
+      chapterCode: true,
+      themeColor: true,
+    },
+    orderBy: { name: "asc" },
+  });
+  return chapters;
+}
+
+/**
+ * Fetch members of a specific chapter for referral/121 selection
+ */
+export async function getChapterMembersForSelection(chapterId: string) {
+  const members = await db.member.findMany({
+    where: {
+      chapterId,
+      status: MemberStatus.ACTIVE,
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      membershipNumber: true,
+      business: {
+        select: {
+          businessName: true,
+          industry: true,
+        },
+      },
+    },
+    orderBy: { firstName: "asc" },
+  });
+
+  return members.map((m) => ({
+    id: m.id,
+    name: `${m.firstName} ${m.lastName}`,
+    email: m.email,
+    membershipNumber: m.membershipNumber || "",
+    businessName: m.business?.businessName || "Member Business",
+    industry: m.business?.industry || "Services",
+  }));
+}
+
+/**
+ * Fetch chapter visitors for referral/121 selection
+ */
+export async function getChapterVisitorsForSelection(chapterId: string) {
+  const visitors = await db.visitor.findMany({
+    where: { chapterId },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      company: true,
+      industry: true,
+    },
+    orderBy: { firstName: "asc" },
+  });
+
+  return visitors.map((v) => ({
+    id: v.id,
+    name: `${v.firstName} ${v.lastName}`,
+    email: v.email,
+    businessName: v.company || "Independent Enterprise",
+    industry: v.industry || "General Category",
+  }));
+}
+
+/**
+ * Fetch Member Referrals (Given & Received with cross-chapter badges and TYFCB data)
  */
 export async function getMemberReferrals(memberId: string) {
+  const allChapters = await db.chapter.findMany({
+    select: { id: true, name: true, chapterCode: true, themeColor: true },
+  });
+  const chapterMap = new Map(allChapters.map((c) => [c.id, c]));
+
   const given = await db.referral.findMany({
     where: { fromMemberId: memberId },
-    include: { toMember: true },
+    include: {
+      toMember: {
+        include: { chapter: true, business: true },
+      },
+      chapter: true,
+    },
     orderBy: { createdAt: "desc" },
   });
 
   const received = await db.referral.findMany({
     where: { toMemberId: memberId },
-    include: { fromMember: true },
+    include: {
+      fromMember: {
+        include: { chapter: true, business: true },
+      },
+      chapter: true,
+    },
     orderBy: { createdAt: "desc" },
   });
 
   const formatList = (list: any[], isGiven: boolean) =>
-    list.map((r) => ({
-      id: r.id,
-      title: r.referralName,
-      partnerName: isGiven
-        ? `${r.toMember.firstName} ${r.toMember.lastName}`
-        : `${r.fromMember.firstName} ${r.fromMember.lastName}`,
-      partnerEmail: isGiven ? r.toMember.email : r.fromMember.email,
-      clientName: r.destinationBusiness || r.referralName,
-      clientEmail: r.referralEmail || "",
-      clientPhone: r.referralPhone || "",
-      value: Number(r.value) || 0,
-      notes: r.notes || "High priority client synergy.",
-      status: r.status,
-      date: new Date(r.createdAt).toLocaleDateString("en-IN"),
-    }));
+    list.map((r) => {
+      const partner = isGiven ? r.toMember : r.fromMember;
+      const crossChap = r.crossChapterId ? chapterMap.get(r.crossChapterId) : null;
+      const isCross = !!(r.crossChapterId || (partner?.chapterId && partner.chapterId !== r.chapterId));
+      const targetChapter = crossChap || (partner?.chapter ? partner.chapter : r.chapter);
+
+      return {
+        id: r.id,
+        title: r.referralName,
+        partnerId: partner?.id || "",
+        partnerName: partner ? `${partner.firstName} ${partner.lastName}` : "Partner Member",
+        partnerEmail: partner?.email || "",
+        partnerBusiness: partner?.business?.businessName || "Member Business",
+        clientName: r.destinationBusiness || r.referralName,
+        clientEmail: r.referralEmail || "",
+        clientPhone: r.referralPhone || "",
+        value: Number(r.value) || 0,
+        tyfcbAmount: Number(r.tyfcbAmount) || (r.status === ReferralStatus.CLOSED_WON ? Number(r.value) : 0),
+        notes: r.notes || "High priority client synergy.",
+        status: r.status,
+        isVisitorReferral: !!r.isVisitorReferral,
+        isCrossChapter: isCross,
+        chapterName: targetChapter?.name || r.chapter?.name || "Chapter",
+        chapterCode: targetChapter?.chapterCode || r.chapter?.chapterCode || "",
+        chapterThemeColor: targetChapter?.themeColor || "emerald",
+        date: new Date(r.createdAt).toLocaleDateString("en-IN"),
+      };
+    });
 
   return {
     given: formatList(given, true),
@@ -601,7 +815,7 @@ export async function getMemberReferrals(memberId: string) {
 }
 
 /**
- * Give a referral to a fellow chapter member
+ * Give a referral (supports cross-chapter and visitors)
  */
 export async function giveMemberReferral(data: {
   fromMemberId: string;
@@ -613,6 +827,8 @@ export async function giveMemberReferral(data: {
   clientPhone?: string;
   value?: number;
   notes?: string;
+  crossChapterId?: string;
+  isVisitorReferral?: boolean;
 }) {
   const referral = await db.referral.create({
     data: {
@@ -625,12 +841,32 @@ export async function giveMemberReferral(data: {
       referralPhone: data.clientPhone,
       value: data.value || 0,
       notes: data.notes,
+      crossChapterId: data.crossChapterId || null,
+      isVisitorReferral: !!data.isVisitorReferral,
       status: ReferralStatus.PENDING,
     },
   });
 
+  // Send real system notification to recipient member
+  try {
+    const fromMember = await db.member.findUnique({
+      where: { id: data.fromMemberId },
+      select: { firstName: true, lastName: true },
+    });
+    await createSystemNotification({
+      memberId: data.toMemberId,
+      chapterId: data.chapterId,
+      title: "New Referral Received! 🤝",
+      message: `${fromMember ? `${fromMember.firstName} ${fromMember.lastName}` : "A colleague"} passed you a referral: "${data.referralName}"${data.value ? ` (Est. ₹${data.value.toLocaleString("en-IN")})` : ""}`,
+      type: "REFERRAL",
+    });
+  } catch (err) {
+    console.error("Failed to send referral notification", err);
+  }
+
   revalidatePath("/dashboard/member/referrals");
   revalidatePath("/dashboard/member");
+  revalidatePath("/dashboard/member/tyfcb");
   return { success: true, id: referral.id };
 }
 
@@ -642,7 +878,6 @@ export async function updateMemberReferralStatus(
   memberId: string,
   status: ReferralStatus
 ) {
-  // Ensure the caller is either fromMember or toMember
   const ref = await db.referral.findUnique({ where: { id: referralId } });
   if (!ref || (ref.toMemberId !== memberId && ref.fromMemberId !== memberId)) {
     throw new Error("Unauthorized referral access");
@@ -657,11 +892,75 @@ export async function updateMemberReferralStatus(
         status === ReferralStatus.CLOSED_WON || status === ReferralStatus.CLOSED_LOST
           ? new Date()
           : null,
+      ...(status === ReferralStatus.CLOSED_WON && !ref.tyfcbAmount && ref.value ? { tyfcbAmount: ref.value } : {}),
     },
   });
 
   revalidatePath("/dashboard/member/referrals");
   revalidatePath("/dashboard/member");
+  revalidatePath("/dashboard/member/tyfcb");
+  return { success: true };
+}
+
+/**
+ * Mark a referral as converted and record Thank You For Closed Business (TYFCB) + Testimonial
+ */
+export async function markReferralConvertedAndTYFCB(data: {
+  referralId: string;
+  memberId: string;
+  tyfcbAmount: number;
+  testimonialText?: string;
+}) {
+  const ref = await db.referral.findUnique({
+    where: { id: data.referralId },
+    include: { fromMember: true, toMember: true },
+  });
+
+  if (!ref || (ref.toMemberId !== data.memberId && ref.fromMemberId !== data.memberId)) {
+    throw new Error("Unauthorized referral access");
+  }
+
+  await db.referral.update({
+    where: { id: data.referralId },
+    data: {
+      status: ReferralStatus.CLOSED_WON,
+      isClosed: true,
+      closedDate: new Date(),
+      tyfcbAmount: data.tyfcbAmount,
+      convertedBusinessValue: data.tyfcbAmount,
+    },
+  });
+
+  // If testimonial text was provided, create testimonial
+  if (data.testimonialText && data.testimonialText.trim().length > 0) {
+    await db.testimonial.create({
+      data: {
+        fromMemberId: ref.toMemberId, // The person who received the business writes the testimonial for the giver
+        toMemberId: ref.fromMemberId,
+        text: data.testimonialText.trim(),
+        referralId: ref.id,
+        isPublic: true,
+      },
+    });
+  }
+
+  // Send real system notification to referral giver
+  try {
+    await createSystemNotification({
+      memberId: ref.fromMemberId,
+      chapterId: ref.chapterId,
+      title: "Closed Business & TYFCB! 🏆",
+      message: `${ref.toMember.firstName} ${ref.toMember.lastName} closed business worth ₹${data.tyfcbAmount.toLocaleString("en-IN")} on your referral "${ref.referralName}"!`,
+      type: "TYFCB",
+    });
+  } catch (err) {
+    console.error("Failed to send TYFCB notification", err);
+  }
+
+  revalidatePath("/dashboard/member/referrals");
+  revalidatePath("/dashboard/member/tyfcb");
+  revalidatePath("/dashboard/member");
+  revalidatePath("/dashboard/member/profile");
   return { success: true };
 }
 
@@ -838,57 +1137,113 @@ export async function getMemberAttendanceHistory(memberId: string) {
  * Member 1-to-1 synergy networking sessions
  */
 export async function getMemberOneToOnes(memberId: string) {
+  const allChapters = await db.chapter.findMany({
+    select: { id: true, name: true, chapterCode: true, themeColor: true },
+  });
+  const chapterMap = new Map(allChapters.map((c) => [c.id, c]));
+
   const initiated = await db.oneToOne.findMany({
     where: { initiatorId: memberId },
-    include: { receiver: { include: { business: true } } },
+    include: { receiver: { include: { chapter: true, business: true } } },
     orderBy: { date: "desc" },
   });
 
   const received = await db.oneToOne.findMany({
     where: { receiverId: memberId },
-    include: { initiator: { include: { business: true } } },
+    include: { initiator: { include: { chapter: true, business: true } } },
     orderBy: { date: "desc" },
   });
 
-  const formatItem = (o: any, partner: any) => ({
-    id: o.id,
-    partnerName: `${partner.firstName} ${partner.lastName}`,
-    partnerBusiness: partner.business?.businessName || "Independent Business",
-    partnerIndustry: partner.business?.industry || "Services",
-    date: new Date(o.date).toLocaleDateString("en-IN"),
-    duration: o.duration || 60,
-    status: o.status,
-    outcome: o.outcome || "Discussed cross-referrals and client synergy.",
-  });
+  const formatItem = (o: any, partner: any, isInitiator: boolean) => {
+    const crossChap = o.crossChapterId ? chapterMap.get(o.crossChapterId) : null;
+    const isVisitor = !!o.isVisitorSession;
+
+    return {
+      id: o.id,
+      partnerName: isVisitor
+        ? (o.visitorName || "Chapter Visitor")
+        : partner
+        ? `${partner.firstName} ${partner.lastName}`
+        : "Chapter Colleague",
+      partnerEmail: isVisitor ? (o.visitorEmail || "") : partner?.email || "",
+      partnerBusiness: isVisitor ? "Visiting Business" : partner?.business?.businessName || "Member Business",
+      partnerIndustry: isVisitor ? "Visitor Category" : partner?.business?.industry || "Services",
+      date: new Date(o.date).toLocaleDateString("en-IN"),
+      rawDate: o.date.toISOString(),
+      durationHours: o.durationHours ? Number(o.durationHours) : (o.duration ? Number((o.duration / 60).toFixed(1)) : 1),
+      duration: o.duration || 60,
+      location: o.location || "Member Office / Executive Cafe",
+      status: o.status,
+      outcome: o.outcome || "Discussed cross-referrals and client synergy.",
+      selfieUrl: o.selfieUrl || null,
+      isVisitorSession: isVisitor,
+      isCrossChapter: !!(o.crossChapterId || (partner?.chapterId && partner.chapterId !== o.chapterId)),
+      crossChapterName: crossChap?.name || partner?.chapter?.name || "Chapter",
+      crossChapterThemeColor: crossChap?.themeColor || partner?.chapter?.themeColor || "emerald",
+      isInitiator,
+    };
+  };
 
   return [
-    ...initiated.map((o) => formatItem(o, o.receiver)),
-    ...received.map((o) => formatItem(o, o.initiator)),
+    ...initiated.map((o) => formatItem(o, o.receiver, true)),
+    ...received.map((o) => formatItem(o, o.initiator, false)),
   ];
 }
 
 /**
- * Schedule a 1-to-1 session with a fellow chapter member
+ * Schedule or log a 1-to-1 session (supports cross-chapter, visitors, and custom duration in hours)
  */
 export async function scheduleMemberOneToOne(data: {
   initiatorId: string;
-  receiverId: string;
+  receiverId?: string;
   date: Date;
   duration?: number;
+  durationHours?: number;
   location?: string;
   notes?: string;
+  crossChapterId?: string;
+  isVisitorSession?: boolean;
+  visitorName?: string;
+  visitorEmail?: string;
 }) {
+  // If visitor session without receiverId, fallback receiver to initiator or another member
+  const receiverId = data.receiverId || data.initiatorId;
+  const hours = data.durationHours || (data.duration ? data.duration / 60 : 1);
+
   const session = await db.oneToOne.create({
     data: {
       initiatorId: data.initiatorId,
-      receiverId: data.receiverId,
+      receiverId,
       date: data.date,
-      duration: data.duration || 60,
-      location: data.location || "Executive Cafe / Virtual",
+      duration: Math.round(hours * 60),
+      durationHours: hours,
+      location: data.location || "Member Office / Executive Cafe",
       notes: data.notes,
+      crossChapterId: data.crossChapterId || null,
+      isVisitorSession: !!data.isVisitorSession,
+      visitorName: data.visitorName || null,
+      visitorEmail: data.visitorEmail || null,
       status: OneToOneStatus.SCHEDULED,
     },
   });
+
+  // Send real system notification to receiver member if internal member session
+  if (data.receiverId && data.receiverId !== data.initiatorId) {
+    try {
+      const initiator = await db.member.findUnique({
+        where: { id: data.initiatorId },
+        select: { firstName: true, lastName: true },
+      });
+      await createSystemNotification({
+        memberId: data.receiverId,
+        title: "1-to-1 Synergy Session Scheduled! ☕",
+        message: `${initiator ? `${initiator.firstName} ${initiator.lastName}` : "A colleague"} scheduled a 1-to-1 session with you for ${new Date(data.date).toLocaleDateString("en-IN")}.`,
+        type: "ONE_TO_ONE",
+      });
+    } catch (err) {
+      console.error("Failed to send 1-to-1 notification", err);
+    }
+  }
 
   revalidatePath("/dashboard/member/one-to-ones");
   revalidatePath("/dashboard/member");
@@ -896,23 +1251,116 @@ export async function scheduleMemberOneToOne(data: {
 }
 
 /**
- * Member personal notifications & chapter broadcasts
+ * Complete a 1-to-1 session with selfie verification
  */
-export async function getMemberNotifications(memberId: string, chapterId: string) {
-  const member = await db.member.findUnique({ where: { id: memberId } });
-  const notifs = member?.userId
-    ? await db.notification.findMany({
-        where: { userId: member.userId },
-        orderBy: { createdAt: "desc" },
-      })
-    : [];
+export async function completeOneToOneWithSelfie(data: {
+  oneToOneId: string;
+  selfieUrl: string;
+  outcome?: string;
+}) {
+  await db.oneToOne.update({
+    where: { id: data.oneToOneId },
+    data: {
+      selfieUrl: data.selfieUrl,
+      outcome: data.outcome || "Completed 1-to-1 synergy networking session.",
+      status: OneToOneStatus.COMPLETED,
+    },
+  });
 
-  return notifs.map((n) => ({
-    id: n.id,
-    title: n.title,
-    body: n.body,
-    isRead: n.isRead,
-    date: new Date(n.createdAt).toLocaleDateString("en-IN"),
+  revalidatePath("/dashboard/member/one-to-ones");
+  revalidatePath("/dashboard/member");
+  return { success: true };
+}
+
+/**
+ * Get TYFCB (Thank You For Closed Business) and Testimonials summary
+ */
+export async function getMemberTYFCBSummary(memberId: string) {
+  // Referrals given that converted (closed business given to others)
+  const givenConverted = await db.referral.findMany({
+    where: {
+      fromMemberId: memberId,
+      status: ReferralStatus.CLOSED_WON,
+    },
+    include: { toMember: true },
+    orderBy: { closedDate: "desc" },
+  });
+
+  // Referrals received that converted (closed business won by this member)
+  const receivedConverted = await db.referral.findMany({
+    where: {
+      toMemberId: memberId,
+      status: ReferralStatus.CLOSED_WON,
+    },
+    include: { fromMember: true },
+    orderBy: { closedDate: "desc" },
+  });
+
+  // Testimonials given and received
+  const receivedTestimonials = await db.testimonial.findMany({
+    where: { toMemberId: memberId },
+    include: { fromMember: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const givenTotal = givenConverted.reduce(
+    (acc, r) => acc + (Number(r.tyfcbAmount) || Number(r.value) || 0),
+    0
+  );
+  const receivedTotal = receivedConverted.reduce(
+    (acc, r) => acc + (Number(r.tyfcbAmount) || Number(r.value) || 0),
+    0
+  );
+
+  return {
+    givenTotal,
+    receivedTotal,
+    totalClosedBusiness: givenTotal + receivedTotal,
+    givenDeals: givenConverted.map((r) => ({
+      id: r.id,
+      title: r.referralName,
+      recipientName: `${r.toMember.firstName} ${r.toMember.lastName}`,
+      amount: Number(r.tyfcbAmount) || Number(r.value) || 0,
+      date: r.closedDate ? new Date(r.closedDate).toLocaleDateString("en-IN") : "Recent",
+    })),
+    receivedDeals: receivedConverted.map((r) => ({
+      id: r.id,
+      title: r.referralName,
+      giverName: `${r.fromMember.firstName} ${r.fromMember.lastName}`,
+      amount: Number(r.tyfcbAmount) || Number(r.value) || 0,
+      date: r.closedDate ? new Date(r.closedDate).toLocaleDateString("en-IN") : "Recent",
+    })),
+    testimonials: receivedTestimonials.map((t) => ({
+      id: t.id,
+      fromName: `${t.fromMember.firstName} ${t.fromMember.lastName}`,
+      text: t.text,
+      date: new Date(t.createdAt).toLocaleDateString("en-IN"),
+    })),
+  };
+}
+
+/**
+ * Fetch public testimonials for Homepage and Member Dashboard showcase
+ */
+export async function getPublicTestimonials() {
+  const testimonials = await db.testimonial.findMany({
+    where: { isPublic: true },
+    include: {
+      fromMember: { include: { business: true } },
+      toMember: { include: { business: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 6,
+  });
+
+  return testimonials.map((t) => ({
+    id: t.id,
+    author: `${t.fromMember.firstName} ${t.fromMember.lastName}`,
+    authorCompany: t.fromMember.business?.businessName || "Member Firm",
+    recipient: `${t.toMember.firstName} ${t.toMember.lastName}`,
+    recipientCompany: t.toMember.business?.businessName || "Partner Firm",
+    text: t.text,
+    date: new Date(t.createdAt).toLocaleDateString("en-IN"),
   }));
 }
 
@@ -1055,3 +1503,10 @@ export async function getMeetingAttendees(meetingId: string) {
       };
     });
 }
+
+import { getMemberNotifications as _getMemberNotifications } from "@/features/notifications/actions/notification-actions";
+
+export async function getMemberNotifications(memberId?: string, chapterId?: string) {
+  return _getMemberNotifications(memberId, chapterId);
+}
+

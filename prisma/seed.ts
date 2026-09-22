@@ -21,11 +21,10 @@ async function main() {
   // 2. Seed Roles
   console.log('Seeding Default Roles...');
   const rolesToSeed = [
-    { name: ROLES.PLATFORM_ADMIN, description: 'Super administrator with full access to everything.' },
-    { name: ROLES.ORGANIZATION_ADMIN, description: 'Administrator for an entire Organization.' },
-    { name: ROLES.CHAPTER_ADMIN, description: 'Administrator for a specific Chapter.' },
-    { name: ROLES.CHAPTER_OFFICER, description: 'Officer assisting with Chapter management.' },
-    { name: ROLES.MEMBER, description: 'Standard networking member.' },
+    { name: 'ADMIN', description: 'Full system administration, global chapters governance, financials, and configurations.' },
+    { name: 'DIRECTOR', description: 'Regional chapter oversight, assigning leadership teams, and performance monitoring.' },
+    { name: 'LEADERSHIP_TEAM', description: 'Chapter executive officers (President, VP, Secretary-Treasurer) managing weekly operations.' },
+    { name: 'MEMBER', description: 'Active chapter members passing referrals, participating in 1-to-1s, and closing business.' },
   ];
 
   for (const roleData of rolesToSeed) {
@@ -48,7 +47,6 @@ async function main() {
       const permission = await prisma.permission.findUnique({ where: { action: pAction } });
       if (!permission) continue;
 
-      // Check if assignment exists
       const exists = await prisma.rolePermission.findFirst({
         where: { roleId: role.id, permissionId: permission.id },
       });
@@ -67,68 +65,52 @@ async function main() {
   // 3. Define Role-Permission Mappings
   console.log('Assigning Permissions to Roles...');
 
-  // PLATFORM_ADMIN gets absolutely everything
-  await assignPermissions(ROLES.PLATFORM_ADMIN, [...ALL_PERMISSIONS]);
+  // ADMIN gets all permissions
+  await assignPermissions('ADMIN', [...ALL_PERMISSIONS]);
 
-  // ORGANIZATION_ADMIN
-  const orgAdminPerms = [
-    PERMISSIONS.ORG.UPDATE,
-    PERMISSIONS.ORG.VIEW,
-    PERMISSIONS.CHAPTER.CREATE,
-    PERMISSIONS.CHAPTER.UPDATE,
-    PERMISSIONS.CHAPTER.DELETE,
+  // DIRECTOR
+  const directorPerms = [
     PERMISSIONS.CHAPTER.VIEW,
-    PERMISSIONS.MEMBER.CREATE,
-    PERMISSIONS.MEMBER.INVITE,
-    PERMISSIONS.MEMBER.UPDATE,
-    PERMISSIONS.MEMBER.DELETE,
+    PERMISSIONS.CHAPTER.UPDATE,
     PERMISSIONS.MEMBER.VIEW,
+    PERMISSIONS.MEMBER.INVITE,
     PERMISSIONS.MEETING.VIEW,
-    PERMISSIONS.FINANCE.MANAGE,
+    PERMISSIONS.ATTENDANCE.VIEW,
+    PERMISSIONS.REFERRAL.VIEW,
     PERMISSIONS.FINANCE.VIEW,
     PERMISSIONS.REPORT.VIEW,
-    PERMISSIONS.AUDIT.VIEW,
   ];
-  await assignPermissions(ROLES.ORGANIZATION_ADMIN, orgAdminPerms);
+  await assignPermissions('DIRECTOR', directorPerms);
 
-  // CHAPTER_ADMIN
-  const chapterAdminPerms = [
-    PERMISSIONS.CHAPTER.UPDATE,
+  // LEADERSHIP_TEAM
+  const leadershipPerms = [
     PERMISSIONS.CHAPTER.VIEW,
-    PERMISSIONS.MEMBER.INVITE,
     PERMISSIONS.MEMBER.VIEW,
+    PERMISSIONS.MEMBER.INVITE,
+    PERMISSIONS.MEMBER.UPDATE,
     PERMISSIONS.MEETING.CREATE,
     PERMISSIONS.MEETING.UPDATE,
-    PERMISSIONS.MEETING.DELETE,
     PERMISSIONS.MEETING.VIEW,
     PERMISSIONS.ATTENDANCE.MANAGE,
     PERMISSIONS.ATTENDANCE.VIEW,
+    PERMISSIONS.REFERRAL.CREATE,
+    PERMISSIONS.REFERRAL.UPDATE,
     PERMISSIONS.REFERRAL.VIEW,
     PERMISSIONS.REPORT.VIEW,
   ];
-  await assignPermissions(ROLES.CHAPTER_ADMIN, chapterAdminPerms);
-
-  // CHAPTER_OFFICER
-  const chapterOfficerPerms = [
-    PERMISSIONS.CHAPTER.VIEW,
-    PERMISSIONS.MEETING.UPDATE,
-    PERMISSIONS.MEETING.VIEW,
-    PERMISSIONS.ATTENDANCE.MANAGE,
-    PERMISSIONS.ATTENDANCE.VIEW,
-    PERMISSIONS.MEMBER.VIEW,
-  ];
-  await assignPermissions(ROLES.CHAPTER_OFFICER, chapterOfficerPerms);
+  await assignPermissions('LEADERSHIP_TEAM', leadershipPerms);
 
   // MEMBER
   const memberPerms = [
     PERMISSIONS.CHAPTER.VIEW,
     PERMISSIONS.MEMBER.VIEW,
     PERMISSIONS.MEETING.VIEW,
+    PERMISSIONS.ATTENDANCE.VIEW,
     PERMISSIONS.REFERRAL.CREATE,
     PERMISSIONS.REFERRAL.UPDATE,
     PERMISSIONS.REFERRAL.VIEW,
   ];
-  await assignPermissions(ROLES.MEMBER, memberPerms);
+  await assignPermissions('MEMBER', memberPerms);
 
   console.log('✅ Seeding complete!');
 }

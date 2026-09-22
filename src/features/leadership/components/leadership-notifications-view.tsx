@@ -14,6 +14,7 @@ import {
 import {
   getLeadershipContext,
   sendLeadershipNotification,
+  getLeadershipBroadcastHistory,
   LeadershipContext,
 } from "../actions/leadership-actions";
 import { LeadershipHeaderBar } from "./leadership-header-bar";
@@ -25,40 +26,27 @@ export function LeadershipNotificationsView() {
   const [audience, setAudience] = useState<"ALL" | "LEADERSHIP" | "MEMBERS">("ALL");
   const [submitting, setSubmitting] = useState(false);
   const [sentSuccess, setSentSuccess] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [history, setHistory] = useState([
-    {
-      id: "h1",
-      title: "Weekly Meeting Reminder & Visitor Day Notice",
-      body: "Please remember that this Wednesday is our quarterly Mega Visitor Exchange day. Bring at least 1 guest!",
-      audience: "ALL",
-      sentAt: "Yesterday at 06:00 PM",
-      deliveredCount: 28,
-    },
-    {
-      id: "h2",
-      title: "Quarterly Executive Roster Review",
-      body: "Leadership team sync scheduled for tomorrow 30 minutes before the regular meeting.",
-      audience: "LEADERSHIP",
-      sentAt: "3 days ago",
-      deliveredCount: 4,
-    },
-    {
-      id: "h3",
-      title: "Congratulations on Surpassing ₹10L Closed Business",
-      body: "Our chapter has officially exceeded our quarterly target for closed member transactions!",
-      audience: "MEMBERS",
-      sentAt: "Last week",
-      deliveredCount: 26,
-    },
-  ]);
-
-  useEffect(() => {
-    async function load() {
+  const loadData = async () => {
+    setLoading(true);
+    try {
       const ctx = await getLeadershipContext();
       setContext(ctx);
+      if (ctx?.chapterId) {
+        const hist = await getLeadershipBroadcastHistory(ctx.chapterId);
+        setHistory(hist);
+      }
+    } catch (err) {
+      console.error("Failed to load leadership notifications", err);
+    } finally {
+      setLoading(false);
     }
-    load();
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   const handleSend = async (e: React.FormEvent) => {
@@ -73,24 +61,13 @@ export function LeadershipNotificationsView() {
         targetAudience: audience,
       });
 
-      setHistory([
-        {
-          id: `h-${Date.now()}`,
-          title,
-          body,
-          audience,
-          sentAt: "Just now",
-          deliveredCount: audience === "LEADERSHIP" ? 4 : 28,
-        },
-        ...history,
-      ]);
-
       setTitle("");
       setBody("");
       setSentSuccess(true);
       setTimeout(() => setSentSuccess(false), 4000);
+      await loadData();
     } catch (err) {
-      console.error("Failed to send notification", err);
+      console.error("Failed to send broadcast", err);
     } finally {
       setSubmitting(false);
     }
@@ -220,12 +197,21 @@ export function LeadershipNotificationsView() {
         </div>
 
         <div className="divide-y divide-border">
-          {history.map((h) => (
-            <div key={h.id} className="p-4 hover:bg-muted/20 transition-colors space-y-1.5">
-              <div className="flex items-start justify-between gap-4">
-                <h4 className="font-semibold text-sm text-foreground">{h.title}</h4>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase">
+          {history.length === 0 ? (
+            <div className="p-8 text-center space-y-2">
+              <Bell className="h-7 w-7 text-muted-foreground/40 mx-auto" />
+              <p className="text-xs font-semibold text-foreground">No Chapter Broadcasts Yet</p>
+              <p className="text-[11px] text-muted-foreground">
+                Announcements dispatched by your chapter leadership team will appear here in real-time.
+              </p>
+            </div>
+          ) : (
+            history.map((h) => (
+              <div key={h.id} className="p-4 hover:bg-muted/20 transition-colors space-y-1.5">
+                <div className="flex items-start justify-between gap-4">
+                  <h4 className="font-semibold text-sm text-foreground">{h.title}</h4>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase">
                     {h.audience}
                   </span>
                   <span className="text-xs text-muted-foreground">{h.sentAt}</span>
@@ -237,7 +223,8 @@ export function LeadershipNotificationsView() {
                 <span>Delivered to {h.deliveredCount} recipients</span>
               </div>
             </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>

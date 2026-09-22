@@ -108,8 +108,17 @@ export function Topbar() {
               </Link>
               <div className="border-t my-1"></div>
               <button
-                className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-destructive hover:bg-destructive/10 transition-colors font-medium text-left"
-                onClick={() => setDropdownOpen(false)}
+                className="w-full flex items-center gap-2.5 px-4 py-2 text-xs text-destructive hover:bg-destructive/10 transition-colors font-medium text-left cursor-pointer"
+                onClick={async () => {
+                  setDropdownOpen(false);
+                  try {
+                    const { authClient } = await import("@/lib/auth-client");
+                    await authClient.signOut();
+                  } catch (e) {
+                    console.error(e);
+                  }
+                  window.location.href = "/login";
+                }}
               >
                 <LogOut className="w-4 h-4" />
                 Logout

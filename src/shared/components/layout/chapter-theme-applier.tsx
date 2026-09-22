@@ -24,13 +24,7 @@ export function ChapterThemeApplier() {
         const matchingChapter = availableChapters.find((c) => c.id === selectedChapterId);
         targetThemeColor = matchingChapter?.themeColor || null;
       }
-    } else if (
-      activeRole === "Leadership Team" ||
-      activeRole === "President" ||
-      activeRole === "Vice President" ||
-      activeRole === "Treasurer" ||
-      activeRole === "Secretary"
-    ) {
+    } else if (activeRole === "Leadership Team") {
       // Leadership team workspace automatically inherits their assigned chapter's theme!
       const chapterId = currentMember?.chapterId || selectedChapterId;
       const matchingChapter = availableChapters.find((c) => c.id === chapterId);

@@ -3,8 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AdminService } from '../services/admin-service';
 import { AdminMember, AdminMeeting, AttendanceRecord, AdminStats } from '@/types/admin';
+import { useWorkspaceStore } from '@/shared/stores/workspace';
 
 export function useAdmin() {
+  const { selectedChapterId } = useWorkspaceStore();
   const [members, setMembers] = useState<AdminMember[]>([]);
   const [meetings, setMeetings] = useState<AdminMeeting[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -14,10 +16,11 @@ export function useAdmin() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
+      const effectiveChapter = selectedChapterId !== 'all' && selectedChapterId ? selectedChapterId : undefined;
       const [membersData, meetingsData, statsData] = await Promise.all([
-        AdminService.getMembers({ search: searchQuery }),
-        AdminService.getMeetings(),
-        AdminService.getAdminStats(),
+        AdminService.getMembers({ search: searchQuery, chapterId: effectiveChapter }),
+        AdminService.getMeetings(effectiveChapter),
+        AdminService.getAdminStats(effectiveChapter),
       ]);
 
       setMembers(membersData);
@@ -28,7 +31,7 @@ export function useAdmin() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, selectedChapterId]);
 
   useEffect(() => {
     fetchAll();

@@ -33,6 +33,7 @@ export interface AdminMeeting {
   id: string;
   chapterId: string;
   chapterName: string;
+  title?: string;
   date: string;
   time: string;
   location?: string;
@@ -67,6 +68,10 @@ export interface ChapterDetails {
   meetingTime: string;
   location: string;
   meetingType: 'IN_PERSON' | 'ONLINE' | 'HYBRID';
+  meetingFee?: number;
+  themeColor?: string;
+  upiId?: string;
+  upiName?: string;
   directorId?: string;
   directorName?: string;
   presidentName: string;

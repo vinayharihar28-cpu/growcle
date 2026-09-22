@@ -71,12 +71,40 @@ export class AdminService {
   }
 
   static async getMeetings(chapterId?: string): Promise<AdminMeeting[]> {
-    return [];
+    try {
+      const { getMeetings } = await import('@/features/meetings/actions/meetings');
+      const data = await getMeetings(chapterId || "all");
+      return (data || []).map((m: any) => ({
+        id: m.id,
+        chapterId: m.chapterId || '',
+        chapterName: m.chapter?.name || m.chapterName || 'Chapter',
+        title: m.theme || m.title || 'Chapter Meeting',
+        date: m.date ? new Date(m.date).toISOString().split('T')[0] : '',
+        time: m.startTime || m.time || '07:00 AM',
+        location: m.venue || m.location || 'Hybrid Meeting Room',
+        meetingType: (m.type as any) || 'REGULAR_WEEKLY',
+        status: (m.status as any) || 'SCHEDULED',
+        presentCount: 0,
+        absentCount: 0,
+        visitorCount: 0,
+      }));
+    } catch {
+      return [];
+    }
   }
 
   static async createMeeting(data: Omit<AdminMeeting, 'id' | 'status' | 'presentCount' | 'absentCount' | 'visitorCount'>): Promise<AdminMeeting> {
+    const { createMeeting } = await import('@/features/meetings/actions/meetings');
+    const created = await createMeeting({
+      chapterId: data.chapterId || 'temp-chapter-id',
+      theme: data.title || 'Weekly Chapter Meeting',
+      date: new Date(data.date),
+      startTime: data.time,
+      venue: data.location,
+      status: 'SCHEDULED',
+    });
     return {
-      id: `meet-${Date.now()}`,
+      id: created.id,
       ...data,
       status: 'SCHEDULED',
       presentCount: 0,
@@ -97,9 +125,9 @@ export class AdminService {
     return true;
   }
 
-  static async getAdminStats(): Promise<AdminStats> {
+  static async getAdminStats(chapterId?: string): Promise<AdminStats> {
     const { getAdminPlatformKPIs } = await import('../actions/admin-actions');
-    const realKpis = await getAdminPlatformKPIs();
+    const realKpis = await getAdminPlatformKPIs(chapterId);
     return realKpis as any;
   }
 
@@ -116,6 +144,10 @@ export class AdminService {
       meetingTime: c.meetingTime,
       location: c.location,
       meetingType: "HYBRID",
+      meetingFee: (c as any).meetingFee ?? 800,
+      themeColor: (c as any).themeColor ?? "emerald",
+      upiId: (c as any).upiId ?? "",
+      upiName: (c as any).upiName ?? "",
       directorName: c.directorName,
       presidentName: c.presidentName,
       vicePresidentName: c.vpName,

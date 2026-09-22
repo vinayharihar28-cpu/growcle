@@ -1,10 +1,5 @@
-import { MemberBusinessView } from "@/features/member/components/member-business-view";
-
-export const metadata = {
-  title: "Business Profile | Member Workspace | Growcle",
-  description: "Manage business profile, target clients, and ideal referral information.",
-};
+import { redirect } from "next/navigation";
 
 export default function MemberBusinessPage() {
-  return <MemberBusinessView />;
+  redirect("/dashboard/member/profile");
 }

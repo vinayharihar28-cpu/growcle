@@ -18,12 +18,40 @@ function roleToDefinition(role: { id: string; name: string; description: string 
   };
 }
 
+export const CANONICAL_CORE_ROLES = [
+  { name: "ADMIN", description: "Full system administration, global chapters governance, financials, and configurations." },
+  { name: "DIRECTOR", description: "Regional chapter oversight, assigning leadership teams, and performance monitoring." },
+  { name: "LEADERSHIP_TEAM", description: "Chapter executive officers (President, VP, Secretary-Treasurer) managing weekly operations." },
+  { name: "MEMBER", description: "Active chapter members passing referrals, participating in 1-to-1s, and closing business." },
+] as const;
+
+export const ALLOWED_ROLE_CODES = ["ADMIN", "DIRECTOR", "LEADERSHIP_TEAM", "MEMBER"] as const;
+
 export async function getRbacRoles(): Promise<RoleDefinition[]> {
-  const roles = await db.role.findMany({
-    include: { permissions: { include: { permission: true } }, _count: { select: { members: true } } },
-    orderBy: { name: "asc" },
+  for (const cr of CANONICAL_CORE_ROLES) {
+    await db.role.upsert({
+      where: { name: cr.name },
+      create: { name: cr.name, description: cr.description },
+      update: { description: cr.description },
+    });
+  }
+
+  // Purge any legacy or non-core roles from database so only the 4 canonical roles ever exist
+  await db.role.deleteMany({
+    where: { name: { notIn: [...ALLOWED_ROLE_CODES] } },
   });
-  return roles.map(roleToDefinition);
+
+  const roles = await db.role.findMany({
+    where: { name: { in: [...ALLOWED_ROLE_CODES] } },
+    include: { permissions: { include: { permission: true } }, _count: { select: { members: true } } },
+  });
+
+  // Guarantee exact priority order: ADMIN -> DIRECTOR -> LEADERSHIP_TEAM -> MEMBER
+  const sorted = roles.sort(
+    (a, b) => ALLOWED_ROLE_CODES.indexOf(a.name as typeof ALLOWED_ROLE_CODES[number]) - ALLOWED_ROLE_CODES.indexOf(b.name as typeof ALLOWED_ROLE_CODES[number])
+  );
+
+  return sorted.map(roleToDefinition);
 }
 
 export async function getRbacPermissions(): Promise<PermissionItem[]> {
@@ -72,6 +100,7 @@ export async function createRbacRole(data: Omit<RoleDefinition, "id" | "memberCo
 
 export async function getRbacAssignments(): Promise<UserRoleAssignment[]> {
   const assignments = await db.memberRole.findMany({
+    where: { role: { name: { in: [...ALLOWED_ROLE_CODES] } } },
     include: { role: true, member: { include: { chapter: { select: { name: true } } } } },
     orderBy: { createdAt: "desc" },
   });
@@ -87,6 +116,13 @@ export async function getRbacAssignments(): Promise<UserRoleAssignment[]> {
 }
 
 export async function assignRbacRole(memberId: string, roleCode: string): Promise<UserRoleAssignment> {
+  const targetMember = await db.member.findUniqueOrThrow({ where: { id: memberId } });
+  if (targetMember.email.toLowerCase() === "vinayharihar28@gmail.com") {
+    throw new Error("Action Prohibited: Vinay Harihar's Admin role is system-protected and cannot be changed or removed.");
+  }
+  if (!ALLOWED_ROLE_CODES.includes(roleCode as typeof ALLOWED_ROLE_CODES[number])) {
+    throw new Error(`Invalid role code: ${roleCode}. Only the 4 core roles are supported.`);
+  }
   const role = await db.role.findUnique({ where: { name: roleCode } });
   if (!role) throw new Error("Role not found");
   await db.$transaction([

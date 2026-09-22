@@ -95,16 +95,19 @@ export function LogOneToOneDialog({ memberId, chapterId }: LogOneToOneDialogProp
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="receiverId">Meeting With</Label>
+              <Label htmlFor="receiverId" className="text-xs font-semibold flex items-center gap-1">
+                <span>Meeting With Member</span>
+                <span className="text-rose-500">*</span>
+              </Label>
               <select
                 id="receiverId"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-10 w-full rounded-xl border border-input bg-background/90 hover:bg-muted/30 px-3.5 py-2 text-sm font-medium shadow-xs transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                 {...register("receiverId")}
               >
                 <option value="">Select a member...</option>
                 {otherMembers.map((m: any) => (
                   <option key={m.id} value={m.id}>
-                    {m.firstName} {m.lastName} {m.businessName ? `(${m.businessName})` : ""}
+                    {m.firstName} {m.lastName} {m.businessName ? `• ${m.businessName}` : ""}
                   </option>
                 ))}
               </select>

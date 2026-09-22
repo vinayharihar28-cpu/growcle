@@ -3,10 +3,10 @@ import { Header } from "@/shared/components/layout/header";
 import { db } from "@/shared/lib/db";
 import { AuthInitializer } from "@/shared/components/layout/auth-initializer";
 import { ChapterThemeApplier } from "@/shared/components/layout/chapter-theme-applier";
-import { RoleSwitchOverlay } from "@/shared/components/layout/role-switch-overlay";
 import { redirect } from "next/navigation";
 import { getCurrentSession } from "@/lib/auth/session";
 import { getUserAvailableRoles } from "@/lib/auth/roles";
+import { generateMemberId } from "@/lib/id-generator";
 
 export default async function DashboardLayout({
   children,
@@ -83,12 +83,16 @@ export default async function DashboardLayout({
     const firstName = nameParts[0] || "Member";
     const lastName = nameParts.slice(1).join(" ") || "User";
 
+    const memberCode = await generateMemberId(chapter.id);
+
     member = await db.member.create({
       data: {
         userId: session.user.id,
         firstName,
         lastName,
         email: session.user.email,
+        membershipNumber: memberCode,
+        profileImage: (session.user as any).image || null,
         organizationId: org.id,
         chapterId: chapter.id,
       },
@@ -99,6 +103,30 @@ export default async function DashboardLayout({
         chapter: true,
       },
     });
+  } else {
+    // If member exists but doesn't have membershipNumber or profileImage, backfill them
+    let needsUpdate = false;
+    const updateData: any = {};
+    if (!member.membershipNumber) {
+      updateData.membershipNumber = await generateMemberId(member.chapterId);
+      needsUpdate = true;
+    }
+    if (!member.profileImage && (session.user as any).image) {
+      updateData.profileImage = (session.user as any).image;
+      needsUpdate = true;
+    }
+    if (needsUpdate) {
+      member = await db.member.update({
+        where: { id: member.id },
+        data: updateData,
+        include: {
+          roles: {
+            include: { role: true },
+          },
+          chapter: true,
+        },
+      });
+    }
   }
 
   const clientUser = {
@@ -106,6 +134,7 @@ export default async function DashboardLayout({
     name: session.user.name || `${member.firstName} ${member.lastName}`,
     email: session.user.email,
     roles: availableRoles,
+    image: (session.user as any).image || member.profileImage || undefined,
   };
 
   const clientMember = {
@@ -115,6 +144,8 @@ export default async function DashboardLayout({
     email: member.email,
     chapterId: member.chapterId || undefined,
     organizationId: member.organizationId,
+    profileImage: member.profileImage || (session.user as any).image || undefined,
+    membershipNumber: member.membershipNumber || undefined,
   };
 
   return (
@@ -126,7 +157,6 @@ export default async function DashboardLayout({
         chapters={allChapters}
       />
       <ChapterThemeApplier />
-      <RoleSwitchOverlay />
       <Sidebar />
       <div className="flex flex-1 flex-col transition-all duration-300 ease-in-out lg:ml-64">
         <Header />

@@ -11,9 +11,10 @@ import { SendNotificationModal } from "./send-notification-modal";
 import { getDirectorOverview, ChapterSummary, DirectorKPIs, getDirectorMembers } from "../actions/director-actions";
 import { Building2, Users, Handshake, AlertTriangle, ArrowRight, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { useWorkspaceStore } from "@/shared/stores/workspace";
 
 export function DirectorDashboardView() {
-  const [selectedChapterId, setSelectedChapterId] = useState<string>("all");
+  const { selectedChapterId, setSelectedChapterId } = useWorkspaceStore();
   const [kpis, setKpis] = useState<DirectorKPIs | null>(null);
   const [chapters, setChapters] = useState<ChapterSummary[]>([]);
   const [loading, setLoading] = useState<boolean>(true);

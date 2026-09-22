@@ -7,10 +7,11 @@ import { CreateChapterModal } from "./create-chapter-modal";
 import { AssignLeadershipModal } from "./assign-leadership-modal";
 import { getDirectorOverview, ChapterSummary, getDirectorMembers } from "../actions/director-actions";
 import { Building2, Plus } from "lucide-react";
+import { useWorkspaceStore } from "@/shared/stores/workspace";
 
 export function ChaptersManagementView() {
   const [chapters, setChapters] = useState<ChapterSummary[]>([]);
-  const [selectedChapterId, setSelectedChapterId] = useState<string>("all");
+  const { selectedChapterId, setSelectedChapterId } = useWorkspaceStore();
   const [loading, setLoading] = useState(true);
 
   const [isCreateChapterOpen, setIsCreateChapterOpen] = useState(false);

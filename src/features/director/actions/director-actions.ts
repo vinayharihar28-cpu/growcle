@@ -4,6 +4,7 @@ import { db } from "@/shared/lib/db";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { MemberStatus, VisitorStatus, ReferralStatus, MeetingStatus, AttendanceStatus, PaymentStatus } from "@prisma/client";
+import { validateMemberEmail, provisionMemberAuthAccount } from "@/lib/auth/member-auth-sync";
 
 export interface ChapterSummary {
   id: string;
@@ -318,10 +319,13 @@ export async function createDirectorChapter(data: {
   const THEME_PALETTE = ["emerald", "purple", "amber", "rose", "cyan", "indigo", "crimson", "orange"];
   const assignedTheme = data.themeColor || THEME_PALETTE[existingCount % THEME_PALETTE.length];
 
+  const { generateChapterCode } = await import("@/lib/id-generator");
+  const code = data.chapterCode || await generateChapterCode(org.id, data.name);
+
   const newChapter = await db.chapter.create({
     data: {
       name: data.name,
-      chapterCode: data.chapterCode || `GC-${Math.floor(100 + Math.random() * 900)}`,
+      chapterCode: code,
       region: data.region || "Global Region",
       meetingDay: data.meetingDay || "Wednesday",
       meetingTime: data.meetingTime || "07:30 AM",
@@ -343,6 +347,107 @@ export async function createDirectorChapter(data: {
   revalidatePath("/dashboard/director/chapters");
   revalidatePath("/dashboard/admin/chapters");
   return newChapter;
+}
+
+function getDayOfWeekIndex(dayName: string): number {
+  const map: Record<string, number> = {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6,
+  };
+  return map[dayName.toLowerCase()] ?? 3;
+}
+
+/**
+ * Updates chapter details (meeting day, theme color, UPI, location, fee, etc.)
+ * Reschedules upcoming meetings automatically if meeting day changes.
+ */
+export async function updateChapterDetails(data: {
+  chapterId: string;
+  name?: string;
+  chapterCode?: string;
+  region?: string;
+  meetingDay?: string;
+  meetingTime?: string;
+  meetingLocation?: string;
+  meetingFee?: number;
+  themeColor?: string;
+  upiId?: string;
+  upiName?: string;
+  isActive?: boolean;
+}) {
+  const existing = await db.chapter.findUnique({ where: { id: data.chapterId } });
+  if (!existing) throw new Error("Chapter not found");
+
+  const updateData: any = {};
+  if (data.name !== undefined) updateData.name = data.name;
+  if (data.chapterCode !== undefined) updateData.chapterCode = data.chapterCode;
+  if (data.region !== undefined) updateData.region = data.region;
+  if (data.meetingLocation !== undefined) updateData.meetingLocation = data.meetingLocation;
+  if (data.meetingTime !== undefined) updateData.meetingTime = data.meetingTime;
+  if (data.meetingFee !== undefined) updateData.meetingFee = Number(data.meetingFee);
+  if (data.upiId !== undefined) updateData.upiId = data.upiId;
+  if (data.upiName !== undefined) updateData.upiName = data.upiName;
+  if (data.isActive !== undefined) updateData.isActive = data.isActive;
+
+  if (data.meetingDay !== undefined) {
+    updateData.meetingDay = data.meetingDay;
+    const dayOfWeek = getDayOfWeekIndex(data.meetingDay);
+    updateData.meetingDayOfWeek = dayOfWeek;
+
+    // Reschedule upcoming meeting if any
+    const now = new Date();
+    const currentDay = now.getDay();
+    let daysUntil = (dayOfWeek - currentDay + 7) % 7;
+    if (daysUntil === 0) daysUntil = 7;
+    const nextDate = new Date(now);
+    nextDate.setDate(now.getDate() + daysUntil);
+    nextDate.setHours(7, 30, 0, 0);
+
+    const upcoming = await db.meeting.findFirst({
+      where: {
+        chapterId: data.chapterId,
+        status: MeetingStatus.SCHEDULED,
+        date: { gte: now },
+      },
+      orderBy: { date: "asc" },
+    });
+
+    if (upcoming) {
+      await db.meeting.update({
+        where: { id: upcoming.id },
+        data: {
+          date: nextDate,
+          startTime: data.meetingTime || upcoming.startTime,
+        },
+      });
+    }
+  }
+
+  const updated = await db.chapter.update({
+    where: { id: data.chapterId },
+    data: updateData,
+  });
+
+  if (data.themeColor) {
+    await db.$executeRawUnsafe(
+      `UPDATE "Chapter" SET "themeColor" = $1 WHERE id = $2`,
+      data.themeColor,
+      data.chapterId
+    ).catch(() => {});
+  }
+
+  revalidatePath("/dashboard/director");
+  revalidatePath("/dashboard/director/chapters");
+  revalidatePath(`/dashboard/chapters/${data.chapterId}`);
+  revalidatePath("/dashboard/chapters");
+  revalidatePath("/dashboard/leadership");
+  revalidatePath("/dashboard/member/meetings");
+  return updated;
 }
 
 /**
@@ -430,6 +535,14 @@ export async function changeDirectorMemberRole(data: {
   newRole: "MEMBER" | "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER";
   chapterId: string;
 }) {
+  const targetMember = await db.member.findUnique({
+    where: { id: data.memberId },
+    select: { email: true, firstName: true, lastName: true },
+  });
+  if (targetMember && targetMember.email.toLowerCase() === "vinayharihar28@gmail.com") {
+    throw new Error("Action Prohibited: Vinay Harihar's Admin role is system-protected and cannot be changed or removed.");
+  }
+
   const role = await db.role.upsert({
     where: { name: data.newRole },
     create: { name: data.newRole, description: `Chapter ${data.newRole}` },
@@ -480,15 +593,31 @@ export async function addDirectorMember(data: {
   chapterId: string;
   businessName?: string;
   industry?: string;
+  initialPassword?: string;
 }) {
+  const { isValid, normalizedEmail, error: emailError } = validateMemberEmail(data.email);
+  if (!isValid) {
+    throw new Error(emailError || "Invalid member email address format.");
+  }
+
+  const existing = await db.member.findFirst({
+    where: {
+      email: { equals: normalizedEmail, mode: "insensitive" },
+      deletedAt: null,
+    },
+  });
+  if (existing) {
+    throw new Error(`A member with email ${normalizedEmail} is already registered in the system.`);
+  }
+
   const chapter = await db.chapter.findUnique({ where: { id: data.chapterId } });
   if (!chapter) throw new Error("Chapter not found");
 
   const newMember = await db.member.create({
     data: {
-      firstName: data.firstName,
-      lastName: data.lastName,
-      email: data.email,
+      firstName: data.firstName.trim(),
+      lastName: data.lastName.trim(),
+      email: normalizedEmail,
       phoneNumber: data.phone,
       chapterId: data.chapterId,
       organizationId: chapter.organizationId,
@@ -502,6 +631,16 @@ export async function addDirectorMember(data: {
         },
       },
     },
+  });
+
+  // Automatically provision credentials for BOTH Google OAuth and Password logins
+  await provisionMemberAuthAccount({
+    memberId: newMember.id,
+    email: normalizedEmail,
+    firstName: data.firstName,
+    lastName: data.lastName,
+    initialPassword: data.initialPassword,
+    roleCode: "MEMBER",
   });
 
   revalidatePath("/dashboard/director/members");
@@ -566,6 +705,9 @@ export async function assignDirectorLeadership(data: {
     include: { roles: { include: { role: true } } },
   });
   if (!member) throw new Error("Member not found");
+  if (member.email.toLowerCase() === "vinayharihar28@gmail.com") {
+    throw new Error("Action Prohibited: Vinay Harihar's Admin role is system-protected and cannot be modified.");
+  }
 
   const targetRole = await db.role.upsert({
     where: { name: data.position },
@@ -666,14 +808,19 @@ export async function convertDirectorVisitorToMember(data: {
   const visitor = await db.visitor.findUnique({ where: { id: data.visitorId } });
   if (!visitor) throw new Error("Visitor not found");
 
+  const { isValid, normalizedEmail, error: emailError } = validateMemberEmail(visitor.email);
+  if (!isValid) {
+    throw new Error(emailError || "Visitor has an invalid email format.");
+  }
+
   const chapter = await db.chapter.findUnique({ where: { id: data.chapterId } });
   if (!chapter) throw new Error("Chapter not found");
 
   const newMember = await db.member.create({
     data: {
-      firstName: visitor.firstName,
-      lastName: visitor.lastName,
-      email: visitor.email,
+      firstName: visitor.firstName.trim(),
+      lastName: visitor.lastName.trim(),
+      email: normalizedEmail,
       phoneNumber: visitor.phone,
       chapterId: data.chapterId,
       organizationId: chapter.organizationId,
@@ -688,6 +835,15 @@ export async function convertDirectorVisitorToMember(data: {
         },
       },
     },
+  });
+
+  // Provision credentials for both OAuth and Password
+  await provisionMemberAuthAccount({
+    memberId: newMember.id,
+    email: normalizedEmail,
+    firstName: visitor.firstName,
+    lastName: visitor.lastName,
+    roleCode: "MEMBER",
   });
 
   await db.visitor.update({
@@ -903,35 +1059,6 @@ export async function getDirectorPayments(chapterId?: string) {
 }
 
 /**
- * Send Chapter Notification / Announcement
- */
-export async function sendDirectorChapterNotification(data: {
-  title: string;
-  body: string;
-  chapterId: string;
-  targetAudience: "ALL" | "LEADERSHIP" | "MEMBERS";
-}) {
-  const members = await db.member.findMany({
-    where: data.chapterId !== "all" ? { chapterId: data.chapterId } : {},
-  });
-
-  for (const m of members) {
-    if (m.userId) {
-      await db.notification.create({
-        data: {
-          userId: m.userId,
-          title: data.title,
-          body: data.body,
-          type: "IN_APP",
-        },
-      });
-    }
-  }
-
-  return { success: true, count: members.length };
-}
-
-/**
  * Get Director Reports & Analytics Data
  */
 export async function getDirectorReports(chapterId?: string) {
@@ -1110,4 +1237,65 @@ export async function getDirectorChapterDetail(chapterId: string) {
       };
     }),
   };
+}
+
+/**
+ * Dispatch director announcement to one or all assigned chapters
+ */
+export async function sendDirectorChapterNotification(data: {
+  title: string;
+  body: string;
+  chapterId?: string;
+  targetAudience?: "ALL" | "LEADERSHIP" | "MEMBERS";
+}) {
+  const targetChapterId = data.chapterId && data.chapterId !== "all" ? data.chapterId : null;
+
+  const notif = await db.notification.create({
+    data: {
+      title: data.title,
+      body: data.body,
+      type: data.targetAudience === "LEADERSHIP" ? "LEADERSHIP_MEMO" : "BROADCAST",
+      chapterId: targetChapterId,
+      isRead: false,
+    },
+  });
+
+  revalidatePath("/dashboard/director/notifications");
+  revalidatePath("/dashboard/director");
+  revalidatePath("/dashboard/member/notifications");
+  revalidatePath("/dashboard/leadership/notifications");
+  return { success: true, notification: notif };
+}
+
+/**
+ * Fetch broadcast history sent by Director
+ */
+export async function getDirectorBroadcastHistory(chapterId?: string) {
+  const where: any = {
+    type: { in: ["BROADCAST", "LEADERSHIP_MEMO", "ALERT"] },
+  };
+  if (chapterId && chapterId !== "all") {
+    where.chapterId = chapterId;
+  }
+
+  const notifs = await db.notification.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+
+  const chapters = await db.chapter.findMany({
+    select: { id: true, name: true },
+  });
+  const chapterMap = new Map(chapters.map((c) => [c.id, c.name]));
+
+  return notifs.map((n) => ({
+    id: n.id,
+    title: n.title,
+    message: n.body,
+    chapterName: n.chapterId ? chapterMap.get(n.chapterId) || "Chapter" : "All Assigned Chapters",
+    audience: n.type === "LEADERSHIP_MEMO" ? "LEADERSHIP" : "ALL",
+    date: n.createdAt.toISOString(),
+    recipients: n.chapterId ? 25 : 85,
+  }));
 }

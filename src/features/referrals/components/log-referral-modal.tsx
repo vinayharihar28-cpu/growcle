@@ -131,16 +131,19 @@ export function LogReferralModal({ isOpen, onClose, onSuccess }: LogReferralModa
               )}
 
               <div className="space-y-1.5">
-                <Label htmlFor="toMemberId" className="text-xs font-semibold">Pass Referral To Member</Label>
+                <Label htmlFor="toMemberId" className="text-xs font-semibold flex items-center gap-1">
+                  <span>Pass Referral To Member</span>
+                  <span className="text-rose-500">*</span>
+                </Label>
                 <select
                   id="toMemberId"
                   {...register("toMemberId")}
-                  className="flex w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-10"
+                  className="flex w-full rounded-xl border border-input bg-background/90 hover:bg-muted/30 px-3.5 py-2 text-sm font-medium shadow-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:border-primary h-10 cursor-pointer"
                 >
                   <option value="">Select chapter member...</option>
                   {members.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.firstName} {m.lastName} {m.business?.businessName ? `(${m.business.businessName})` : ""}
+                      {m.firstName} {m.lastName} {m.business?.businessName ? `• ${m.business.businessName}` : ""}
                     </option>
                   ))}
                 </select>
@@ -148,7 +151,10 @@ export function LogReferralModal({ isOpen, onClose, onSuccess }: LogReferralModa
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="referralName" className="text-xs font-semibold">Prospect / Referral Name</Label>
+                <Label htmlFor="referralName" className="text-xs font-semibold flex items-center gap-1">
+                  <span>Prospect / Referral Name</span>
+                  <span className="text-rose-500">*</span>
+                </Label>
                 <Input
                   id="referralName"
                   placeholder="e.g. Acme Corp / Robert Fox"
@@ -164,7 +170,7 @@ export function LogReferralModal({ isOpen, onClose, onSuccess }: LogReferralModa
                   <Input
                     id="referralEmail"
                     type="email"
-                    placeholder="robert@example.com"
+                    placeholder="prospect@company.com"
                     {...register("referralEmail")}
                     className="h-10 rounded-xl"
                   />
@@ -174,7 +180,7 @@ export function LogReferralModal({ isOpen, onClose, onSuccess }: LogReferralModa
                   <Label htmlFor="referralPhone" className="text-xs font-semibold">Prospect Phone (Optional)</Label>
                   <Input
                     id="referralPhone"
-                    placeholder="+1 (555) 019-2834"
+                    placeholder="+91 98765 43210"
                     {...register("referralPhone")}
                     className="h-10 rounded-xl"
                   />
@@ -187,7 +193,7 @@ export function LogReferralModal({ isOpen, onClose, onSuccess }: LogReferralModa
                   <select
                     id="category"
                     {...register("category")}
-                    className="flex w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-10"
+                    className="flex w-full rounded-xl border border-input bg-background/90 hover:bg-muted/30 px-3.5 py-2 text-sm font-medium shadow-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:border-primary h-10 cursor-pointer"
                   >
                     <option value="Tier 1 - Inside">Tier 1 - Inside (Member self)</option>
                     <option value="Tier 2 - Outside">Tier 2 - Outside (Friend/Client)</option>

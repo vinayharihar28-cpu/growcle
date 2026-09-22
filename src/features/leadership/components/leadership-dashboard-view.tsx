@@ -43,8 +43,10 @@ import {
   CartesianGrid,
 } from "recharts";
 import { getChapterTheme } from "@/lib/chapter-themes";
+import { useWorkspaceStore } from "@/shared/stores/workspace";
 
 export function LeadershipDashboardView() {
+  const { selectedChapterId } = useWorkspaceStore();
   const [context, setContext] = useState<LeadershipContext | null>(null);
   const [kpis, setKpis] = useState<LeadershipKPIs | null>(null);
   const [upcomingMeeting, setUpcomingMeeting] = useState<UpcomingMeetingSummary | null>(null);
@@ -61,8 +63,9 @@ export function LeadershipDashboardView() {
       setLoading(true);
       try {
         const ctx = await getLeadershipContext();
-        setContext(ctx);
-        const data = await getLeadershipDashboardData(ctx.chapterId);
+        const effectiveChapterId = (selectedChapterId && selectedChapterId !== "all") ? selectedChapterId : ctx.chapterId;
+        setContext({ ...ctx, chapterId: effectiveChapterId });
+        const data = await getLeadershipDashboardData(effectiveChapterId);
         setKpis(data.kpis);
         setUpcomingMeeting(data.upcomingMeeting);
         setMeetingHistory(data.meetingHistory || []);
@@ -79,7 +82,7 @@ export function LeadershipDashboardView() {
       }
     }
     load();
-  }, []);
+  }, [selectedChapterId]);
 
   if (loading || !context || !kpis) {
     return (

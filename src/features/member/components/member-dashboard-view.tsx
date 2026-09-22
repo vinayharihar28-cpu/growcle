@@ -10,7 +10,7 @@ import {
   CheckCircle2,
   Clock,
   MapPin,
-  Sparkles,
+  Lock,
   ArrowRight,
   TrendingUp,
   Award,
@@ -18,7 +18,20 @@ import {
   Building2,
   Send,
   Plus,
+  BarChart3,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from "recharts";
 import {
   getMemberContext,
   getMemberDashboardData,
@@ -36,6 +49,7 @@ export function MemberDashboardView() {
   const [data, setData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [chapterMembers, setChapterMembers] = useState<any[]>([]);
+  const [activeChartTab, setActiveChartTab] = useState<"referrals" | "synergy" | "revenue">("referrals");
 
   // Modals
   const [isReferralOpen, setIsReferralOpen] = useState(false);
@@ -374,42 +388,256 @@ export function MemberDashboardView() {
                   <CheckCircle2 className="h-4 w-4" />
                   <span>Checked In (Present)</span>
                 </div>
-              ) : (
-                <button
-                  disabled={checkInPending}
-                  onClick={handleCheckIn}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50"
-                >
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span>{checkInPending ? "Confirming..." : "Mark Myself Present"}</span>
-                </button>
-              )}
+              ) : (() => {
+                const nowTime = new Date().setHours(0, 0, 0, 0);
+                const isLocked = new Date(data.upcomingMeeting.date).getTime() > nowTime;
+                return (
+                  <button
+                    disabled={isLocked || checkInPending}
+                    onClick={handleCheckIn}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {isLocked ? (
+                      <>
+                        <Lock className="h-4 w-4" />
+                        <span>Locked Until Meeting Day</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span>{checkInPending ? "Confirming..." : "Mark Myself Present"}</span>
+                      </>
+                    )}
+                  </button>
+                );
+              })()}
 
               <Link
                 href="/dashboard/member/meetings"
                 className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline px-3 py-2 rounded-lg bg-primary/10"
               >
-                <span>View Run-Sheet</span>
+                <span>View Meetings Calendar</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-border/80 text-xs">
-            <div className="flex items-start gap-2">
-              <Sparkles className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <span className="text-muted-foreground">Keynote Speaker: </span>
-                <strong className="text-foreground">{data.upcomingMeeting.speaker}</strong>
-              </div>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Session Focus: </span>
-              <span className="text-foreground italic">&ldquo;{data.upcomingMeeting.theme}&rdquo;</span>
-            </div>
-          </div>
         </div>
       )}
+
+      {/* Interactive Member Performance Analytics & Charts */}
+      <div className="rounded-2xl border border-border bg-card p-6 shadow-sm space-y-5">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              <h3 className="font-bold text-base text-foreground">Networking Trajectory & Performance</h3>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Dynamic 6-month visual progression of your referrals, synergy meetings, and business impact.
+            </p>
+          </div>
+
+          {/* Chart View Switcher */}
+          <div className="flex items-center bg-muted/60 p-1 rounded-xl text-xs font-semibold">
+            <button
+              onClick={() => setActiveChartTab("referrals")}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                activeChartTab === "referrals"
+                  ? "bg-card text-foreground shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Referrals Exchange
+            </button>
+            <button
+              onClick={() => setActiveChartTab("synergy")}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                activeChartTab === "synergy"
+                  ? "bg-card text-foreground shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              1-to-1s & Guests
+            </button>
+            <button
+              onClick={() => setActiveChartTab("revenue")}
+              className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                activeChartTab === "revenue"
+                  ? "bg-card text-foreground shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Revenue Closed (₹)
+            </button>
+          </div>
+        </div>
+
+        {/* Tab 1: Referrals Given vs Received */}
+        {activeChartTab === "referrals" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Monthly Volume: Referrals Given vs Received</span>
+              <span>Past 6 Months</span>
+            </div>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={data?.chartsData?.referralsTrend || [
+                    { month: "Apr", given: 2, received: 1 },
+                    { month: "May", given: 3, received: 2 },
+                    { month: "Jun", given: 1, received: 3 },
+                    { month: "Jul", given: 4, received: 2 },
+                    { month: "Aug", given: 3, received: 4 },
+                    { month: "Sep", given: data?.kpis?.referralsGiven || 5, received: data?.kpis?.referralsReceived || 3 },
+                  ]}
+                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="colorGiven" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.0} />
+                    </linearGradient>
+                    <linearGradient id="colorReceived" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(15, 23, 42, 0.95)",
+                      borderRadius: "10px",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      fontSize: "12px",
+                      color: "#fff",
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }} />
+                  <Area
+                    type="monotone"
+                    dataKey="given"
+                    name="Referrals Given"
+                    stroke="#4f46e5"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorGiven)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="received"
+                    name="Referrals Received"
+                    stroke="#06b6d4"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorReceived)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 2: Synergy 1-to-1s & Visitors */}
+        {activeChartTab === "synergy" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Deep Collaborations: Completed 1-to-1s & Guest Invitations</span>
+              <span>Past 6 Months</span>
+            </div>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={data?.chartsData?.networkingTrend || [
+                    { month: "Apr", oneToOnes: 1, visitors: 0 },
+                    { month: "May", oneToOnes: 2, visitors: 1 },
+                    { month: "Jun", oneToOnes: 3, visitors: 1 },
+                    { month: "Jul", oneToOnes: 2, visitors: 2 },
+                    { month: "Aug", oneToOnes: 4, visitors: 1 },
+                    { month: "Sep", oneToOnes: data?.kpis?.completedOneToOnes || 3, visitors: data?.kpis?.visitorsInvited || 2 },
+                  ]}
+                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(15, 23, 42, 0.95)",
+                      borderRadius: "10px",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      fontSize: "12px",
+                      color: "#fff",
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }} />
+                  <Bar dataKey="oneToOnes" name="1-to-1 Synergy Sessions" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="visitors" name="Guests / Visitors Invited" fill="#10b981" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: Closed Business Revenue */}
+        {activeChartTab === "revenue" && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Thank You For Closed Business (TYFCB) Revenue (₹)</span>
+              <span>Cumulative & Monthly Value</span>
+            </div>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={data?.chartsData?.revenueTrend || [
+                    { month: "Apr", revenue: 25000 },
+                    { month: "May", revenue: 45000 },
+                    { month: "Jun", revenue: 80000 },
+                    { month: "Jul", revenue: 60000 },
+                    { month: "Aug", revenue: 120000 },
+                    { month: "Sep", revenue: data?.kpis?.closedBusinessGenerated || 150000 },
+                  ]}
+                  margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                  <YAxis
+                    tick={{ fontSize: 11 }}
+                    tickFormatter={(v) => `₹${v >= 1000 ? `${v / 1000}k` : v}`}
+                  />
+                  <Tooltip
+                    formatter={(val: any) => [formatINR(Number(val) || 0), "Revenue"]}
+                    contentStyle={{
+                      backgroundColor: "rgba(15, 23, 42, 0.95)",
+                      borderRadius: "10px",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      fontSize: "12px",
+                      color: "#fff",
+                    }}
+                  />
+                  <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "8px" }} />
+                  <Area
+                    type="monotone"
+                    dataKey="revenue"
+                    name="Closed Business (₹ INR)"
+                    stroke="#10b981"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#colorRevenue)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Activity Timeline and Discovery Banner */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -505,17 +733,20 @@ export function MemberDashboardView() {
 
             <form onSubmit={handleGiveReferral} className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Referral To Member *</label>
+                <label className="text-xs font-semibold text-foreground/80 flex items-center gap-1.5">
+                  <span>Referral To Member</span>
+                  <span className="text-rose-500">*</span>
+                </label>
                 <select
                   required
                   value={referralForm.toMemberId}
                   onChange={(e) => setReferralForm({ ...referralForm, toMemberId: e.target.value })}
-                  className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full mt-1.5 h-10 px-3.5 rounded-xl bg-background/90 border border-input text-foreground text-sm font-medium shadow-xs transition-all duration-150 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary cursor-pointer"
                 >
-                  <option value="">Select Chapter Colleague</option>
+                  <option value="">Select Chapter Colleague...</option>
                   {chapterMembers.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.name} — {m.businessName} ({m.industry})
+                      {m.name} • {m.businessName || "Member"} ({m.industry || "General"})
                     </option>
                   ))}
                 </select>
@@ -747,17 +978,20 @@ export function MemberDashboardView() {
 
             <form onSubmit={handleScheduleOneToOne} className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Connect With Chapter Member *</label>
+                <label className="text-xs font-semibold text-foreground/80 flex items-center gap-1.5">
+                  <span>Connect With Chapter Member</span>
+                  <span className="text-rose-500">*</span>
+                </label>
                 <select
                   required
                   value={oneToOneForm.receiverId}
                   onChange={(e) => setOneToOneForm({ ...oneToOneForm, receiverId: e.target.value })}
-                  className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="w-full mt-1.5 h-10 px-3.5 rounded-xl bg-background/90 border border-input text-foreground text-sm font-medium shadow-xs transition-all duration-150 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary cursor-pointer"
                 >
-                  <option value="">Select Member</option>
+                  <option value="">Select Member...</option>
                   {chapterMembers.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.name} — {m.businessName} ({m.industry})
+                      {m.name} • {m.businessName || "Member"} ({m.industry || "General"})
                     </option>
                   ))}
                 </select>
@@ -765,26 +999,29 @@ export function MemberDashboardView() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">Session Date *</label>
+                  <label className="text-xs font-semibold text-foreground/80 flex items-center gap-1.5">
+                    <span>Session Date</span>
+                    <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="date"
                     required
                     value={oneToOneForm.date}
                     onChange={(e) => setOneToOneForm({ ...oneToOneForm, date: e.target.value })}
-                    className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full mt-1.5 h-10 px-3.5 rounded-xl bg-background/90 border border-input text-foreground text-sm font-medium shadow-xs transition-all duration-150 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">Duration (Minutes)</label>
+                  <label className="text-xs font-semibold text-foreground/80">Duration</label>
                   <select
                     value={oneToOneForm.duration}
                     onChange={(e) => setOneToOneForm({ ...oneToOneForm, duration: Number(e.target.value) })}
-                    className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    className="w-full mt-1.5 h-10 px-3.5 rounded-xl bg-background/90 border border-input text-foreground text-sm font-medium shadow-xs transition-all duration-150 hover:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary cursor-pointer"
                   >
-                    <option value={30}>30 mins</option>
-                    <option value={45}>45 mins</option>
-                    <option value={60}>60 mins (Recommended)</option>
-                    <option value={90}>90 mins</option>
+                    <option value={30}>30 minutes</option>
+                    <option value={45}>45 minutes</option>
+                    <option value={60}>60 minutes (Standard)</option>
+                    <option value={90}>90 minutes (Deep Dive)</option>
                   </select>
                 </div>
               </div>

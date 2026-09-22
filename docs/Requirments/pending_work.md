@@ -1,137 +1,25 @@
-also the member imnplementation was stopped in between so iwant you to check and implemenmt what is missing and complete it and do not erase anything which is there 
-# Implementation Plan: Growcle Member Dashboard Workspace
-
-Implement the complete specification from `D:\Education\growcle\white-label-saas\docs\Requirments\member.md` for regular Growcle members, providing a dedicated member-scoped networking workspace at `/dashboard/member` with real Server Actions, profile and business management, referrals in ₹ INR, visitor invitations, meetings with 1-click self-attendance check-in, 1-to-1s, notifications, and personal performance reports.
-
-As explicitly instructed by the user, the **Payment section is omitted / removed** from all member navigation and views for now.
-
-## User Review Required
-
-> [!IMPORTANT]
-> **Payments Section Omitted**: Per your instruction, the payments and invoices section is completely excluded from the member navigation, dashboard cards, and sub-pages.
-> 
-> **Strict Member Scope**: A normal member can only view and edit their own profile, their own business, referrals they gave or received, visitors they personally invited, their own attendance records, and their own 1-to-1s. They have read-only discovery access to fellow chapter members and chapter meetings.
-> 
-> **All Currency in INR (`₹`)**: All referral values and closed business figures are displayed in Indian Rupees with `en-IN` numbering.
-
-## Proposed Changes
-
----
-
-### 1. Navigation Configuration
-
-#### [MODIFY] [member.ts](file:///d:/Education/growcle/white-label-saas/src/shared/config/navigation/member.ts)
-- Update `memberNavigation` to reflect the updated member routes:
-  - Workspace Home: `/dashboard/member`
-  - My Profile: `/dashboard/member/profile`
-  - My Business: `/dashboard/member/business`
-  - Chapter Members: `/dashboard/member/members`
-  - Referrals: `/dashboard/member/referrals`
-  - Visitors: `/dashboard/member/visitors`
-  - Meetings: `/dashboard/member/meetings`
-  - Attendance: `/dashboard/member/attendance`
-  - 1-to-1 Sessions: `/dashboard/member/one-to-ones`
-  - Announcements: `/dashboard/member/notifications`
-  - Reports: `/dashboard/member/reports`
-- **Completely remove all payment / invoice items** from navigation.
-
----
-
-### 2. Member Server Actions Layer
-
-#### [NEW] [member-actions.ts](file:///d:/Education/growcle/white-label-saas/src/features/member/actions/member-actions.ts)
-- `getMemberContext()`: Resolves current authenticated member identity, assigned chapter details, and status.
-- `getMemberDashboardData(memberId: string)`:
-  - Personal KPIs: Membership status, attendance %, referrals given/received, closed business value in ₹ INR, 1-to-1s completed/scheduled, visitors invited/attended.
-  - Next Chapter Meeting summary with 1-click self check-in status.
-  - Quick action helpers and upcoming schedule items.
-- `getMemberProfile(memberId: string)` & `updateMemberProfile(memberId: string, data)`:
-  - Personal profile fields: First/Last name, email, phone, designation, bio, social links.
-- `getMemberBusiness(memberId: string)` & `updateMemberBusiness(memberId: string, data)`:
-  - Business details: Business name, industry, category, description, website, phone, email, address, services, products, years in business, target customers, and networking synergy prompts ("What I Do", "Who I Help", "Best Referral For Me", "Not A Good Referral").
-- `getChapterMemberDirectory(chapterId: string, search?: string, industry?: string)`:
-  - Privacy-safe member directory returning member cards with business details, services, contact options, and chapter badge.
-- `getChapterMemberDetail(memberId: string)`:
-  - Detailed view of a fellow chapter member for 1-to-1 request or giving a referral.
-- `getMemberReferrals(memberId: string)`:
-  - Given Referrals and Received Referrals lists with INR value and status pipeline (`PENDING`, `CONTACTED`, `IN_PROGRESS`, `CLOSED_WON`, `CLOSED_LOST`).
-- `giveMemberReferral(data)`:
-  - Gives referral to a chapter colleague with deal value in ₹ INR.
-- `updateMemberReferralStatus(referralId: string, memberId: string, status: ReferralStatus)`:
-  - Allows recipient member to advance deal status (e.g. mark closed won).
-- `getMemberVisitors(memberId: string)`:
-  - Visitors personally invited by this member, tracking visit date, status, and notes.
-- `inviteMemberVisitor(data)`:
-  - Invites guest, automatically linking to member's chapter and member ID.
-- `getMemberMeetings(chapterId: string, memberId: string)`:
-  - Upcoming and past meetings with agenda, speaker, venue, and member's attendance status.
-- `recordSelfAttendance(meetingId: string, memberId: string)`:
-  - Fast 1-click self check-in button for the member on meeting day.
-- `getMemberAttendanceHistory(memberId: string)`:
-  - Attendance rate %, present, absent, substitute, excused counts and meeting history.
-- `getMemberOneToOnes(memberId: string)`:
-  - 1-to-1 networking sessions involving this member.
-- `scheduleMemberOneToOne(data)`:
-  - Schedule 1-to-1 session with a fellow chapter member.
-- `getMemberNotifications(memberId: string, chapterId: string)`:
-  - Chapter announcements, meeting reminders, and referral notifications.
-- `getMemberReports(memberId: string)`:
-  - Personal networking scorecard: Referrals Given vs Received ratio, closed business generated (₹), attendance reliability %, visitor contribution.
-
----
-
-### 3. Member Components Layer
-
-#### [NEW] [src/features/member/components/](file:///d:/Education/growcle/white-label-saas/src/features/member/components/)
-- `member-header-bar.tsx`: Member identity banner showing member name, chapter name, membership badge, and meeting day alert.
-- `member-dashboard-view.tsx`: Dashboard overview with KPI cards, Next Meeting Hero Card with 1-click check-in, Upcoming Activities list, and Quick Actions bar ([Give Referral], [Invite Visitor], [Schedule 1-to-1], [View Meeting], [Edit Profile]).
-- `member-profile-view.tsx`: Personal profile view and edit form.
-- `member-business-view.tsx`: Networking business profile view and edit form ("What I Do", "Best Referral For Me", etc.).
-- `member-directory-view.tsx`: Searchable chapter member discovery cards with filters, direct [Request 1-to-1] and [Give Referral] actions.
-- `member-referrals-view.tsx`: Given and Received tabs, Give Referral modal with ₹ INR input, status pipeline updates.
-- `member-visitors-view.tsx`: Invited guests pipeline, Invite Visitor modal, follow-up tracking.
-- `member-meetings-view.tsx`: Chapter meeting calendar, agenda details, attendees list, mobile-optimized meeting day experience.
-- `member-attendance-view.tsx`: Personal attendance scorecard and historical log.
-- `member-one-to-ones-view.tsx`: 1-to-1 networking sessions list, Schedule 1-to-1 modal with fellow member picker.
-- `member-notifications-view.tsx`: Chapter announcements and inbox.
-- `member-reports-view.tsx`: Personal networking performance analytics and scorecard.
-
----
-
-### 4. App Router Routes Layer
-
-#### [NEW] [src/app/(dashboard)/dashboard/member/](file:///d:/Education/growcle/white-label-saas/src/app/%28dashboard%29/dashboard/member/)
-- `page.tsx`: Member overview dashboard
-- `profile/page.tsx`: Personal profile page
-- `business/page.tsx`: Business networking profile page
-- `members/page.tsx`: Chapter member directory page
-- `referrals/page.tsx`: Referrals given and received page
-- `visitors/page.tsx`: Invited visitors page
-- `meetings/page.tsx`: Chapter meetings schedule and agenda page
-- `attendance/page.tsx`: Attendance history and scorecard page
-- `one-to-ones/page.tsx`: 1-to-1 networking sessions page
-- `notifications/page.tsx`: Chapter announcements page
-- `reports/page.tsx`: Personal networking analytics page
-
----
-
-## Verification Plan
-
-### Automated Verification
-- Run `npx tsc --noEmit` to verify type safety across all actions, components, and pages with 0 errors.
-- Run `npm run build` to verify clean production compilation of all 11 new member routes.
-
-### Manual / Browser Verification
-- Verify `http://localhost:3001/dashboard/member` renders the member dashboard with KPIs, meeting hero, and quick actions.
-- Verify no payments links or references appear anywhere in the member workspace.
-
----
-
-## Status: COMPLETE
-- All 12 Member routes and 13 components fully implemented and verified.
-- Member details route `/dashboard/member/members/[memberId]` created with direct action modals.
-- Synergy prompts ("What I Do", "Who I Help", "Best Referral For Me", "Not A Good Referral") persisted and loaded.
-- Visitor follow-up lifecycle and 1-to-1 completion/outcome modals functional.
-- Meeting attendees dialog and 1-click self-attendance check-in functional.
-- Authenticated session resolution with `getCurrentSession()` verified.
-- `npx tsc --noEmit` verified with 0 errors.
+Changes to be made 
+1. when i land on members page I should Directly get the members dashboard and its the same case with each role it should land in therir perspective dashboard pages 
+2. the loading page or the screen doesnt look that great and you have added the transitions and animations which is not need just the simple loading rotator and below written as "switching to {the role they want to switch}" 
+3. remove starts from the over all dashbooards and where ever there is as it screams ai generatedd and looks very bad 
+4. in members page i want you to make the my profile and the business profile both as the same and let that be in the bottom and when i login my profile should automatically fetch the user icon from their gmail as i will be integrating the google auth so that should be enebled and also they should be able to change their profile picture from that or make one thing let itbe like the user icon or the image let the member and the admin to be able to make the changes in it 
+5. in members page when i go to members directory there in details i want you to remove that networking clarity also the below ready of collaborating that card has to be removed and make it enlarged the left things and there above any ways there is 121 and refferral passing so not to worry 
+6. the the users icon or their image be in circle 
+7. for the password reset i want the reset password to be there and when i click on it and let that be done through implementing the reset link sent to theior mail directly so implement that as well so i just have to play with the api keys later 
+8.in passing referrals implement the cross chapter refferral as well so even that should be present if in case the want to select the chapter name and select their member and pass the reerral even that has to be implemented, even if it is a visitor then even that has to be there as an option seperetaly so implement that. there also make it as given and received in 2 seperate columns. also when sending and reciving if iot is cross chapter then change the badge and container color to that respective chapter color also if it is a visitor then the badge should be like changed or different color and accross all chapters the visitors card color should be same 
+9. also when it comes to 121 i want you to make sure that the members to log 121 accross cross chapter as well and als able to make the 121 with visitors as well and location make it default also make it like after scheduling the 121 then the next process is to send the completed 121 with a selfie so they need to upload the selfie and make it get stored in the data base and after uploading the imaghe i want yout o reduce the quality and store it. also duration let it be like how much hour they have spent on it. there shouldnt be any time limit over there 
+10. in invited visitors as wel the email should be checkd from google and verified, and that should be stored, and iunforms instead of industry or trade make it as categoery.
+11. In chapter meetings the speaker and theme should be removed from the card and also remove run sheet accross all the website allso change that invite guest to invite visitor. also the upcomming meeting should be showcased 
+12. in the adminand as well as accross all the website i want you to implement the fixed meeting like it should be locked until that day meeting occurs and unloack at exactly 12am on that day also implement that feature where they just schedule an day as their regular meet in Leadership, director and admin page so that if they want to change the day it can and it should automatically pop up  on the superior role pages 
+13. also in the leadership team given them to log the 121 and the refferrral manually and also TYFCB(thank you for closed business) add this in the members and all obver the pages as seperate feature where they can track to whom they got converted the business and to whom they gave and that got converted like its just the dashboard and it should be seen and marked in reffferalls first from there they should get the option as that this referral was converted and was able to close the business and also an option to give testemonial where they can easilly pass the testimonial about how they provided the business and services and mention that and also in members dashboard mention that testimonial that this person was ablew to provide such good business and also mention that in the home page so that it will be good to the visitors to see as well and will crteate an good impression over all 
+14. also in superiors roles im not able to see that changes in the main page when i transist from one chapter to another their data are same and in some places i can see that there is only 1 chapter but shows 2 in other places i want that to be very accuirate so please implemnt that 
+15. that leaders page that poin protected password for meeting upi and the amount i want you to make it as a change the meeting UPI and amount and dont show password over there which is very bad 
+16. ake vinay harihar mine as i shall not be able to change the roles i shall be the admin and not in the position to make someone able to remove me or add me 
+17. also add the features to add or remove the chapters as well and also edit their chapters fetaiols colors etc...
+18. also make the notifications dynamic and able to view ll the broadcast all the meeting updates 121 referral sent and received from only those members also that directoirs broadcast is not working and there are mock data all over there so make those changes 
+19. when exporting the report data it should be very standard only 2 options one as pdf and another and csv or excel also they should be able to receive in such a way where they can download based on meeting wise included with payments, referral tht person passed how many visitor did he bring and how much business was closed and what was the total amount of business that was generated and also how much meeting fees was collected from members and also the visitors also i want youto implemrnt this in that dashboard as well onnchapters wie download and all chapter download wise this all should be there.
+20.in rbac there is so many dublicate and its just teh front end i wan tyouto implemnent that in real and make i work dynamically so that it will be easy to assigbn their limitations and also based one the roles we have only that rolese has to be implemented rn we can see that we have 4 roles soonlyt that should be there not much now its like 7 smtg thats false so change that sa well 
+21.and in admin refrerrals why there is an option to create the referrals from there it should be done bu members and if possible from LT team if not done by the members.
+22.in admin page the meetings should be shown edit scheduel that has to be implemented 
+23. also include some exciting charts inthe dashboards of all the members 
+24. also chane the chrome tag or the title to growcle and also change the icon which is present in the application that g icon and also the logout users profile that card is not working when clicked on it 

@@ -12,19 +12,90 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+import { updateChapterDetails } from '@/features/director/actions/director-actions';
+
 export function ChapterDetailsPage({ chapterId }: { chapterId: string }) {
   const [chapter, setChapter] = useState<ChapterDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'settings'>('overview');
+  const [settingsSaved, setSettingsSaved] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsForm, setSettingsForm] = useState({
+    name: '',
+    code: '',
+    region: '',
+    location: '',
+    meetingDay: 'Wednesday',
+    meetingTime: '07:30 AM',
+    meetingFee: 800,
+    upiId: '',
+    upiName: '',
+    themeColor: 'emerald',
+  });
 
   useEffect(() => {
-    // In a real app, we would fetch the specific chapter by ID
     AdminService.getChapters().then((data) => {
       const found = data.find(c => c.id === chapterId);
-      if (found) setChapter(found);
+      if (found) {
+        setChapter(found);
+        setSettingsForm({
+          name: found.name || '',
+          code: found.code || '',
+          region: found.region || '',
+          location: found.location || '',
+          meetingDay: found.meetingDay || 'Wednesday',
+          meetingTime: found.meetingTime || '07:30 AM',
+          meetingFee: found.meetingFee || 800,
+          upiId: found.upiId || '',
+          upiName: found.upiName || '',
+          themeColor: found.themeColor || 'emerald',
+        });
+      }
       setLoading(false);
     });
   }, [chapterId]);
+
+  const handleSaveSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingSettings(true);
+    setSettingsSaved(false);
+    try {
+      await updateChapterDetails({
+        chapterId,
+        name: settingsForm.name,
+        chapterCode: settingsForm.code,
+        region: settingsForm.region,
+        meetingLocation: settingsForm.location,
+        meetingDay: settingsForm.meetingDay,
+        meetingTime: settingsForm.meetingTime,
+        meetingFee: Number(settingsForm.meetingFee),
+        upiId: settingsForm.upiId,
+        upiName: settingsForm.upiName,
+        themeColor: settingsForm.themeColor,
+      });
+
+      setChapter((prev) => prev ? ({
+        ...prev,
+        name: settingsForm.name,
+        code: settingsForm.code,
+        region: settingsForm.region,
+        location: settingsForm.location,
+        meetingDay: settingsForm.meetingDay,
+        meetingTime: settingsForm.meetingTime,
+        meetingFee: Number(settingsForm.meetingFee),
+        upiId: settingsForm.upiId,
+        upiName: settingsForm.upiName,
+        themeColor: settingsForm.themeColor,
+      }) : null);
+
+      setSettingsSaved(true);
+      setTimeout(() => setSettingsSaved(false), 4000);
+    } catch (err) {
+      console.error("Failed to update chapter", err);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -83,7 +154,7 @@ export function ChapterDetailsPage({ chapterId }: { chapterId: string }) {
           
           {/* Admin Actions */}
           <div className="flex flex-wrap gap-2">
-            <Button size="sm" variant="outline" className="text-xs">
+            <Button size="sm" variant="outline" className="text-xs cursor-pointer" onClick={() => setActiveTab('settings')}>
               <FileEdit className="w-4 h-4 mr-1" /> Edit Chapter
             </Button>
             <Button size="sm" variant="outline" className="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50">
@@ -214,7 +285,7 @@ export function ChapterDetailsPage({ chapterId }: { chapterId: string }) {
                   <Button variant="outline" className="justify-start text-xs h-9">
                     <Calendar className="w-4 h-4 mr-2 text-muted-foreground" /> Schedule Meeting
                   </Button>
-                  <Button variant="outline" className="justify-start text-xs h-9">
+                  <Button variant="outline" className="justify-start text-xs h-9 cursor-pointer" onClick={() => setActiveTab('settings')}>
                     <Settings className="w-4 h-4 mr-2 text-muted-foreground" /> Chapter Settings
                   </Button>
                 </div>
@@ -224,7 +295,184 @@ export function ChapterDetailsPage({ chapterId }: { chapterId: string }) {
           </div>
         )}
 
-        {activeTab !== 'overview' && (
+        {activeTab === 'settings' && (
+          <div className="max-w-3xl border rounded-2xl bg-card p-6 shadow-xs space-y-6">
+            <div>
+              <h3 className="text-lg font-bold text-foreground">Chapter Settings & Customization</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Update regular meeting schedule, financial credentials, venue details, and theme color branding.
+              </p>
+            </div>
+
+            {settingsSaved && (
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 shrink-0" />
+                Chapter configuration and meeting schedule saved successfully!
+              </div>
+            )}
+
+            <form onSubmit={handleSaveSettings} className="space-y-6">
+              {/* Basic Info */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Identity & Code</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Chapter Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={settingsForm.name}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, name: e.target.value })}
+                      className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Chapter Code</label>
+                    <input
+                      type="text"
+                      value={settingsForm.code}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, code: e.target.value })}
+                      className="w-full p-2.5 text-sm border rounded-xl bg-background font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Schedule & Location */}
+              <div className="space-y-4 pt-2 border-t">
+                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Meeting Schedule & Day</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Regular Meeting Day *</label>
+                    <select
+                      value={settingsForm.meetingDay}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, meetingDay: e.target.value })}
+                      className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                    >
+                      {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(day => (
+                        <option key={day} value={day}>{day}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Meeting Time *</label>
+                    <input
+                      type="text"
+                      value={settingsForm.meetingTime}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, meetingTime: e.target.value })}
+                      className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                      placeholder="07:30 AM"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Standard Fee (₹) *</label>
+                    <input
+                      type="number"
+                      value={settingsForm.meetingFee}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, meetingFee: Number(e.target.value) })}
+                      className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Region</label>
+                    <input
+                      type="text"
+                      value={settingsForm.region}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, region: e.target.value })}
+                      className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Meeting Location / Venue</label>
+                    <input
+                      type="text"
+                      value={settingsForm.location}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, location: e.target.value })}
+                      className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Financial & UPI */}
+              <div className="space-y-4 pt-2 border-t">
+                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Chapter UPI Collection</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Chapter UPI VPA ID</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. chapter@okaxis"
+                      value={settingsForm.upiId}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, upiId: e.target.value })}
+                      className="w-full p-2.5 text-sm border rounded-xl bg-background font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-muted-foreground">Payee Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. SSK Chapter Treasury"
+                      value={settingsForm.upiName}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, upiName: e.target.value })}
+                      className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Theme Color Customization */}
+              <div className="space-y-4 pt-2 border-t">
+                <div>
+                  <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Chapter Theme & Color</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Select a vibrant branding accent color for this chapter across member cards and badges.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {[
+                    { id: "emerald", label: "Emerald Green", bg: "bg-emerald-500" },
+                    { id: "indigo", label: "Indigo Royal", bg: "bg-indigo-500" },
+                    { id: "purple", label: "Purple Velvet", bg: "bg-purple-500" },
+                    { id: "amber", label: "Amber Gold", bg: "bg-amber-500" },
+                    { id: "rose", label: "Rose Crimson", bg: "bg-rose-500" },
+                    { id: "cyan", label: "Cyan Ocean", bg: "bg-cyan-500" },
+                    { id: "orange", label: "Sunset Orange", bg: "bg-orange-500" },
+                  ].map((color) => (
+                    <button
+                      key={color.id}
+                      type="button"
+                      onClick={() => setSettingsForm({ ...settingsForm, themeColor: color.id })}
+                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-semibold transition-all ${
+                        settingsForm.themeColor === color.id
+                          ? "border-primary ring-2 ring-primary/20 bg-primary/5 font-bold"
+                          : "border-border hover:bg-muted"
+                      }`}
+                    >
+                      <span className={`w-3.5 h-3.5 rounded-full ${color.bg}`} />
+                      {color.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <Button
+                  type="submit"
+                  disabled={savingSettings}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs h-10 px-5"
+                >
+                  <Save className="w-4 h-4 mr-1.5" /> {savingSettings ? "Saving Changes..." : "Save Chapter Settings"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {activeTab !== 'overview' && activeTab !== 'settings' && (
           <div className="p-12 text-center border rounded-2xl bg-card border-dashed">
             <h3 className="text-lg font-bold text-foreground">Tab Content</h3>
             <p className="text-sm text-muted-foreground mt-2">

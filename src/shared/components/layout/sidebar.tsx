@@ -5,15 +5,35 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/shared/lib/utils";
 import { useSidebarStore } from "@/shared/stores/sidebar";
 import { useWorkspaceStore } from "@/shared/stores/workspace";
+import { useAuthStore } from "@/shared/stores/auth";
 import { getNavigationForRole } from "@/shared/config/navigation";
-import { X } from "lucide-react";
+import { GrowcleLogo } from "@/shared/components/brand/growcle-logo";
+import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar";
+import { X, LogOut } from "lucide-react";
 
 export function Sidebar() {
   const pathname = usePathname();
   const { isOpen, setIsOpen } = useSidebarStore();
   const { activeRole } = useWorkspaceStore();
+  const { user, currentMember, logout } = useAuthStore();
 
   const navigation = getNavigationForRole(activeRole);
+
+  const handleLogout = async () => {
+    try {
+      const { authClient } = await import("@/lib/auth-client");
+      await authClient.signOut();
+    } catch (err) {
+      console.error("Sign out error", err);
+    } finally {
+      logout();
+      if (typeof document !== "undefined") {
+        document.cookie = "active-chapter-id=; path=/; max-age=0";
+        document.cookie = "better-auth.session_token=; path=/; max-age=0";
+      }
+      window.location.href = "/login";
+    }
+  };
 
   return (
     <>
@@ -32,15 +52,24 @@ export function Sidebar() {
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex h-16 shrink-0 items-center justify-between px-6 border-b">
-          <Link href="/dashboard" className="flex items-center gap-2">
-            <span className="text-xl font-bold tracking-tight text-primary">
-              Growcle
-            </span>
+        <div className="flex h-16 shrink-0 items-center justify-between px-5 border-b">
+          <Link 
+            href={
+              activeRole === "Admin"
+                ? "/dashboard/admin"
+                : activeRole === "Director"
+                ? "/dashboard/director"
+                : activeRole === "Leadership Team"
+                ? "/dashboard/leadership"
+                : "/dashboard/member"
+            } 
+            className="flex items-center group"
+          >
+            <GrowcleLogo size={32} textColor="text-primary font-bold text-lg" />
           </Link>
           <button
             onClick={() => setIsOpen(false)}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground lg:hidden"
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-sidebar-accent hover:text-foreground lg:hidden cursor-pointer"
             aria-label="Close sidebar"
           >
             <X className="h-5 w-5" />
@@ -65,7 +94,6 @@ export function Sidebar() {
                       <Link
                         href={item.href}
                         onClick={() => {
-                          // Auto close drawer on small screens when user clicks a link
                           if (window.innerWidth < 1024) {
                             setIsOpen(false);
                           }
@@ -87,8 +115,52 @@ export function Sidebar() {
             </div>
           ))}
         </nav>
+
+        {/* User Profile & Logout Bottom Card */}
+        <div className="p-3 border-t bg-sidebar-accent/20">
+          <div className="flex items-center justify-between p-2 rounded-xl bg-card border border-border/80 shadow-xs hover:border-primary/30 transition-colors">
+            <Link
+              href="/dashboard/member/profile"
+              className="flex items-center gap-2.5 min-w-0 flex-1 hover:opacity-80 transition-opacity"
+              title="View Profile"
+            >
+              <Avatar className="h-8 w-8 rounded-full border border-border shrink-0">
+                <AvatarImage
+                  src={user?.image || currentMember?.profileImage || undefined}
+                  alt={user?.name || "User"}
+                />
+                <AvatarFallback className="bg-primary text-primary-foreground font-bold text-xs">
+                  {user?.name?.charAt(0) || "U"}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-foreground truncate leading-tight">
+                  {user?.name || `${currentMember?.firstName || 'Active'} ${currentMember?.lastName || 'Member'}`}
+                </p>
+                <div className="flex items-center gap-1">
+                  <span className="inline-block px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-primary/15 text-primary">
+                    {activeRole}
+                  </span>
+                  {currentMember?.membershipNumber && (
+                    <span className="text-[9px] text-muted-foreground truncate">
+                      {currentMember.membershipNumber}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </Link>
+
+            <button
+              onClick={handleLogout}
+              className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer shrink-0 ml-1.5"
+              title="Log out"
+              aria-label="Log out"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </aside>
     </>
   );
 }
-

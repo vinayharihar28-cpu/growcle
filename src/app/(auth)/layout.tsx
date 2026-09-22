@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Users, TrendingUp, ShieldCheck, CheckCircle2, Star, ArrowLeft } from "lucide-react";
 import { ThemeToggle } from "@/shared/components/theme-toggle";
 
+import { GrowcleLogo } from "@/shared/components/brand/growcle-logo";
+
 export default function AuthLayout({
   children,
 }: {
@@ -19,13 +21,8 @@ export default function AuthLayout({
 
         {/* Top Header: Brand Logo (Only one Growcle on desktop) */}
         <div className="relative z-10">
-          <Link href="/" className="inline-flex items-center space-x-3 group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-500 to-indigo-700 text-white font-extrabold text-xl shadow-lg group-hover:scale-105 transition-transform">
-              G
-            </div>
-            <span className="font-extrabold text-2xl tracking-tight text-white">
-              Growcle
-            </span>
+          <Link href="/" className="inline-flex items-center group">
+            <GrowcleLogo size={36} textColor="text-white text-2xl font-extrabold" />
           </Link>
         </div>
 
@@ -86,24 +83,18 @@ export default function AuthLayout({
         {/* Top Header Bar */}
         <div className="w-full flex items-center justify-between z-20 pb-2">
           {/* Logo is ONLY rendered on Mobile (lg:hidden) to avoid duplicate "Growcle" on Desktop */}
-          <Link href="/" className="lg:hidden inline-flex items-center space-x-2.5 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 via-primary to-indigo-500 text-primary-foreground font-bold shadow-sm group-hover:scale-105 transition-transform">
-              G
-            </div>
-            <span className="font-extrabold text-lg tracking-tight text-foreground">
-              Growcle
-            </span>
+          <Link href="/" className="lg:hidden inline-flex items-center group">
+            <GrowcleLogo size={32} textColor="text-foreground text-lg font-extrabold" />
           </Link>
           
           {/* Invisible spacer on desktop to push theme toggle to the right */}
           <div className="hidden lg:block"></div>
 
           <div className="flex items-center gap-3">
-            {/* Screen Mode Toggle: Dark to Light */}
+            {/* Screen Mode Toggle: Light / Dark / System */}
             <ThemeToggle 
-              variant="button" 
-              showLabel 
-              className="rounded-full border border-border/80 bg-card/80 backdrop-blur-md px-3 py-1.5 shadow-xs hover:bg-accent" 
+              variant="switch" 
+              className="bg-card/80 backdrop-blur-md" 
             />
             
             <Link 

@@ -4,14 +4,6 @@ export type Role =
   | "Admin"
   | "Director"
   | "Leadership Team"
-  | "President"
-  | "Vice President"
-  | "Secretary"
-  | "Treasurer"
-  | "Membership"
-  | "Finance"
-  | "SuperAdmin"
-  | "Organization Administrator"
   | "Member";
 
 export interface ChapterOption {
@@ -37,7 +29,7 @@ interface WorkspaceState {
 }
 
 export const useWorkspaceStore = create<WorkspaceState>((set: any) => ({
-  activeRole: "Member",
+  activeRole: null,
   availableRoles: ["Member"],
   selectedChapterId: "all",
   availableChapters: [],

@@ -227,6 +227,10 @@ export async function getAdminChaptersList() {
         meetingDay: chap.meetingDay || "Wednesday",
         meetingTime: chap.meetingTime || "07:30 AM",
         isActive: chap.isActive,
+        themeColor: (chap as any).themeColor || "emerald",
+        upiId: (chap as any).upiId || "",
+        upiName: (chap as any).upiName || "",
+        meetingFee: (chap as any).meetingFee || 800,
         activeMembersCount: activeMembers.length,
         totalMembersCount: chap.members.length,
         directorName: director ? `${director.firstName} ${director.lastName}` : "Unassigned",
@@ -628,63 +632,28 @@ export async function recordAdminManualPayment(data: {
   }
 }
 
-// -----------------------------------------------------------------------------
-// 7. NOTIFICATIONS BROADCAST (Section 28)
-// -----------------------------------------------------------------------------
-export async function getAdminNotificationsList() {
-  try {
-    const notifications = await db.notification.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    });
+import {
+  getAdminNotificationsList as _getAdminNotificationsList,
+  broadcastAdminNotification as _broadcastAdminNotification,
+  markNotificationAsRead as _markNotificationAsRead,
+} from "@/features/notifications/actions/notification-actions";
 
-    return notifications.map((n) => ({
-      id: n.id,
-      title: n.title,
-      message: n.body,
-      recipient: "All Chapters",
-      type: n.type,
-      createdAt: n.createdAt.toISOString(),
-      isRead: n.isRead,
-      priority: "NORMAL",
-    }));
-  } catch (error) {
-    console.error("[AdminActions] Error in getAdminNotificationsList:", error);
-    return [];
-  }
+export async function getAdminNotificationsList(chapterId?: string) {
+  return _getAdminNotificationsList(chapterId);
 }
 
 export async function broadcastAdminNotification(data: {
   title: string;
   message: string;
-  recipientType: string;
-  priority: string;
+  recipientType?: string;
+  chapterId?: string;
+  priority?: string;
 }) {
-  try {
-    await db.notification.create({
-      data: {
-        userId: "admin-broadcast",
-        title: data.title,
-        body: data.message,
-        type: data.recipientType,
-      },
-    });
+  return _broadcastAdminNotification(data);
+}
 
-    await db.auditLog.create({
-      data: {
-        who: "Admin",
-        action: "BROADCAST_NOTIFICATION",
-        entity: "Notification",
-        newValue: data,
-      },
-    });
-
-    revalidatePath("/dashboard/notifications");
-    return { success: true };
-  } catch (error) {
-    console.error("[AdminActions] Error in broadcastAdminNotification:", error);
-    return { success: false, error: "Failed to broadcast notification" };
-  }
+export async function markNotificationAsRead(notificationId: string) {
+  return _markNotificationAsRead(notificationId);
 }
 
 // -----------------------------------------------------------------------------

@@ -5,6 +5,7 @@ interface User {
   name: string;
   email: string;
   roles: string[];
+  image?: string;
 }
 
 export interface MemberInfo {
@@ -14,6 +15,8 @@ export interface MemberInfo {
   email: string;
   chapterId?: string;
   organizationId?: string;
+  profileImage?: string;
+  membershipNumber?: string;
 }
 
 interface AuthState {

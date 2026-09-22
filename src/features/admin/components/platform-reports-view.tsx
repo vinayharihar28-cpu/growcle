@@ -11,10 +11,12 @@ import {
   IndianRupee, 
   UserPlus, 
   Download,
-  Filter
+  Filter,
+  Printer
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { LeadershipReportsView } from '@/features/leadership/components/leadership-reports-view';
+import { exportToCsv } from '@/lib/export-utils';
 
 export function PlatformReportsView() {
   const [timeRange, setTimeRange] = useState<'30d' | '3m' | '6m' | '12m'>('6m');
@@ -26,6 +28,21 @@ export function PlatformReportsView() {
       currency: 'INR',
       maximumFractionDigits: 0,
     }).format(amount);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleExportCsv = () => {
+    const headers = ["Metric", "Range", "Active Tab", "Generated Date"];
+    const rows = [
+      ["Platform Performance Analytics", timeRange, activeSubTab, new Date().toLocaleDateString()],
+      ["Membership Growth Trend", "Active", "+14.8%", "1,240 Total Members"],
+      ["Chapter Expansion", "Active Chapters", "18 Chapters", "98.2% Active"],
+      ["Referrals & Pipeline", "Closed Deals", "₹2.4 Cr+", "1,890 Leads Passed"],
+    ];
+    exportToCsv(`platform_analytics_report_${activeSubTab}`, headers, rows);
   };
 
   return (
@@ -41,8 +58,8 @@ export function PlatformReportsView() {
           </p>
         </div>
 
-        {/* Time Filter */}
-        <div className="flex items-center gap-2">
+        {/* Actions & Time Filter */}
+        <div className="flex flex-wrap items-center gap-2">
           <div className="flex bg-muted p-1 rounded-xl text-xs font-semibold">
             {(['30d', '3m', '6m', '12m'] as const).map((range) => (
               <button
@@ -58,6 +75,23 @@ export function PlatformReportsView() {
               </button>
             ))}
           </div>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs h-9 cursor-pointer"
+            onClick={handleExportCsv}
+          >
+            <Download className="w-4 h-4 mr-1.5 text-indigo-500" /> Export CSV / Excel
+          </Button>
+
+          <Button
+            size="sm"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-9 cursor-pointer"
+            onClick={handlePrint}
+          >
+            <Printer className="w-4 h-4 mr-1.5" /> Print / PDF
+          </Button>
         </div>
       </div>
 

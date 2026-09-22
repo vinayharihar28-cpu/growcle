@@ -12,7 +12,6 @@ import {
   Calendar,
   Handshake,
   MessagesSquare,
-  Sparkles,
   Target,
   ThumbsDown,
   CheckCircle2,
@@ -188,8 +187,12 @@ export function MemberDetailView({ memberId }: MemberDetailViewProps) {
           <div className="bg-card border border-border rounded-2xl p-6 shadow-sm space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
               <div className="flex items-start gap-4">
-                <div className="h-16 w-16 rounded-2xl bg-primary/10 text-primary font-bold text-2xl flex items-center justify-center flex-shrink-0 border border-primary/20">
-                  {member.name[0]}
+                <div className="h-16 w-16 rounded-full overflow-hidden bg-primary/10 text-primary font-bold text-2xl flex items-center justify-center flex-shrink-0 border border-primary/20">
+                  {member.profileImage ? (
+                    <img src={member.profileImage} alt={member.name} className="h-full w-full object-cover rounded-full" />
+                  ) : (
+                    member.name[0]
+                  )}
                 </div>
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -268,100 +271,50 @@ export function MemberDetailView({ memberId }: MemberDetailViewProps) {
             </div>
           </div>
 
-          {/* Detailed Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Business Overview & Capabilities */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Business Overview */}
-              <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
-                <div className="flex items-center gap-2 border-b border-border pb-3">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  <h3 className="font-semibold text-foreground">Business Overview & Capabilities</h3>
-                </div>
+          {/* Detailed Content Full Width */}
+          <div className="space-y-6">
+            {/* Business Overview */}
+            <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-2 border-b border-border pb-3">
+                <Building2 className="h-5 w-5 text-primary" />
+                <h3 className="font-semibold text-foreground">Business Overview & Capabilities</h3>
+              </div>
 
-                <div className="space-y-2">
+              <div className="space-y-2">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Services & Deliverables
+                </h4>
+                <p className="text-sm text-foreground leading-relaxed">
+                  {member.business.description}
+                </p>
+              </div>
+
+              {member.bio && (
+                <div className="space-y-1 pt-3 border-t border-border">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Services & Deliverables
+                    Professional Background
                   </h4>
-                  <p className="text-sm text-foreground leading-relaxed">
-                    {member.business.description}
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {member.bio}
                   </p>
                 </div>
-
-                {member.bio && (
-                  <div className="space-y-1 pt-3 border-t border-border">
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Professional Background
-                    </h4>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      {member.bio}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* What I Do & Who I Help */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-2">
-                  <span className="text-xs font-semibold text-primary uppercase tracking-wider">What I Do</span>
-                  <p className="text-xs text-foreground leading-relaxed">
-                    {member.business.whatIDo}
-                  </p>
-                </div>
-
-                <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-2">
-                  <span className="text-xs font-semibold text-blue-500 uppercase tracking-wider">Who I Help</span>
-                  <p className="text-xs text-foreground leading-relaxed">
-                    {member.business.whoIHelp}
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* Networking Clarity Guide (Synergy Prompts) */}
-            <div className="space-y-4">
-              <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-4">
-                <div className="flex items-center gap-2 border-b border-border pb-3">
-                  <Sparkles className="h-5 w-5 text-amber-500" />
-                  <h3 className="font-semibold text-foreground">Networking Clarity</h3>
-                </div>
-
-                {/* Best Referral */}
-                <div className="space-y-2 p-3.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    <Target className="h-4 w-4" />
-                    <span>Best Referral For Me</span>
-                  </div>
-                  <p className="text-xs text-foreground leading-relaxed">
-                    {member.business.bestReferral}
-                  </p>
-                </div>
-
-                {/* Not A Good Referral */}
-                <div className="space-y-2 p-3.5 rounded-lg bg-rose-500/5 border border-rose-500/20">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-400">
-                    <ThumbsDown className="h-4 w-4" />
-                    <span>Not A Good Referral</span>
-                  </div>
-                  <p className="text-xs text-foreground leading-relaxed">
-                    {member.business.notAGoodReferral}
-                  </p>
-                </div>
+            {/* What I Do & Who I Help */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-2">
+                <span className="text-xs font-semibold text-primary uppercase tracking-wider">What I Do</span>
+                <p className="text-xs text-foreground leading-relaxed">
+                  {member.business.whatIDo}
+                </p>
               </div>
 
-              {/* Action Banner */}
-              <div className="bg-gradient-to-br from-primary/10 via-card to-card border border-primary/20 rounded-xl p-5 space-y-3">
-                <h4 className="text-xs font-bold text-foreground">Ready to collaborate?</h4>
-                <p className="text-xs text-muted-foreground">
-                  Schedule a 1-to-1 session with {member.firstName} to share business insights and unlock high-trust referral pipelines.
+              <div className="bg-card border border-border rounded-xl p-5 shadow-sm space-y-2">
+                <span className="text-xs font-semibold text-blue-500 uppercase tracking-wider">Who I Help</span>
+                <p className="text-xs text-foreground leading-relaxed">
+                  {member.business.whoIHelp}
                 </p>
-                <button
-                  onClick={() => setIsOneToOneOpen(true)}
-                  className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold shadow-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5"
-                >
-                  <MessagesSquare className="h-3.5 w-3.5" />
-                  <span>Request 1-to-1 Session</span>
-                </button>
               </div>
             </div>
           </div>

@@ -157,9 +157,23 @@ export function ChapterListPage({ initialCreateOpen = false }: { initialCreateOp
       <CreateChapterWizard 
         isOpen={isCreateOpen} 
         onClose={() => setIsCreateOpen(false)} 
-        onComplete={(data) => {
-          console.log('Chapter created', data);
-          fetchChapters(); // mock reload
+        onComplete={async (data) => {
+          try {
+            const { createDirectorChapter } = await import('@/features/director/actions/director-actions');
+            await createDirectorChapter({
+              name: data.name,
+              chapterCode: data.code,
+              region: data.region,
+              meetingDay: data.meetingDay,
+              meetingTime: data.meetingTime,
+              meetingLocation: data.meetingLocation || data.location,
+              description: data.description,
+              themeColor: data.themeColor,
+            });
+            fetchChapters();
+          } catch (e) {
+            console.error('Failed to create chapter:', e);
+          }
         }} 
       />
     </div>

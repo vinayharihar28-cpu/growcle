@@ -132,7 +132,7 @@ export function MemberVisitorsView() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-foreground">My Invited Chapter Guests</h2>
+          <h2 className="text-xl font-bold text-foreground">My Invited Chapter Visitors</h2>
           <p className="text-sm text-muted-foreground">
             Introduce potential members to your chapter and track their visit lifecycle.
           </p>
@@ -143,7 +143,7 @@ export function MemberVisitorsView() {
           className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity shadow-sm"
         >
           <Plus className="h-4 w-4" />
-          <span>Invite New Guest</span>
+          <span>Invite New Visitor</span>
         </button>
       </div>
 
@@ -255,7 +255,7 @@ export function MemberVisitorsView() {
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div className="flex items-center gap-2">
                 <UserPlus className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-bold text-foreground">Invite Business Guest</h3>
+                <h3 className="text-lg font-bold text-foreground">Invite Chapter Visitor</h3>
               </div>
               <button
                 onClick={() => setIsInviteOpen(false)}
@@ -290,10 +290,11 @@ export function MemberVisitorsView() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">Email Address *</label>
+                  <label className="text-xs font-medium text-muted-foreground">Email Address (Google/Verified) *</label>
                   <input
                     type="email"
                     required
+                    placeholder="visitor@gmail.com"
                     value={form.email}
                     onChange={(e) => setForm({ ...form, email: e.target.value })}
                     className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -323,10 +324,11 @@ export function MemberVisitorsView() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">Industry / Trade</label>
+                  <label className="text-xs font-medium text-muted-foreground">Category *</label>
                   <input
                     type="text"
-                    placeholder="e.g. Legal Services"
+                    placeholder="e.g. Corporate Law / Marketing"
+                    required
                     value={form.industry}
                     onChange={(e) => setForm({ ...form, industry: e.target.value })}
                     className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"

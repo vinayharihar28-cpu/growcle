@@ -14,8 +14,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SSK Members Tracker",
-  description: "Member and chapter management portal",
+  title: {
+    default: "Growcle",
+    template: "%s | Growcle",
+  },
+  description: "Growcle - Business Networking Chapter Platform",
+  icons: {
+    icon: [
+      { url: "/icon.svg?v=2", type: "image/svg+xml" },
+      { url: "/favicon-32x32.png?v=2", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png?v=2", sizes: "16x16", type: "image/png" },
+      { url: "/favicon.ico?v=2" },
+    ],
+    shortcut: "/icon.svg?v=2",
+    apple: [
+      { url: "/apple-touch-icon.png?v=2", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 export default function RootLayout({

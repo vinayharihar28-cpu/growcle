@@ -74,6 +74,21 @@ export function LeadershipReportsView({ forcedRole }: ReportsViewProps) {
     window.print();
   };
 
+  const handleExportCsv = () => {
+    const { exportToCsv } = require("@/lib/export-utils");
+    const headers = ["Meeting Date", "Meeting Title", "Turnout %", "Present", "Absent", "Visitors", "Fee Collected (INR)"];
+    const rows = reports.map((r) => [
+      new Date(r.meetingDate).toLocaleDateString(),
+      r.meetingTitle || "Weekly Meeting",
+      `${r.turnoutPercentage}%`,
+      r.presentCount,
+      r.absentCount,
+      r.visitorCount,
+      r.totalCollection,
+    ]);
+    exportToCsv(`meeting_reports_${context?.chapterName || "chapter"}`, headers, rows);
+  };
+
   const roleTitle =
     forcedRole === "ADMIN"
       ? "Executive Admin Oversight"
@@ -103,8 +118,15 @@ export function LeadershipReportsView({ forcedRole }: ReportsViewProps) {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={handleExportCsv}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-input bg-card text-foreground text-xs font-bold hover:bg-muted shadow-xs cursor-pointer"
+          >
+            <Download className="h-4 w-4 text-indigo-500" />
+            <span>Export CSV / Excel</span>
+          </button>
+          <button
             onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 shadow-sm cursor-pointer"
           >
             <Printer className="h-4 w-4" />
             <span>Print / PDF Export</span>

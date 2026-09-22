@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 
 interface RolesGridProps {
   roles: RoleDefinition[];
-  onOpenCreateRole: () => void;
+  onOpenCreateRole?: () => void;
 }
 
 export function RolesGrid({ roles, onOpenCreateRole }: RolesGridProps) {
@@ -28,14 +28,16 @@ export function RolesGrid({ roles, onOpenCreateRole }: RolesGridProps) {
       <div className="flex justify-between items-center">
         <div>
           <h3 className="font-bold text-base text-foreground">Configured System Roles</h3>
-          <p className="text-xs text-muted-foreground">System default roles and custom organizational access roles</p>
+          <p className="text-xs text-muted-foreground">The 4 enterprise core system roles governing platform permissions</p>
         </div>
-        <Button onClick={onOpenCreateRole} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs">
-          <Plus className="w-3.5 h-3.5 mr-1" /> Create Custom Role
-        </Button>
+        {onOpenCreateRole && (
+          <Button onClick={onOpenCreateRole} size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs">
+            <Plus className="w-3.5 h-3.5 mr-1" /> Create Custom Role
+          </Button>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {roles.map((r) => (
           <div key={r.id} className="p-5 rounded-2xl border bg-card space-y-4 shadow-xs hover:border-indigo-500/40 transition-all">
             <div className="flex items-start justify-between">

@@ -8,7 +8,7 @@ import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { 
   AlertCircle, ArrowRight, Eye, EyeOff, Loader2, Lock, Mail 
@@ -23,10 +23,34 @@ type LoginFormData = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showPassword, setShowPassword] = React.useState(false);
   const [rememberMe, setRememberMe] = React.useState(true);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
   const [isShaking, setIsShaking] = React.useState(false);
+
+  const oauthError = searchParams?.get("error");
+  const errorDescription = searchParams?.get("error_description");
+
+  React.useEffect(() => {
+    if (oauthError) {
+      if (
+        oauthError.includes("UNREGISTERED") || 
+        oauthError.includes("validation_failed") || 
+        oauthError.includes("FORBIDDEN") || 
+        oauthError.includes("access_denied")
+      ) {
+        setErrorMsg(
+          "Access Denied: This Google account is not registered as a member in our database. Only pre-registered members can sign in. Please contact your Chapter Administrator."
+        );
+      } else if (oauthError.includes("SUSPENDED")) {
+        setErrorMsg("Access Denied: Your chapter membership is currently suspended or expired. Please contact support.");
+      } else {
+        setErrorMsg(errorDescription || `Authentication error: ${oauthError}`);
+      }
+      triggerShake();
+    }
+  }, [oauthError, errorDescription]);
 
   const { register, handleSubmit, setValue, formState: { errors, isSubmitting } } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -52,7 +76,15 @@ export function LoginForm() {
       });
       
       if (error) {
-        setErrorMsg(error.message || "Invalid email or password. Please verify your credentials.");
+        if (
+          error.message?.includes("Access Denied") || 
+          error.message?.includes("UNREGISTERED") || 
+          error.message?.includes("not registered")
+        ) {
+          setErrorMsg("Access Denied: Your email is not registered as an active member in the database. Please contact your Chapter Administrator.");
+        } else {
+          setErrorMsg(error.message || "Invalid email or password. Please verify your credentials.");
+        }
         triggerShake();
       } else {
         // The session cookie is available on the next request, so a single

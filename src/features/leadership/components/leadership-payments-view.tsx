@@ -31,11 +31,9 @@ export function LeadershipPaymentsView() {
   const [search, setSearch] = useState("");
   const [methodFilter, setMethodFilter] = useState("all");
 
-  // PIN Settings Modal (PIN '2525')
+  // Meeting UPI & Fee Settings Modal (No PIN required)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [pin, setPin] = useState("");
-  const [pinUnlocked, setPinUnlocked] = useState(false);
-  const [pinError, setPinError] = useState("");
+  const [settingsError, setSettingsError] = useState("");
   const [settingsForm, setSettingsForm] = useState({
     upiId: "",
     upiName: "",
@@ -84,17 +82,6 @@ export function LeadershipPaymentsView() {
     loadData();
   }, []);
 
-  const handleVerifyPin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (pin.trim() === "2525") {
-      setPinUnlocked(true);
-      setPinError("");
-      playSuccessChime();
-    } else {
-      setPinError("Incorrect 4-digit Security PIN. Access denied.");
-    }
-  };
-
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!context) return;
@@ -102,17 +89,16 @@ export function LeadershipPaymentsView() {
     try {
       await updatePaymentSettings({
         chapterId: context.chapterId,
-        pin: "2525",
         upiId: settingsForm.upiId,
         upiName: settingsForm.upiName,
         meetingFee: Number(settingsForm.meetingFee),
       });
       setIsSettingsOpen(false);
-      setPinUnlocked(false);
-      setPin("");
+      setSettingsError("");
+      playSuccessChime();
       await loadData();
     } catch (err: any) {
-      setPinError(err.message || "Failed to update payment settings");
+      setSettingsError(err.message || "Failed to update payment settings");
     } finally {
       setSavingSettings(false);
     }
@@ -173,13 +159,11 @@ export function LeadershipPaymentsView() {
         <button
           onClick={() => {
             setIsSettingsOpen(true);
-            setPin("");
-            setPinUnlocked(false);
-            setPinError("");
+            setSettingsError("");
           }}
-          className="rounded-lg border border-purple-500/30 bg-purple-500/10 px-3.5 py-2 text-xs font-bold text-purple-600 hover:bg-purple-500/20 flex items-center gap-1.5 shadow-sm self-start sm:self-auto"
+          className="rounded-lg border border-purple-500/30 bg-purple-500/10 px-3.5 py-2 text-xs font-bold text-purple-600 hover:bg-purple-500/20 flex items-center gap-1.5 shadow-sm self-start sm:self-auto cursor-pointer"
         >
-          <Lock className="h-4 w-4" /> PIN-Protected Fee Settings (2525)
+          <Settings className="h-4 w-4" /> Change Meeting UPI & Amount
         </button>
       </div>
 
@@ -335,7 +319,7 @@ export function LeadershipPaymentsView() {
         </div>
       </div>
 
-      {/* PIN-Protected Settings Modal (PIN 2525) */}
+      {/* Meeting UPI & Fee Settings Modal */}
       {isSettingsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="relative w-full max-w-md rounded-2xl border bg-card p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in duration-150">
@@ -348,61 +332,20 @@ export function LeadershipPaymentsView() {
 
             <div className="space-y-1">
               <span className="rounded-full bg-purple-500/15 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-purple-600 border border-purple-500/30">
-                Security Authorization
+                Chapter Configuration
               </span>
-              <h3 className="text-lg font-bold text-foreground pt-1">Chapter Payment & Fee Settings</h3>
+              <h3 className="text-lg font-bold text-foreground pt-1">Change Meeting UPI & Amount</h3>
               <p className="text-xs text-muted-foreground">
                 Configure the Chapter UPI VPA ID, Payee Name, and Standard Weekly Meeting Fee.
               </p>
             </div>
 
-            {!pinUnlocked ? (
-              <form onSubmit={handleVerifyPin} className="space-y-4 pt-2">
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-600 flex items-start gap-2">
-                  <Lock className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>
-                    This section is protected by a 4-digit Security PIN. Enter the PIN to modify financial credentials.
-                  </span>
+            <form onSubmit={handleSaveSettings} className="space-y-3 pt-2">
+              {settingsError && (
+                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-2.5 text-xs text-rose-600">
+                  {settingsError}
                 </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground block mb-1">
-                    Enter 4-Digit PIN
-                  </label>
-                  <input
-                    type="password"
-                    maxLength={4}
-                    autoFocus
-                    placeholder="••••"
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value)}
-                    className="w-full text-center tracking-widest text-2xl font-mono rounded-xl border border-input bg-background py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                  {pinError && <p className="text-xs text-rose-500 mt-1 font-medium">{pinError}</p>}
-                </div>
-
-                <div className="flex justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsSettingsOpen(false)}
-                    className="rounded-lg border border-input bg-background px-4 py-2 text-xs font-semibold hover:bg-accent"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="rounded-lg bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-700 shadow-sm"
-                  >
-                    Unlock Settings
-                  </button>
-                </div>
-              </form>
-            ) : (
-              <form onSubmit={handleSaveSettings} className="space-y-3 pt-2">
-                <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-xs text-emerald-600 flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4" />
-                  <span>PIN Verified. Credentials unlocked for modification.</span>
-                </div>
+              )}
 
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground">Chapter UPI VPA *</label>
@@ -458,7 +401,6 @@ export function LeadershipPaymentsView() {
                   </button>
                 </div>
               </form>
-            )}
           </div>
         </div>
       )}

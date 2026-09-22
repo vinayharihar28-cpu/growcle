@@ -113,16 +113,19 @@ export function ScheduleOneToOneModal({ isOpen, onClose, onSuccess }: ScheduleOn
               )}
 
               <div className="space-y-1.5">
-                <Label htmlFor="receiverId" className="text-xs font-semibold">Select Member</Label>
+                <Label htmlFor="receiverId" className="text-xs font-semibold flex items-center gap-1">
+                  <span>Select Member</span>
+                  <span className="text-rose-500">*</span>
+                </Label>
                 <select
                   id="receiverId"
                   {...register("receiverId")}
-                  className="flex w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-10"
+                  className="flex w-full rounded-xl border border-input bg-background/90 hover:bg-muted/30 px-3.5 py-2 text-sm font-medium shadow-xs transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:border-primary h-10 cursor-pointer"
                 >
                   <option value="">Choose member to meet with...</option>
                   {members.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.firstName} {m.lastName} {m.business?.businessName ? `(${m.business.businessName})` : ""}
+                      {m.firstName} {m.lastName} {m.business?.businessName ? `• ${m.business.businessName}` : ""}
                     </option>
                   ))}
                 </select>

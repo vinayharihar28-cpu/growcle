@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useSidebarStore } from "@/shared/stores/sidebar";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -20,7 +21,7 @@ import {
   Briefcase,
   Shield,
 } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/shared/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/shared/components/ui/avatar";
 import { useAuthStore } from "@/shared/stores/auth";
 import { ThemeToggle } from "@/shared/components/theme-toggle";
 import { useWorkspaceStore, Role } from "@/shared/stores/workspace";
@@ -32,14 +33,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/shared/components/ui/select";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/shared/components/ui/dropdown-menu";
 import {
   Popover,
   PopoverContent,
@@ -117,13 +110,15 @@ export function Header() {
 
   const handleRoleChange = (val: Role) => {
     if (val === activeRole) return;
-    startRoleSwitch(val);
     setActiveRole(val);
-    if (val === "Admin" || val === "Organization Administrator" || val === "SuperAdmin") {
+    if (typeof document !== "undefined") {
+      document.cookie = `active-role=${encodeURIComponent(val)}; path=/; max-age=31536000; SameSite=Lax`;
+    }
+    if (val === "Admin") {
       router.push("/dashboard/admin");
     } else if (val === "Director") {
       router.push("/dashboard/director");
-    } else if (val === "Leadership Team" || val === "President" || val === "Vice President" || val === "Treasurer") {
+    } else if (val === "Leadership Team") {
       router.push("/dashboard/leadership");
     } else {
       router.push("/dashboard/member");
@@ -287,10 +282,10 @@ export function Header() {
         <div className="flex items-center gap-x-1.5 sm:gap-x-2.5">
           {/* Role Switcher */}
           <Select value={activeRole ?? undefined} onValueChange={(val: any) => handleRoleChange(val as Role)}>
-            <SelectTrigger className="w-[105px] xs:w-[125px] sm:w-[160px] text-xs sm:text-sm h-9">
+            <SelectTrigger className="w-[110px] xs:w-[130px] sm:w-[160px] text-xs sm:text-sm h-9 bg-muted/40 hover:bg-muted/70 border-border/80 rounded-xl font-medium">
               <SelectValue placeholder="Role" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent align="end" className="min-w-[150px]">
               {availableRoles.map((role: string) => (
                 <SelectItem key={role} value={role}>
                   {role}
@@ -423,70 +418,78 @@ export function Header() {
             </PopoverContent>
           </Popover>
 
-          {/* User Profile Dropdown Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
+          {/* User Profile Card & Menu Popover */}
+          <Popover>
+            <PopoverTrigger
               id="header-user-menu-trigger"
               className="relative h-9 w-9 rounded-full inline-flex items-center justify-center p-0.5 hover:ring-2 hover:ring-primary/40 transition-all cursor-pointer outline-hidden"
               aria-label="User account menu"
             >
-              <Avatar className="h-8 w-8 cursor-pointer border border-border">
+              <Avatar className="h-8 w-8 rounded-full border border-border">
+                <AvatarImage
+                  src={user?.image || currentMember?.profileImage || undefined}
+                  alt={user?.name || "User"}
+                />
                 <AvatarFallback className="bg-primary text-primary-foreground font-semibold text-xs">
                   {user?.name?.charAt(0) || "U"}
                 </AvatarFallback>
               </Avatar>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-60 shadow-xl border" align="end">
-              <DropdownMenuLabel className="font-normal p-3 bg-muted/30 border-b">
-                <div className="flex flex-col space-y-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold leading-none text-foreground">
-                      {user?.name || "User Account"}
-                    </p>
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary">
-                      {activeRole}
-                    </span>
-                  </div>
-                  <p className="text-xs leading-none text-muted-foreground truncate">
-                    {user?.email || "user@example.com"}
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-0 shadow-xl border bg-card rounded-xl overflow-hidden" align="end">
+              <div className="p-3.5 bg-muted/40 border-b space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-bold leading-none text-foreground truncate">
+                    {user?.name || "User Account"}
                   </p>
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary shrink-0">
+                    {activeRole}
+                  </span>
                 </div>
-              </DropdownMenuLabel>
-              <div className="p-1">
-                <DropdownMenuItem
-                  onClick={() => router.push("/dashboard/member/profile")}
-                  className="cursor-pointer py-2 px-2.5 text-xs font-medium"
+                <p className="text-xs text-muted-foreground truncate">
+                  {user?.email || "user@example.com"}
+                </p>
+                {currentMember?.membershipNumber && (
+                  <p className="text-[10px] font-mono text-muted-foreground">
+                    ID: {currentMember.membershipNumber}
+                  </p>
+                )}
+              </div>
+
+              <div className="p-1.5 space-y-0.5">
+                <Link
+                  href="/dashboard/member/profile"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-muted transition-colors"
                 >
-                  <User className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <User className="h-4 w-4 text-muted-foreground" />
                   <span>My Profile</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => router.push("/dashboard/member/business")}
-                  className="cursor-pointer py-2 px-2.5 text-xs font-medium"
+                </Link>
+                <Link
+                  href="/dashboard/member/business"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-muted transition-colors"
                 >
-                  <Briefcase className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <Briefcase className="h-4 w-4 text-muted-foreground" />
                   <span>Business Portfolio</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => router.push("/dashboard/settings")}
-                  className="cursor-pointer py-2 px-2.5 text-xs font-medium"
+                </Link>
+                <Link
+                  href="/dashboard/settings"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-muted transition-colors"
                 >
-                  <Settings className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <Settings className="h-4 w-4 text-muted-foreground" />
                   <span>Settings</span>
-                </DropdownMenuItem>
+                </Link>
               </div>
-              <DropdownMenuSeparator />
-              <div className="p-1">
-                <DropdownMenuItem
+
+              <div className="p-1.5 border-t bg-muted/20">
+                <button
                   onClick={handleLogout}
-                  className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer py-2 px-2.5 text-xs font-semibold"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                 >
-                  <LogOut className="mr-2 h-4 w-4 text-destructive" />
+                  <LogOut className="h-4 w-4 text-destructive" />
                   <span>Log out</span>
-                </DropdownMenuItem>
+                </button>
               </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
     </header>
