@@ -1,7 +1,7 @@
 import { db } from "@/shared/lib/db";
 import bcrypt from "bcryptjs";
 
-export const DEFAULT_MEMBER_INITIAL_PASSWORD = "Growcle@123";
+export const DEFAULT_MEMBER_INITIAL_PASSWORD = "password";
 
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
 
