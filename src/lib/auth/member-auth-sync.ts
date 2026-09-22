@@ -103,6 +103,7 @@ export async function provisionMemberAuthAccount(params: {
         userId: user.id,
         accountId: user.id,
         providerId: "credential",
+        issuer: "local:credential",
         password: hashedPassword,
       },
     });
@@ -110,7 +111,10 @@ export async function provisionMemberAuthAccount(params: {
     // If an explicit new password was requested, update it
     await db.account.update({
       where: { id: existingCredentialAccount.id },
-      data: { password: hashedPassword },
+      data: {
+        password: hashedPassword,
+        issuer: "local:credential",
+      },
     });
   }
 
