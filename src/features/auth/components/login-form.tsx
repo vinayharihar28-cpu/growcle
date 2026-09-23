@@ -33,6 +33,13 @@ export function LoginForm() {
   const errorDescription = searchParams?.get("error_description");
 
   React.useEffect(() => {
+    // Proactively clear any legacy oversized session_data cookie that causes 494 Request Header Too Large
+    try {
+      document.cookie = "better-auth.session_data=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+    } catch {}
+  }, []);
+
+  React.useEffect(() => {
     if (oauthError) {
       if (
         oauthError.includes("UNREGISTERED") || 

@@ -375,9 +375,11 @@ export async function updateMemberProfile(
 
   if (updatedMember.userId && data.profileImage !== undefined) {
     try {
+      // Never store raw base64 data URLs in User.image as it bloats auth sessions and triggers 494 Request Header Too Large
+      const isBase64 = typeof data.profileImage === "string" && data.profileImage.startsWith("data:");
       await db.user.update({
         where: { id: updatedMember.userId },
-        data: { image: data.profileImage },
+        data: { image: isBase64 ? null : data.profileImage },
       });
     } catch (e) {
       console.warn("Could not sync user image:", e);
