@@ -52,7 +52,7 @@ export const getUserAvailableRoles = cache(async (userId: string, email: string)
 });
 
 export function getDefaultDashboardPath(roles: Role[]): string {
-  if (roles.includes("Admin") || roles.includes("Director")) return "/dashboard/admin";
+  if (roles.includes("Admin") || roles.includes("Director")) return "/dashboard/director";
   if (roles.includes("Leadership Team")) return "/dashboard/leadership";
   return "/dashboard/member";
 }

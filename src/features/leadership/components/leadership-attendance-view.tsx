@@ -218,11 +218,15 @@ export function LeadershipAttendanceView() {
   });
 
   const getUpiUri = (attendee: any) => {
-    const pa = data?.selectedMeeting?.upiId || "chapter@upi";
-    const pn = encodeURIComponent(data?.selectedMeeting?.upiName || "SSK Chapter");
-    const am = data?.selectedMeeting?.standardFee || 800;
-    const tr = `ATT-${attendee.id.substring(0, 8)}`;
-    const tn = encodeURIComponent(`Meeting Fee ${attendee.memberName}`);
+    const rawPa = data?.selectedMeeting?.upiId || context?.upiId || "120040530420@cnrb";
+    const pa = rawPa.trim();
+    const pn = encodeURIComponent(data?.selectedMeeting?.upiName || context?.upiName || "Chapter Treasury");
+    const rawFee = attendee?.amount || data?.selectedMeeting?.standardFee || context?.meetingFee || 800;
+    const feeNum = Number(rawFee);
+    const am = !isNaN(feeNum) && feeNum > 0 ? feeNum.toFixed(2) : "800.00";
+    const safeId = (attendee?.id || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 10) || "ATT";
+    const tr = `ATT${safeId.toUpperCase()}`;
+    const tn = encodeURIComponent(`Meeting Fee ${attendee?.memberName || ""}`.trim());
     return `upi://pay?pa=${pa}&pn=${pn}&am=${am}&tr=${tr}&tn=${tn}&cu=INR`;
   };
 
@@ -521,15 +525,15 @@ export function LeadershipAttendanceView() {
             <div className="bg-muted/40 rounded-xl p-3 text-xs space-y-1 text-left">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Standard Fee:</span>
-                <span className="font-bold text-foreground">₹{data?.selectedMeeting?.standardFee || 800}</span>
+                <span className="font-bold text-foreground">₹{Number(qrAttendee?.amount || data?.selectedMeeting?.standardFee || context?.meetingFee || 800).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">VPA:</span>
-                <span className="font-mono text-foreground font-semibold">{data?.selectedMeeting?.upiId}</span>
+                <span className="font-mono text-foreground font-semibold">{data?.selectedMeeting?.upiId || context?.upiId || "120040530420@cnrb"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Payee:</span>
-                <span className="text-foreground">{data?.selectedMeeting?.upiName}</span>
+                <span className="text-foreground">{data?.selectedMeeting?.upiName || context?.upiName || "Chapter Treasury"}</span>
               </div>
             </div>
 

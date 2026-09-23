@@ -1,112 +1,101 @@
 import { NavigationConfig } from "@/shared/types/navigation";
-import { 
-  LayoutDashboard, Settings, FileText, Banknote, Users, Building, Calendar, Contact, 
-  Handshake, UserPlus, MessagesSquare, Megaphone, CheckCircle, GraduationCap,
-  ShieldAlert, Bell, BarChart3, Activity, Briefcase
+import {
+  LayoutDashboard,
+  Building2,
+  Users,
+  UserCheck,
+  UserPlus,
+  Calendar,
+  ClipboardCheck,
+  Handshake,
+  MessagesSquare,
+  CreditCard,
+  BellRing,
+  BarChart3,
 } from "lucide-react";
 
 export const adminNavigation: NavigationConfig = [
   {
     items: [
       {
-        title: "Dashboard",
-        href: "/dashboard/admin",
+        title: "Admin Dashboard",
+        href: "/dashboard/director",
         icon: LayoutDashboard,
       },
     ],
   },
   {
-    title: "Network Management",
+    title: "Chapter & Roster",
     items: [
       {
-        title: "Chapters",
-        href: "/dashboard/chapters",
-        icon: Building,
+        title: "Assigned Chapters",
+        href: "/dashboard/director/chapters",
+        icon: Building2,
       },
       {
-        title: "Members",
-        href: "/dashboard/members",
+        title: "Members Directory",
+        href: "/dashboard/director/members",
         icon: Users,
       },
       {
-        title: "Directors",
-        href: "/dashboard/admin/directors",
-        icon: Briefcase,
-      },
-      {
-        title: "Leadership",
-        href: "/dashboard/admin/leadership",
-        icon: GraduationCap,
+        title: "Leadership Team",
+        href: "/dashboard/director/leadership",
+        icon: UserCheck,
       },
       {
         title: "Visitors",
-        href: "/dashboard/visitors",
+        href: "/dashboard/director/visitors",
         icon: UserPlus,
       },
     ],
   },
   {
-    title: "Activity & Events",
+    title: "Chapter Operations",
     items: [
       {
         title: "Meetings",
-        href: "/dashboard/meetings",
+        href: "/dashboard/director/meetings",
         icon: Calendar,
       },
       {
-        title: "Attendance",
-        href: "/dashboard/attendance",
-        icon: Contact,
+        title: "Attendance Monitoring",
+        href: "/dashboard/director/attendance",
+        icon: ClipboardCheck,
       },
     ],
   },
   {
-    title: "Growth & Revenue",
+    title: "Networking & Growth",
     items: [
       {
-        title: "Referrals",
-        href: "/dashboard/referrals",
+        title: "Referral Pipeline",
+        href: "/dashboard/director/referrals",
         icon: Handshake,
       },
       {
         title: "One-to-Ones",
-        href: "/dashboard/one-to-ones",
+        href: "/dashboard/director/one-to-ones",
         icon: MessagesSquare,
-      },
-      {
-        title: "Payments",
-        href: "/dashboard/payments",
-        icon: Banknote,
       },
     ],
   },
   {
-    title: "System",
+    title: "Finance & Reports",
     items: [
       {
-        title: "Notifications",
-        href: "/dashboard/notifications",
-        icon: Bell,
+        title: "Payments & Invoices",
+        href: "/dashboard/director/payments",
+        icon: CreditCard,
+      },
+      {
+        title: "Chapter Broadcasts",
+        href: "/dashboard/director/notifications",
+        icon: BellRing,
       },
       {
         title: "Reports & Analytics",
-        href: "/dashboard/reports",
+        href: "/dashboard/director/reports",
         icon: BarChart3,
-      },
-      {
-        title: "RBAC",
-        href: "/dashboard/rbac",
-        icon: ShieldAlert,
-      },
-      {
-        title: "Audit Logs",
-        href: "/dashboard/audit-logs",
-        icon: Activity,
-      },
-      {
-        title: "Platform Settings",
-        href: "/dashboard/settings",
-        icon: Settings,
       },
     ],
   },

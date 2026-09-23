@@ -26,6 +26,7 @@ import {
   MemberContext,
 } from "../actions/member-actions";
 import { MemberHeaderBar } from "./member-header-bar";
+import { QRCodeSvg } from "@/components/QRCodeSvg";
 
 export function MemberMembershipView() {
   const [context, setContext] = useState<MemberContext | null>(null);
@@ -275,20 +276,19 @@ export function MemberMembershipView() {
 
                 {/* QR Code Container */}
                 <div className="flex flex-col items-center justify-center p-5 bg-white rounded-2xl border shadow-inner max-w-[260px] mx-auto">
-                  {qrImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={qrImageUrl}
-                      alt="Chapter UPI QR Code"
-                      className="w-48 h-48 rounded-lg"
-                    />
-                  ) : (
-                    <div className="w-48 h-48 flex items-center justify-center bg-muted text-xs text-muted-foreground">
-                      QR Code Generating...
-                    </div>
-                  )}
+                  <QRCodeSvg
+                    value={
+                      data?.upiUri ||
+                      `upi://pay?pa=${(data?.upiId || "120040530420@cnrb").trim()}&pn=${encodeURIComponent(
+                        data?.upiName || "Chapter Treasury"
+                      )}&am=${Number(amount).toFixed(2)}&cu=INR&tn=${encodeURIComponent(
+                        `Membership ${data?.membershipNumber || ""}`
+                      )}`
+                    }
+                    size={190}
+                  />
                   <span className="text-[11px] font-bold text-slate-800 mt-2 text-center">
-                    ₹{amount.toLocaleString("en-IN")} &bull; Growcle Official
+                    ₹{amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })} &bull; Growcle Official
                   </span>
                 </div>
 

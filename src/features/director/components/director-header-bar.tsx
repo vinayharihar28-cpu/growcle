@@ -35,10 +35,10 @@ export function DirectorHeaderBar({
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Assigned Chapter Scope
+              Chapter Administration
             </span>
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-              <Sparkles className="h-3 w-3" /> Director Mode
+              <Sparkles className="h-3 w-3" /> Admin Mode
             </span>
           </div>
           <div className="mt-1 flex items-center gap-2">

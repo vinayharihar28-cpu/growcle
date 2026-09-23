@@ -1672,8 +1672,8 @@ export async function getMemberMembershipStatus(memberId: string) {
   const membershipFee = 25000;
   const membershipNumber = member.membershipNumber || `GC-MEM-${member.id.substring(0, 4).toUpperCase()}`;
 
-  // UPI payment intent link
-  const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName)}&am=${membershipFee}&cu=INR&tn=${encodeURIComponent(`Annual Membership Fee - ${membershipNumber}`)}`;
+  // UPI payment intent link with raw VPA and standard 2-decimal amount
+  const upiUri = `upi://pay?pa=${upiId.trim()}&pn=${encodeURIComponent(upiName)}&am=${membershipFee.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Annual Membership Fee - ${membershipNumber}`)}`;
 
   return {
     memberId: member.id,

@@ -14,7 +14,7 @@ import {
 } from "@/shared/components/ui/dropdown-menu";
 
 const getRoleLabel = (role: string) => {
-  if (role === "Admin" || role === "Director") return "Admin / Director";
+  if (role === "Admin" || role === "Director") return "Admin";
   return role;
 };
 

@@ -72,11 +72,14 @@ export default function MemberPayKioskPage() {
 
   const getUpiUrl = () => {
     if (!currentAttendee) return "";
-    const pa = data?.selectedMeeting?.upiId || context?.upiId || "chapter@upi";
+    const rawPa = data?.selectedMeeting?.upiId || context?.upiId || "120040530420@cnrb";
+    const pa = rawPa.trim();
     const pn = encodeURIComponent(data?.selectedMeeting?.upiName || context?.upiName || "Chapter Treasury");
-    const am = feeAmount;
-    const tr = `KIOSK-${currentAttendee.id.substring(0, 8)}`;
-    const tn = encodeURIComponent(`Meeting Fee ${currentAttendee.memberName}`);
+    const feeNum = Number(feeAmount);
+    const am = !isNaN(feeNum) && feeNum > 0 ? feeNum.toFixed(2) : "800.00";
+    const safeId = (currentAttendee.id || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 10) || "KIOSK";
+    const tr = `KIOSK${safeId.toUpperCase()}`;
+    const tn = encodeURIComponent(`Meeting Fee ${currentAttendee.memberName || ""}`.trim());
     return `upi://pay?pa=${pa}&pn=${pn}&am=${am}&tr=${tr}&tn=${tn}&cu=INR`;
   };
 
@@ -222,8 +225,8 @@ export default function MemberPayKioskPage() {
                     </div>
 
                     <div className="text-xs space-y-0.5">
-                      <p className="font-semibold text-foreground font-mono">{context?.upiId}</p>
-                      <p className="text-muted-foreground text-[11px]">{context?.upiName}</p>
+                      <p className="font-semibold text-foreground font-mono">{data?.selectedMeeting?.upiId || context?.upiId || "120040530420@cnrb"}</p>
+                      <p className="text-muted-foreground text-[11px]">{data?.selectedMeeting?.upiName || context?.upiName || "Chapter Treasury"}</p>
                     </div>
 
                     {/* Mobile UPI Intent Button */}

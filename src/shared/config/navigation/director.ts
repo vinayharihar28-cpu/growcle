@@ -18,7 +18,7 @@ export const directorNavigation: NavigationConfig = [
   {
     items: [
       {
-        title: "Director Dashboard",
+        title: "Admin Dashboard",
         href: "/dashboard/director",
         icon: LayoutDashboard,
       },
