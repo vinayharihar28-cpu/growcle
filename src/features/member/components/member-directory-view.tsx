@@ -194,69 +194,74 @@ export function MemberDirectoryView() {
           No chapter members found matching your search.
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-3">
           {members.map((m) => (
             <div
               key={m.id}
-              className="bg-card border border-border rounded-xl p-5 shadow-sm hover:border-primary/40 transition-all flex flex-col justify-between space-y-4"
+              className="bg-card border border-border rounded-xl p-4 shadow-xs hover:border-primary/40 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
             >
-              <div className="space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center flex-shrink-0">
-                      {m.name[0]}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-base text-foreground leading-snug">{m.name}</h3>
-                      <p className="text-xs text-muted-foreground">{m.roleName}</p>
-                    </div>
-                  </div>
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                    {m.industry}
-                  </span>
+              {/* Left: Member Identity & Business */}
+              <div className="flex items-start sm:items-center gap-3.5 min-w-[280px]">
+                <div className="h-11 w-11 rounded-xl bg-primary/10 text-primary font-extrabold text-base flex items-center justify-center shrink-0 border border-primary/20">
+                  {m.name[0]}
                 </div>
-
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-sm text-foreground leading-tight">{m.name}</h3>
+                    <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-primary/10 text-primary">
+                      {m.industry}
+                    </span>
+                  </div>
+                  <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5 text-primary" />
                     <span>{m.businessName}</span>
+                    {m.roleName && m.roleName !== "MEMBER" && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                        {m.roleName}
+                      </span>
+                    )}
                   </p>
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {m.companyDescription}
-                  </p>
-                  {m.bestReferral && (
-                    <div className="flex items-start gap-1.5 p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-[11px] text-foreground">
-                      <Target className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                      <span className="line-clamp-1"><strong className="text-emerald-600 dark:text-emerald-400">Target:</strong> {m.bestReferral}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-1 text-xs text-muted-foreground pt-1 border-t border-border">
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-3 w-3 text-muted-foreground" />
-                    <span>{m.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-3 w-3 text-muted-foreground" />
-                    <span>{m.phone}</span>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground pt-0.5">
+                    <span className="flex items-center gap-1">
+                      <Mail className="h-3 w-3 text-muted-foreground" />
+                      {m.email}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Phone className="h-3 w-3 text-muted-foreground" />
+                      {m.phone}
+                    </span>
                   </div>
                 </div>
-
-                <Link
-                  href={`/dashboard/member/members/${m.id}`}
-                  className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline pt-1"
-                >
-                  <span>View Full Profile & Synergy Prompts</span>
-                  <ArrowRight className="h-3 w-3" />
-                </Link>
               </div>
 
-              {/* Direct Actions */}
-              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
+              {/* Middle: Business Description & Target Referral */}
+              <div className="flex-1 min-w-[220px] max-w-xl text-xs space-y-1">
+                {m.companyDescription && (
+                  <p className="text-muted-foreground line-clamp-1">
+                    {m.companyDescription}
+                  </p>
+                )}
+                {m.bestReferral && (
+                  <div className="flex items-center gap-1.5 p-1.5 px-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/15 text-[11px] text-foreground">
+                    <Target className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    <span className="truncate"><strong className="text-emerald-600 dark:text-emerald-400">Best Referral:</strong> {m.bestReferral}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Right: Actions */}
+              <div className="flex items-center gap-2 shrink-0 border-t lg:border-t-0 pt-3 lg:pt-0 border-border justify-between sm:justify-end">
+                <Link
+                  href={`/dashboard/member/members/${m.id}`}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-input bg-card text-foreground hover:bg-muted text-xs font-semibold shadow-2xs transition-colors"
+                >
+                  <span>Profile</span>
+                  <ArrowRight className="h-3 w-3 text-primary" />
+                </Link>
+
                 <button
                   onClick={() => setReferralTarget(m)}
-                  className="inline-flex items-center justify-center gap-1 text-xs font-semibold py-2 px-2.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 transition-opacity"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:opacity-90 text-xs font-semibold shadow-xs transition-opacity cursor-pointer"
                 >
                   <Handshake className="h-3.5 w-3.5" />
                   <span>Give Referral</span>
@@ -264,10 +269,10 @@ export function MemberDirectoryView() {
 
                 <button
                   onClick={() => setOneToOneTarget(m)}
-                  className="inline-flex items-center justify-center gap-1 text-xs font-semibold py-2 px-2.5 rounded-lg bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer"
                 >
-                  <MessagesSquare className="h-3.5 w-3.5 text-blue-500" />
-                  <span>1-to-1 Session</span>
+                  <MessagesSquare className="h-3.5 w-3.5" />
+                  <span>1-to-1</span>
                 </button>
               </div>
             </div>

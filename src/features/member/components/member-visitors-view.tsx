@@ -405,8 +405,6 @@ export function MemberVisitorsView() {
                 >
                   <option value="PENDING">PENDING — Invited / Awaiting Meeting</option>
                   <option value="CONFIRMED">CONFIRMED — Confirmed Attendance</option>
-                  <option value="ATTENDED">ATTENDED — Attended Chapter Meeting</option>
-                  <option value="CONVERTED">CONVERTED — Joined as Chapter Member</option>
                   <option value="CANCELLED">CANCELLED — Unable to Attend</option>
                 </select>
               </div>

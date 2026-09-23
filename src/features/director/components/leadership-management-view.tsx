@@ -13,7 +13,7 @@ export function LeadershipManagementView() {
     isOpen: boolean;
     chapterId: string;
     chapterName: string;
-    position: "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER";
+    position: "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER" | "DIRECTOR";
   }>({
     isOpen: false,
     chapterId: "",
@@ -42,7 +42,7 @@ export function LeadershipManagementView() {
   const handleOpenAssign = async (
     chapterId: string,
     chapterName: string,
-    position: "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER"
+    position: "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER" | "DIRECTOR"
   ) => {
     const mems = await getDirectorMembers({ chapterId });
     setMembersForAssign(mems.map((m) => ({ id: m.id, name: `${m.firstName} ${m.lastName}`, email: m.email })));
@@ -58,9 +58,9 @@ export function LeadershipManagementView() {
     <div className="space-y-6">
       {/* Title & Description */}
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-foreground">Leadership Management Workspace</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-foreground">Leadership & Director Management</h2>
         <p className="text-muted-foreground">
-          Monitor chapter executive officers (President, Vice President, Treasurer), fill vacancies, and replace leadership across assigned chapters.
+          Assign Chapter Directors, Presidents, Vice Presidents, and Treasurers to lead governance across chapters.
         </p>
       </div>
 
@@ -94,6 +94,39 @@ export function LeadershipManagementView() {
                 </span>
               </div>
 
+              {/* Position 0: Chapter Director */}
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1">
+                    🌟 Chapter Director
+                  </span>
+                  {item.director ? (
+                    <button
+                      onClick={() => handleOpenAssign(item.chapterId, item.chapterName, "DIRECTOR")}
+                      className="text-xs font-semibold text-primary hover:underline cursor-pointer"
+                    >
+                      Replace
+                    </button>
+                  ) : null}
+                </div>
+                {item.director ? (
+                  <div>
+                    <p className="font-semibold text-sm text-foreground">{item.director.name}</p>
+                    <p className="text-xs text-muted-foreground">{item.director.business || item.director.email}</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">Unassigned Director</span>
+                    <button
+                      onClick={() => handleOpenAssign(item.chapterId, item.chapterName, "DIRECTOR")}
+                      className="rounded bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="h-3 w-3" /> Assign Director
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* Position 1: President */}
               <div className="rounded-lg border bg-background p-3 space-y-1">
                 <div className="flex items-center justify-between">
@@ -101,7 +134,7 @@ export function LeadershipManagementView() {
                   {item.president ? (
                     <button
                       onClick={() => handleOpenAssign(item.chapterId, item.chapterName, "PRESIDENT")}
-                      className="text-xs font-semibold text-primary hover:underline"
+                      className="text-xs font-semibold text-primary hover:underline cursor-pointer"
                     >
                       Replace
                     </button>
@@ -117,7 +150,7 @@ export function LeadershipManagementView() {
                     <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">Unassigned Slot</span>
                     <button
                       onClick={() => handleOpenAssign(item.chapterId, item.chapterName, "PRESIDENT")}
-                      className="rounded bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90 flex items-center gap-1"
+                      className="rounded bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90 flex items-center gap-1 cursor-pointer"
                     >
                       <Plus className="h-3 w-3" /> Assign President
                     </button>
@@ -132,7 +165,7 @@ export function LeadershipManagementView() {
                   {item.vicePresident ? (
                     <button
                       onClick={() => handleOpenAssign(item.chapterId, item.chapterName, "VICE_PRESIDENT")}
-                      className="text-xs font-semibold text-primary hover:underline"
+                      className="text-xs font-semibold text-primary hover:underline cursor-pointer"
                     >
                       Replace
                     </button>
@@ -148,7 +181,7 @@ export function LeadershipManagementView() {
                     <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">Unassigned Slot</span>
                     <button
                       onClick={() => handleOpenAssign(item.chapterId, item.chapterName, "VICE_PRESIDENT")}
-                      className="rounded bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90 flex items-center gap-1"
+                      className="rounded bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90 flex items-center gap-1 cursor-pointer"
                     >
                       <Plus className="h-3 w-3" /> Assign Vice President
                     </button>
@@ -163,7 +196,7 @@ export function LeadershipManagementView() {
                   {item.treasurer ? (
                     <button
                       onClick={() => handleOpenAssign(item.chapterId, item.chapterName, "TREASURER")}
-                      className="text-xs font-semibold text-primary hover:underline"
+                      className="text-xs font-semibold text-primary hover:underline cursor-pointer"
                     >
                       Replace
                     </button>
@@ -179,7 +212,7 @@ export function LeadershipManagementView() {
                     <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">Unassigned Slot</span>
                     <button
                       onClick={() => handleOpenAssign(item.chapterId, item.chapterName, "TREASURER")}
-                      className="rounded bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90 flex items-center gap-1"
+                      className="rounded bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90 flex items-center gap-1 cursor-pointer"
                     >
                       <Plus className="h-3 w-3" /> Assign Treasurer
                     </button>

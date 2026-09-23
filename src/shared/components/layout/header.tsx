@@ -15,7 +15,6 @@ import {
   Users,
   Handshake,
   Sparkles,
-  Plus,
   Trash2,
   Check,
   Briefcase,
@@ -45,7 +44,6 @@ import {
   markNotificationAsRead,
   markAllNotificationsAsRead,
   clearAllNotifications,
-  createTestNotification,
   HeaderNotification,
 } from "@/shared/actions/notification-actions";
 
@@ -64,7 +62,6 @@ export function Header() {
   const router = useRouter();
 
   const [notifications, setNotifications] = React.useState<HeaderNotification[]>([]);
-  const [isLoadingNotifs, setIsLoadingNotifs] = React.useState(false);
 
   // Load real notifications on mount
   const fetchNotifications = React.useCallback(async () => {
@@ -99,13 +96,6 @@ export function Header() {
   const handleClearAll = async () => {
     setNotifications([]);
     await clearAllNotifications();
-  };
-
-  const handleSendTestAlert = async () => {
-    setIsLoadingNotifs(true);
-    await createTestNotification();
-    await fetchNotifications();
-    setIsLoadingNotifs(false);
   };
 
   const handleRoleChange = (val: Role) => {
@@ -280,19 +270,21 @@ export function Header() {
 
         {/* Right: Role Switcher, Theme Toggle, Notifications, User Menu */}
         <div className="flex items-center gap-x-1.5 sm:gap-x-2.5">
-          {/* Role Switcher */}
-          <Select value={activeRole ?? undefined} onValueChange={(val: any) => handleRoleChange(val as Role)}>
-            <SelectTrigger className="w-[110px] xs:w-[130px] sm:w-[160px] text-xs sm:text-sm h-9 bg-muted/40 hover:bg-muted/70 border-border/80 rounded-xl font-medium">
-              <SelectValue placeholder="Role" />
-            </SelectTrigger>
-            <SelectContent align="end" className="min-w-[150px]">
-              {availableRoles.map((role: string) => (
-                <SelectItem key={role} value={role}>
-                  {role}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Role Switcher on Desktop/Tablet */}
+          <div className="hidden sm:block">
+            <Select value={activeRole ?? undefined} onValueChange={(val: any) => handleRoleChange(val as Role)}>
+              <SelectTrigger className="w-[130px] sm:w-[160px] text-xs sm:text-sm h-9 bg-muted/40 hover:bg-muted/70 border-border/80 rounded-xl font-medium">
+                <SelectValue placeholder="Role" />
+              </SelectTrigger>
+              <SelectContent align="end" className="min-w-[150px]">
+                {availableRoles.map((role: string) => (
+                  <SelectItem key={role} value={role}>
+                    {role}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <ThemeToggle />
 
@@ -334,16 +326,6 @@ export function Header() {
                       <Check className="h-3.5 w-3.5 mr-1" /> Mark read
                     </Button>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={isLoadingNotifs}
-                    onClick={handleSendTestAlert}
-                    className="text-xs h-7 px-2 text-primary hover:text-primary/80"
-                    title="Generate test notification"
-                  >
-                    <Plus className="h-3.5 w-3.5 mr-1" /> Test
-                  </Button>
                 </div>
               </div>
 
@@ -458,24 +440,10 @@ export function Header() {
               <div className="p-1.5 space-y-0.5">
                 <Link
                   href="/dashboard/member/profile"
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-muted transition-colors"
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-foreground hover:bg-muted transition-colors"
                 >
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span>My Profile</span>
-                </Link>
-                <Link
-                  href="/dashboard/member/business"
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-muted transition-colors"
-                >
-                  <Briefcase className="h-4 w-4 text-muted-foreground" />
-                  <span>Business Portfolio</span>
-                </Link>
-                <Link
-                  href="/dashboard/settings"
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium text-foreground hover:bg-muted transition-colors"
-                >
-                  <Settings className="h-4 w-4 text-muted-foreground" />
-                  <span>Settings</span>
+                  <User className="h-4 w-4 text-primary" />
+                  <span>My Profile & Portfolio</span>
                 </Link>
               </div>
 

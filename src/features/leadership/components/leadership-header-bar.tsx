@@ -22,7 +22,7 @@ export function LeadershipHeaderBar({ context }: LeadershipHeaderBarProps) {
         <div className="mt-2 flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-1"><Building2 className="h-3.5 w-3.5 text-primary" /> {context.chapterCode}</span>
           <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5 text-primary" /> {context.location}</span>
-          <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-primary" /> {context.meetingDay}s @ {context.meetingTime}</span>
+          <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5 text-primary" /> {context.meetingDay?.endsWith("s") ? context.meetingDay : `${context.meetingDay}s`} @ {context.meetingTime}</span>
         </div>
       </div>
     </div>

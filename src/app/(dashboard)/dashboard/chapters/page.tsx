@@ -1,12 +1,11 @@
-import { ChapterListPage } from "@/features/chapters/pages/chapter-list-page";
+import { Metadata } from "next";
+import { ChaptersManagementView } from "@/features/director/components/chapters-management-view";
 
-export default async function ChaptersRoute({
-  searchParams,
-}: {
-  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
-  const resolvedParams = await searchParams;
-  const isCreateOpen = resolvedParams.create === 'true';
+export const metadata: Metadata = {
+  title: "Chapter Management | Admin & Director Operations",
+  description: "Create, edit, assign, deactivate, and configure chapters across all days and regions.",
+};
 
-  return <ChapterListPage initialCreateOpen={isCreateOpen} />;
+export default function ChaptersPage() {
+  return <ChaptersManagementView />;
 }

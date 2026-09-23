@@ -564,8 +564,9 @@ export async function getDirectorMembers(params?: {
 
   return members.map((m) => {
     let currentRole = "MEMBER";
-    const foundRole = m.roles?.find((r) => ["PRESIDENT", "VICE_PRESIDENT", "TREASURER"].includes(r.role.name))?.role.name;
+    const foundRole = m.roles?.find((r) => ["DIRECTOR", "PRESIDENT", "VICE_PRESIDENT", "TREASURER", "ADMIN", "ORGANIZATION_ADMIN"].includes(r.role.name))?.role.name;
     if (foundRole) currentRole = foundRole;
+    else if (m.email.includes("director")) currentRole = "DIRECTOR";
     else if (m.email.includes("president")) currentRole = "PRESIDENT";
     else if (m.email.includes("vp")) currentRole = "VICE_PRESIDENT";
     else if (m.email.includes("treasurer")) currentRole = "TREASURER";
@@ -592,12 +593,13 @@ export async function getDirectorMembers(params?: {
 }
 
 /**
- * Change member role within a chapter
+ * Change member role within a chapter or promote to Director
  */
 export async function changeDirectorMemberRole(data: {
   memberId: string;
-  newRole: "MEMBER" | "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER";
-  chapterId: string;
+  newRole: "MEMBER" | "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER" | "DIRECTOR";
+  chapterId?: string;
+  targetChapterId?: string;
 }) {
   const targetMember = await db.member.findUnique({
     where: { id: data.memberId },
@@ -607,16 +609,25 @@ export async function changeDirectorMemberRole(data: {
     throw new Error("Action Prohibited: Vinay Harihar's Admin role is system-protected and cannot be changed or removed.");
   }
 
+  // Update chapter assignment if targetChapterId is specified
+  if (data.targetChapterId && data.targetChapterId !== data.chapterId) {
+    await db.member.update({
+      where: { id: data.memberId },
+      data: { chapterId: data.targetChapterId },
+    });
+  }
+
   const role = await db.role.upsert({
     where: { name: data.newRole },
     create: { name: data.newRole, description: `Chapter ${data.newRole}` },
     update: {},
   });
 
-  // If officer role, clear previous holder
-  if (data.newRole !== "MEMBER") {
+  // If officer role (PRESIDENT, VP, TREASURER), clear previous holder in target chapter
+  const effectiveChapterId = data.targetChapterId || data.chapterId;
+  if (["PRESIDENT", "VICE_PRESIDENT", "TREASURER"].includes(data.newRole) && effectiveChapterId) {
     const existingOfficers = await db.member.findMany({
-      where: { chapterId: data.chapterId, id: { not: data.memberId } },
+      where: { chapterId: effectiveChapterId, id: { not: data.memberId } },
       include: { roles: { include: { role: true } } },
     });
     for (const eco of existingOfficers) {
@@ -624,6 +635,17 @@ export async function changeDirectorMemberRole(data: {
       if (existing) {
         await db.memberRole.delete({ where: { id: existing.id } }).catch(() => {});
       }
+    }
+  }
+
+  // Clear existing primary roles for this member
+  const existingMemberRoles = await db.memberRole.findMany({
+    where: { memberId: data.memberId },
+    include: { role: true },
+  });
+  for (const mr of existingMemberRoles) {
+    if (["MEMBER", "PRESIDENT", "VICE_PRESIDENT", "TREASURER", "DIRECTOR"].includes(mr.role.name) && mr.role.name !== data.newRole) {
+      await db.memberRole.delete({ where: { id: mr.id } }).catch(() => {});
     }
   }
 
@@ -642,7 +664,11 @@ export async function changeDirectorMemberRole(data: {
   });
 
   revalidatePath("/dashboard/director/members");
+  revalidatePath("/dashboard/members");
+  revalidatePath("/dashboard/director/leadership");
+  revalidatePath("/dashboard/admin/leadership");
   revalidatePath("/dashboard/director");
+  revalidatePath("/dashboard/admin");
   return { success: true };
 }
 
@@ -733,6 +759,7 @@ export async function getDirectorLeadership() {
   });
 
   return chapters.map((c) => {
+    const director = c.members.find((m) => m.roles.some((r) => r.role.name === "DIRECTOR") || m.email.includes("director"));
     const president = c.members.find((m) => m.roles.some((r) => r.role.name === "PRESIDENT") || m.email.includes("president"));
     const vp = c.members.find((m) => m.roles.some((r) => r.role.name === "VICE_PRESIDENT") || m.email.includes("vp"));
     const treasurer = c.members.find((m) => m.roles.some((r) => r.role.name === "TREASURER") || m.email.includes("treasurer"));
@@ -742,6 +769,9 @@ export async function getDirectorLeadership() {
       chapterName: c.name,
       chapterCode: c.chapterCode || `CHP-${c.id.substring(0, 4)}`,
       region: c.region || "Primary Region",
+      director: director
+        ? { id: director.id, name: `${director.firstName} ${director.lastName}`, email: director.email, business: director.business?.businessName }
+        : null,
       president: president
         ? { id: president.id, name: `${president.firstName} ${president.lastName}`, email: president.email, business: president.business?.businessName }
         : null,
@@ -751,17 +781,17 @@ export async function getDirectorLeadership() {
       treasurer: treasurer
         ? { id: treasurer.id, name: `${treasurer.firstName} ${treasurer.lastName}`, email: treasurer.email, business: treasurer.business?.businessName }
         : null,
-      vacancies: (!president ? 1 : 0) + (!vp ? 1 : 0) + (!treasurer ? 1 : 0),
+      vacancies: (!director ? 1 : 0) + (!president ? 1 : 0) + (!vp ? 1 : 0) + (!treasurer ? 1 : 0),
     };
   });
 }
 
 /**
- * Assign Leadership Position
+ * Assign Leadership or Director Position
  */
 export async function assignDirectorLeadership(data: {
   chapterId: string;
-  position: "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER";
+  position: "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER" | "DIRECTOR";
   memberId: string;
 }) {
   const member = await db.member.findUnique({
@@ -771,6 +801,14 @@ export async function assignDirectorLeadership(data: {
   if (!member) throw new Error("Member not found");
   if (member.email.toLowerCase() === "vinayharihar28@gmail.com") {
     throw new Error("Action Prohibited: Vinay Harihar's Admin role is system-protected and cannot be modified.");
+  }
+
+  // Ensure member is assigned to target chapter
+  if (member.chapterId !== data.chapterId) {
+    await db.member.update({
+      where: { id: data.memberId },
+      data: { chapterId: data.chapterId },
+    });
   }
 
   const targetRole = await db.role.upsert({

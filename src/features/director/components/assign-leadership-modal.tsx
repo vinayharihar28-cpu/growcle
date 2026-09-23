@@ -9,7 +9,7 @@ interface AssignLeadershipModalProps {
   onClose: () => void;
   chapterId: string;
   chapterName: string;
-  initialPosition?: "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER";
+  initialPosition?: "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER" | "DIRECTOR";
   availableMembers: { id: string; name: string; email: string }[];
   onSuccess?: () => void;
 }
@@ -23,9 +23,13 @@ export function AssignLeadershipModal({
   availableMembers,
   onSuccess,
 }: AssignLeadershipModalProps) {
-  const [position, setPosition] = useState<"PRESIDENT" | "VICE_PRESIDENT" | "TREASURER">(initialPosition);
+  const [position, setPosition] = useState<"PRESIDENT" | "VICE_PRESIDENT" | "TREASURER" | "DIRECTOR">(initialPosition);
   const [selectedMemberId, setSelectedMemberId] = useState<string>("");
   const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    setPosition(initialPosition);
+  }, [initialPosition]);
 
   if (!isOpen) return null;
 
@@ -53,9 +57,9 @@ export function AssignLeadershipModal({
         <div className="flex items-center justify-between border-b pb-3">
           <h3 className="text-lg font-bold flex items-center gap-2 text-foreground">
             <UserCheck className="h-5 w-5 text-primary" />
-            Assign Leadership Position
+            Assign Leadership & Director Position
           </h3>
-          <button onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-accent">
+          <button onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-accent cursor-pointer">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -68,16 +72,17 @@ export function AssignLeadershipModal({
 
           <div>
             <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">
-              Select Position
+              Select Position / Role
             </label>
             <select
               value={position}
               onChange={(e) => setPosition(e.target.value as any)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-medium focus:ring-2 focus:ring-primary"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-primary"
             >
-              <option value="PRESIDENT">President</option>
-              <option value="VICE_PRESIDENT">Vice President</option>
-              <option value="TREASURER">Treasurer</option>
+              <option value="DIRECTOR">🌟 Chapter Director (Regional Director)</option>
+              <option value="PRESIDENT">👑 President (Chapter Head)</option>
+              <option value="VICE_PRESIDENT">🛡️ Vice President (Performance & Operations)</option>
+              <option value="TREASURER">💼 Treasurer (Secretary & Treasury)</option>
             </select>
           </div>
 

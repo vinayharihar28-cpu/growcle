@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   Bell,
   BarChart3,
+  CreditCard,
 } from "lucide-react";
 
 export const memberNavigation: NavigationConfig = [
@@ -79,7 +80,17 @@ export const memberNavigation: NavigationConfig = [
     ],
   },
   {
-    title: "Engagement & Reports",
+    title: "Membership & Dues",
+    items: [
+      {
+        title: "Membership Payment",
+        href: "/dashboard/member/membership",
+        icon: CreditCard,
+      },
+    ],
+  },
+  {
+    title: "Engagement & Performance",
     items: [
       {
         title: "Announcements",
@@ -87,10 +98,11 @@ export const memberNavigation: NavigationConfig = [
         icon: Bell,
       },
       {
-        title: "My Reports",
+        title: "My Scorecard",
         href: "/dashboard/member/reports",
         icon: BarChart3,
       },
     ],
   },
 ];
+

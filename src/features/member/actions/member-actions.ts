@@ -1031,6 +1031,9 @@ export async function inviteMemberVisitor(data: {
  * Fetch chapter meetings for member
  */
 export async function getMemberMeetings(chapterId: string, memberId: string) {
+  const member = await db.member.findUnique({ where: { id: memberId } });
+  const myName = member ? `${member.firstName} ${member.lastName}` : "";
+
   const meetings = await db.meeting.findMany({
     where: { chapterId },
     include: {
@@ -1041,8 +1044,23 @@ export async function getMemberMeetings(chapterId: string, memberId: string) {
     orderBy: { date: "desc" },
   });
 
+  const nowMidnight = new Date().setHours(0, 0, 0, 0);
+
   return meetings.map((m) => {
     const att = m.attendances[0];
+    const meetingMidnight = new Date(m.date).setHours(0, 0, 0, 0);
+    const isFuture = meetingMidnight >= nowMidnight;
+
+    const speakerText = m.speaker?.trim() || "";
+    const isGeneric =
+      !speakerText ||
+      speakerText === "Featured Member" ||
+      speakerText === "Weekly Feature Presenter" ||
+      speakerText === "Slot Open";
+
+    const isMySlot = !!myName && speakerText.toLowerCase().includes(myName.toLowerCase());
+    const isBookedByOther = !isGeneric && !isMySlot;
+
     return {
       id: m.id,
       title: m.title || "Weekly Business Exchange",
@@ -1055,13 +1073,65 @@ export async function getMemberMeetings(chapterId: string, memberId: string) {
       rawDate: m.date.toISOString(),
       location: m.location || "Executive Suite",
       meetingType: m.meetingType || "HYBRID",
-      speaker: m.speaker || "Featured Member",
-      theme: m.theme || "Strategic Partnerships",
+      speaker: isGeneric ? "Slot Open" : speakerText,
+      theme: m.theme || "Business Showcase & Partnerships",
       agenda: m.agenda || "1. Networking\n2. Member Intros\n3. Speaker\n4. Referrals",
       myAttendanceStatus: att?.status || "NOT_RECORDED",
       hasCheckedIn: att?.status === AttendanceStatus.PRESENT,
+      isFuture,
+      isGenericSlot: isGeneric,
+      isMySlot,
+      isBookedByOther,
     };
   });
+}
+
+/**
+ * Reserve or update a Member Feature Presentation slot for an upcoming meeting
+ */
+export async function bookMemberFeaturePresentation(data: {
+  meetingId: string;
+  memberId: string;
+  topic: string;
+}) {
+  const member = await db.member.findUnique({
+    where: { id: data.memberId },
+    include: { business: true },
+  });
+  if (!member) throw new Error("Member not found");
+
+  const meeting = await db.meeting.findUnique({ where: { id: data.meetingId } });
+  if (!meeting) throw new Error("Meeting not found");
+
+  const meetingMidnight = new Date(meeting.date).setHours(0, 0, 0, 0);
+  const nowMidnight = new Date().setHours(0, 0, 0, 0);
+  if (meetingMidnight < nowMidnight) {
+    throw new Error("Cannot book feature presentations for past meetings.");
+  }
+
+  const myName = `${member.firstName} ${member.lastName}`;
+  const speakerText = meeting.speaker?.trim() || "";
+  const isGeneric =
+    !speakerText ||
+    speakerText === "Featured Member" ||
+    speakerText === "Weekly Feature Presenter" ||
+    speakerText === "Slot Open";
+
+  if (!isGeneric && !speakerText.toLowerCase().includes(myName.toLowerCase())) {
+    throw new Error(`This presentation slot has already been reserved by ${speakerText}.`);
+  }
+
+  await db.meeting.update({
+    where: { id: data.meetingId },
+    data: {
+      speaker: `${myName} (${member.business?.businessName || "Member Firm"})`,
+      theme: data.topic.trim(),
+    },
+  });
+
+  revalidatePath("/dashboard/member/meetings");
+  revalidatePath("/dashboard/leadership/meetings");
+  return { success: true };
 }
 
 /**
@@ -1560,5 +1630,139 @@ export async function recordDirectTYFCB(data: {
   revalidatePath("/dashboard/director");
   return { success: true, id: ref.id };
 }
+
+/**
+ * Fetch member 1-year membership status, tenure, remaining days, chapter UPI, and payment history
+ */
+export async function getMemberMembershipStatus(memberId: string) {
+  const member = await db.member.findUnique({
+    where: { id: memberId },
+    include: {
+      chapter: true,
+      business: true,
+    },
+  });
+
+  if (!member) throw new Error("Member not found");
+
+  const now = new Date();
+  const joined = member.joinedAt || member.createdAt || now;
+  const renewal = member.renewalDate || member.expiresAt || new Date(new Date(joined).getTime() + 365 * 24 * 60 * 60 * 1000);
+  const isExpired = new Date(renewal).getTime() < now.getTime();
+  const totalDaysInTerm = 365;
+  const elapsedDays = Math.max(0, Math.min(365, Math.floor((now.getTime() - new Date(joined).getTime()) / (1000 * 60 * 60 * 24))));
+  const daysRemaining = Math.max(0, Math.ceil((new Date(renewal).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
+
+  let paymentStatus: "CURRENT" | "DUE_SOON" | "EXPIRED" = "CURRENT";
+  if (isExpired) {
+    paymentStatus = "EXPIRED";
+  } else if (daysRemaining <= 30) {
+    paymentStatus = "DUE_SOON";
+  }
+
+  // Fetch transactions for this member
+  const transactions = await db.transaction.findMany({
+    where: { memberId },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+
+  const upiId = member.chapter?.upiId || "treasury.growcle@icici";
+  const upiName = member.chapter?.upiName || `${member.chapter?.name || "Growcle"} Chapter Treasury`;
+  const membershipFee = 25000;
+  const membershipNumber = member.membershipNumber || `GC-MEM-${member.id.substring(0, 4).toUpperCase()}`;
+
+  // UPI payment intent link
+  const upiUri = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(upiName)}&am=${membershipFee}&cu=INR&tn=${encodeURIComponent(`Annual Membership Fee - ${membershipNumber}`)}`;
+
+  return {
+    memberId: member.id,
+    name: `${member.firstName} ${member.lastName}`,
+    email: member.email,
+    phone: member.phoneNumber || "",
+    membershipNumber,
+    businessName: member.business?.businessName || "Member Enterprise",
+    chapterId: member.chapterId || "",
+    chapterName: member.chapter?.name || "Assigned Chapter",
+    chapterCode: member.chapter?.chapterCode || "CHP",
+    termStartDate: new Date(joined).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+    termEndDate: new Date(renewal).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+    daysRemaining,
+    elapsedDays,
+    totalDaysInTerm,
+    tenureLabel: "1-Year Annual Term",
+    annualFee: membershipFee,
+    paymentStatus,
+    status: member.status,
+    upiId,
+    upiName,
+    upiUri,
+    transactions: transactions.map((t) => ({
+      id: t.id,
+      amount: Number(t.amount) || membershipFee,
+      currency: t.currency || "INR",
+      description: t.description || "Annual Membership Fee Renewal",
+      status: t.status || "PENDING",
+      paymentMethod: t.paymentMethod || "UPI",
+      utr: t.utr || "N/A",
+      screenshotUrl: t.screenshotUrl || null,
+      createdAt: new Date(t.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+    })),
+  };
+}
+
+/**
+ * Submit Membership Payment (Screenshot + UTR) for Leadership / Director Verification
+ */
+export async function submitMemberMembershipFeePayment(data: {
+  memberId: string;
+  amount: number;
+  utr: string;
+  paymentMethod?: string;
+  screenshotUrl?: string;
+  notes?: string;
+}) {
+  const member = await db.member.findUnique({
+    where: { id: data.memberId },
+    include: { chapter: true },
+  });
+
+  if (!member) throw new Error("Member not found");
+
+  const txn = await db.transaction.create({
+    data: {
+      memberId: data.memberId,
+      amount: data.amount || 25000,
+      currency: "INR",
+      description: "Annual Chapter Membership Fee (1-Year Term)",
+      paymentMethod: data.paymentMethod || "UPI",
+      status: "PENDING", // Under verification by Leadership/Director
+      utr: data.utr.trim(),
+      screenshotUrl: data.screenshotUrl || null,
+      notes: data.notes || "Member submitted annual membership fee receipt for verification.",
+    },
+  });
+
+  // Notify leadership & director
+  try {
+    await createSystemNotification({
+      chapterId: member.chapterId || undefined,
+      title: "New Membership Fee Payment Submitted 💳",
+      message: `${member.firstName} ${member.lastName} submitted a 1-year membership payment (₹${(data.amount || 25000).toLocaleString("en-IN")}, UTR: ${data.utr.trim()}) for verification.`,
+      type: "SYSTEM",
+    });
+  } catch (err) {
+    console.error("Failed to notify leadership about membership payment", err);
+  }
+
+  revalidatePath("/dashboard/member/membership");
+  revalidatePath("/dashboard/member");
+  revalidatePath("/dashboard/leadership");
+  revalidatePath("/dashboard/director/payments");
+  revalidatePath("/dashboard/director");
+
+  return { success: true, transactionId: txn.id };
+}
+
 
 

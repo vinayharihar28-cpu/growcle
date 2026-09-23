@@ -290,6 +290,7 @@ export function MembersManagementView() {
           chapterName: roleModalState.member.chapterName,
           currentRole: roleModalState.member.currentRole,
         } : null}
+        chapters={chapters}
         onSuccess={loadMembers}
       />
 

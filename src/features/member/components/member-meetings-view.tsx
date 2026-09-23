@@ -11,6 +11,11 @@ import {
   Users,
   Video,
   UserPlus,
+  Sparkles,
+  Search,
+  Check,
+  X,
+  ArrowRight,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -18,22 +23,35 @@ import {
   getMemberMeetings,
   recordSelfAttendance,
   getMeetingAttendees,
+  bookMemberFeaturePresentation,
   MemberContext,
 } from "../actions/member-actions";
 import { MemberHeaderBar } from "./member-header-bar";
+import { playSuccessChime } from "@/lib/audio-chime";
 
 export function MemberMeetingsView() {
   const [context, setContext] = useState<MemberContext | null>(null);
   const [meetings, setMeetings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  // Agenda modal
   const [selectedAgenda, setSelectedAgenda] = useState<any | null>(null);
-  const [checkingInId, setCheckingInId] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
 
   // Attendees modal
   const [selectedMeetingForAttendees, setSelectedMeetingForAttendees] = useState<any | null>(null);
   const [attendees, setAttendees] = useState<any[]>([]);
   const [loadingAttendees, setLoadingAttendees] = useState(false);
+
+  // Feature Presentation booking modal
+  const [bookingMeeting, setBookingMeeting] = useState<any | null>(null);
+  const [presentationTopic, setPresentationTopic] = useState("");
+  const [bookingSubmitting, setBookingSubmitting] = useState(false);
+  const [bookingError, setBookingError] = useState("");
+
+  // Self Check-in
+  const [checkingInId, setCheckingInId] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   const loadData = async () => {
     setLoading(true);
@@ -59,6 +77,7 @@ export function MemberMeetingsView() {
     startTransition(async () => {
       try {
         await recordSelfAttendance(meetingId, context.memberId);
+        playSuccessChime();
         setMeetings((prev) =>
           prev.map((m) =>
             m.id === meetingId
@@ -87,192 +106,289 @@ export function MemberMeetingsView() {
     }
   };
 
+  const handleOpenBooking = (m: any) => {
+    setBookingMeeting(m);
+    setPresentationTopic(m.isMySlot ? m.theme : "");
+    setBookingError("");
+  };
+
+  const handleBookPresentationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!context || !bookingMeeting || !presentationTopic.trim()) return;
+    setBookingSubmitting(true);
+    setBookingError("");
+    try {
+      await bookMemberFeaturePresentation({
+        meetingId: bookingMeeting.id,
+        memberId: context.memberId,
+        topic: presentationTopic.trim(),
+      });
+      playSuccessChime();
+      setBookingMeeting(null);
+      await loadData();
+    } catch (err: any) {
+      setBookingError(err.message || "Failed to book feature presentation slot");
+    } finally {
+      setBookingSubmitting(false);
+    }
+  };
+
+  const filteredMeetings = meetings.filter((m) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      m.title.toLowerCase().includes(q) ||
+      m.location.toLowerCase().includes(q) ||
+      m.speaker.toLowerCase().includes(q) ||
+      m.theme.toLowerCase().includes(q) ||
+      m.date.toLowerCase().includes(q)
+    );
+  });
+
+  const nowTime = new Date().setHours(0, 0, 0, 0);
+
   return (
     <div className="space-y-6">
       {context && <MemberHeaderBar context={context} />}
 
-      <div>
-        <h2 className="text-xl font-bold text-foreground">Chapter Meetings Calendar</h2>
-        <p className="text-sm text-muted-foreground">
-          View upcoming weekly business exchanges, agendas, and mark your attendance.
-        </p>
+      {/* Title & Search */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Chapter Meetings Calendar</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            View upcoming business sessions, book feature presentations, and check in on meeting day.
+          </p>
+        </div>
+
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search meetings or presenters..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-1.5 rounded-lg bg-card border border-border text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
       </div>
 
+      {/* Meetings List - Full-Width Bar Cards */}
       {loading ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground">
           Loading chapter meetings...
         </div>
-      ) : meetings.length === 0 ? (
+      ) : filteredMeetings.length === 0 ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground">
           No meetings found on schedule for {context?.chapterName}.
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* Prominently Showcased Next / Upcoming Meeting */}
-          {(() => {
-            const nowTime = new Date().setHours(0, 0, 0, 0);
-            const upcoming = meetings.find((m) => new Date(m.date).getTime() >= nowTime) || meetings[0];
-            if (!upcoming) return null;
-            const isLocked = new Date(upcoming.date).getTime() > nowTime;
+        <div className="space-y-3">
+          {filteredMeetings.map((m) => {
+            const meetingMidnight = new Date(m.rawDate).setHours(0, 0, 0, 0);
+            const isFuture = meetingMidnight > nowTime;
+            const isToday = meetingMidnight === nowTime;
 
             return (
-              <div className="bg-gradient-to-br from-primary/15 via-card to-card border-2 border-primary/30 rounded-2xl p-6 shadow-md relative overflow-hidden">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="space-y-2">
+              <div
+                key={m.id}
+                className="bg-card border border-border rounded-xl p-4 shadow-xs hover:border-primary/40 transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+              >
+                {/* Left: Date Badge & Title */}
+                <div className="flex items-start sm:items-center gap-3.5 min-w-[280px]">
+                  <div
+                    className={`flex flex-col items-center justify-center w-14 h-14 rounded-xl border text-center shrink-0 ${
+                      isToday
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : isFuture
+                        ? "bg-muted/60 text-foreground border-border"
+                        : "bg-muted/30 text-muted-foreground border-border"
+                    }`}
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-wider">
+                      {new Date(m.rawDate).toLocaleDateString("en-IN", { month: "short" })}
+                    </span>
+                    <span className="text-lg font-extrabold leading-none">
+                      {new Date(m.rawDate).getDate()}
+                    </span>
+                    <span className="text-[9px] opacity-80">
+                      {new Date(m.rawDate).toLocaleDateString("en-IN", { weekday: "short" })}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-primary text-primary-foreground tracking-wide uppercase">
-                        Upcoming Chapter Meeting
+                      <h3 className="font-bold text-sm text-foreground">{m.title}</h3>
+                      <span className="text-[10px] font-semibold px-2 py-0.2 rounded-full bg-primary/10 text-primary uppercase">
+                        {m.meetingType}
                       </span>
-                      {isLocked ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                          <Lock className="h-3 w-3" /> Locked until 12:00 AM on {upcoming.date}
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          <CheckCircle2 className="h-3 w-3" /> Open for Check-In
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span>{context?.meetingTime || "07:30 AM"}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />
+                        <span className="truncate max-w-[180px]">{m.location}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Middle: Feature Presentation Showcase & Booking */}
+                <div className="flex items-center gap-3 bg-muted/30 border border-border/70 rounded-xl p-2.5 min-w-[260px] max-w-md flex-1">
+                  <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500 shrink-0">
+                    <Sparkles className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Feature Presentation
+                      </span>
+                      {m.isMySlot && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                          My Slot 🎤
                         </span>
                       )}
                     </div>
-                    <h3 className="text-2xl font-bold text-foreground">{upcoming.title}</h3>
-                    <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground pt-1">
-                      <div className="flex items-center gap-1.5 text-foreground font-semibold">
-                        <Calendar className="h-4 w-4 text-primary" />
-                        <span>{upcoming.date}</span>
-                        <span>• {context?.meetingTime || "Regular Meeting Time"}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span>{upcoming.location}</span>
-                      </div>
+                    <div className="text-xs font-bold text-foreground truncate mt-0.5">
+                      {m.speaker}
                     </div>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    {upcoming.hasCheckedIn ? (
-                      <span className="inline-flex items-center justify-center gap-1.5 text-sm px-4 py-2 rounded-xl font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                        <CheckCircle2 className="h-4 w-4" /> Checked In
-                      </span>
-                    ) : (
-                      <button
-                        disabled={isLocked || checkingInId === upcoming.id || isPending}
-                        onClick={() => handleSelfCheckIn(upcoming.id)}
-                        className="inline-flex items-center justify-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-                      >
-                        {isLocked ? (
-                          <>
-                            <Lock className="h-4 w-4" />
-                            <span>Locked Until Meeting Day</span>
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle2 className="h-4 w-4" />
-                            <span>{checkingInId === upcoming.id ? "Checking In..." : "Mark Myself Present"}</span>
-                          </>
-                        )}
-                      </button>
+                    {m.theme && m.speaker !== "Slot Open" && (
+                      <div className="text-[11px] text-muted-foreground truncate">
+                        &ldquo;{m.theme}&rdquo;
+                      </div>
                     )}
-
-                    <Link
-                      href="/dashboard/member/visitors"
-                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-card border border-border text-xs font-semibold text-foreground hover:bg-muted/40 transition-colors shadow-xs"
-                    >
-                      <UserPlus className="h-4 w-4 text-primary" />
-                      <span>Invite Visitor</span>
-                    </Link>
                   </div>
+
+                  {isFuture && (m.isGenericSlot || m.isMySlot) && (
+                    <button
+                      onClick={() => handleOpenBooking(m)}
+                      className="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold transition-colors shrink-0 cursor-pointer"
+                    >
+                      {m.isMySlot ? "Edit Topic" : "Book Slot"}
+                    </button>
+                  )}
+                </div>
+
+                {/* Right: Actions & Attendance Status */}
+                <div className="flex items-center gap-2.5 shrink-0 border-t lg:border-t-0 pt-3 lg:pt-0 border-border justify-between sm:justify-end">
+                  <button
+                    onClick={() => handleOpenAttendees(m)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-input bg-card text-foreground hover:bg-muted text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                  >
+                    <Users className="h-3.5 w-3.5 text-blue-500" />
+                    <span>Attendees</span>
+                  </button>
+
+                  <button
+                    onClick={() => setSelectedAgenda(m)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-input bg-card text-foreground hover:bg-muted text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                  >
+                    <FileText className="h-3.5 w-3.5 text-indigo-500" />
+                    <span>Agenda</span>
+                  </button>
+
+                  {/* Attendance status / Check-In button */}
+                  {m.hasCheckedIn ? (
+                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-xs font-bold border border-emerald-500/30">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Checked In
+                    </span>
+                  ) : isFuture ? (
+                    <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-xs font-medium border border-border">
+                      <Lock className="h-3 w-3 text-amber-500" /> Opens 12:00 AM
+                    </span>
+                  ) : (
+                    <button
+                      disabled={checkingInId === m.id || isPending}
+                      onClick={() => handleSelfCheckIn(m.id)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-bold shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>{checkingInId === m.id ? "Checking In..." : "Check In"}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );
-          })()}
+          })}
+        </div>
+      )}
 
-          {/* All Meetings List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {meetings.map((m) => {
-              const nowTime = new Date().setHours(0, 0, 0, 0);
-              const isLocked = new Date(m.date).getTime() > nowTime;
+      {/* Feature Presentation Slot Booking Modal */}
+      {bookingMeeting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in zoom-in duration-150">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-amber-500" />
+                <h3 className="text-base font-bold text-foreground">
+                  {bookingMeeting.isMySlot ? "Update Feature Presentation" : "Reserve Feature Presentation Slot"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setBookingMeeting(null)}
+                className="text-muted-foreground hover:text-foreground text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
 
-              return (
-                <div
-                  key={m.id}
-                  className="bg-card border border-border rounded-xl p-5 shadow-sm hover:border-primary/40 transition-all flex flex-col justify-between space-y-4"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary uppercase">
-                          {m.meetingType}
-                        </span>
-                        <h3 className="font-bold text-base text-foreground mt-1">{m.title}</h3>
-                      </div>
+            <div className="text-xs text-muted-foreground bg-muted/40 p-3 rounded-xl">
+              <div>Meeting Date: <strong className="text-foreground">{bookingMeeting.date}</strong></div>
+              <div>Chapter: <strong className="text-foreground">{context?.chapterName}</strong></div>
+            </div>
 
-                      {m.hasCheckedIn ? (
-                        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Checked In
-                        </span>
-                      ) : isLocked ? (
-                        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-medium bg-muted text-muted-foreground border border-border">
-                          <Lock className="h-3 w-3" /> Locked
-                        </span>
-                      ) : (
-                        <button
-                          disabled={checkingInId === m.id || isPending}
-                          onClick={() => handleSelfCheckIn(m.id)}
-                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 cursor-pointer"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          <span>{checkingInId === m.id ? "Checking In..." : "Mark Present"}</span>
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="space-y-1.5 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2 text-foreground font-semibold">
-                        <Calendar className="h-4 w-4 text-primary" />
-                        <span>{m.date}</span>
-                        <span className="text-muted-foreground font-normal">• {context?.meetingTime}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        <span>{m.location}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-border">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => handleOpenAttendees(m)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                      >
-                        <Users className="h-3.5 w-3.5 text-blue-500" />
-                        <span>Attendees</span>
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Link
-                        href="/dashboard/member/visitors"
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground px-2 py-0.5 rounded-md hover:bg-muted/40 transition-colors"
-                      >
-                        <UserPlus className="h-3 w-3 text-primary" />
-                        <span>Invite Visitor</span>
-                      </Link>
-                      <span className="text-[11px] text-muted-foreground">
-                        Status: <strong className="text-foreground">{m.myAttendanceStatus}</strong>
-                      </span>
-                    </div>
-                  </div>
+            <form onSubmit={handleBookPresentationSubmit} className="space-y-4">
+              {bookingError && (
+                <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-600 text-xs font-semibold">
+                  {bookingError}
                 </div>
-              );
-            })}
+              )}
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Presentation Topic / Showcase Theme *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Commercial Real Estate Structuring & Tax Benefits"
+                  value={presentationTopic}
+                  onChange={(e) => setPresentationTopic(e.target.value)}
+                  className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 font-medium"
+                />
+                <span className="text-[11px] text-muted-foreground mt-1 block">
+                  Give a 5-minute showcase of your core competency and dream referral target.
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setBookingMeeting(null)}
+                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-xs font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={bookingSubmitting}
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 disabled:opacity-50 cursor-pointer shadow-xs"
+                >
+                  {bookingSubmitting ? "Reserving..." : "Confirm & Lock Slot"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
       {/* Agenda Detail Modal */}
       {selectedAgenda && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="bg-card border border-border rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
                 <h3 className="text-base font-bold text-foreground">{selectedAgenda.title}</h3>
@@ -280,7 +396,7 @@ export function MemberMeetingsView() {
               </div>
               <button
                 onClick={() => setSelectedAgenda(null)}
-                className="text-muted-foreground hover:text-foreground text-sm"
+                className="text-muted-foreground hover:text-foreground text-sm cursor-pointer"
               >
                 ✕
               </button>
@@ -288,20 +404,20 @@ export function MemberMeetingsView() {
 
             <div>
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Official Session Run-Sheet
+                Official Session Run-Sheet & Agenda
               </h4>
-              <div className="bg-muted/40 rounded-lg p-4 font-mono text-xs whitespace-pre-line text-foreground border border-border">
+              <div className="bg-muted/40 rounded-xl p-4 font-mono text-xs whitespace-pre-line text-foreground border border-border">
                 {selectedAgenda.agenda}
               </div>
             </div>
 
             <div className="flex items-center justify-between pt-2">
               <span className="text-xs text-muted-foreground">
-                Speaker: <strong className="text-foreground">{selectedAgenda.speaker}</strong>
+                Presenter: <strong className="text-foreground">{selectedAgenda.speaker}</strong>
               </span>
               <button
                 onClick={() => setSelectedAgenda(null)}
-                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold"
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold cursor-pointer"
               >
                 Close
               </button>
@@ -312,8 +428,8 @@ export function MemberMeetingsView() {
 
       {/* Attendees Modal */}
       {selectedMeetingForAttendees && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="bg-card border border-border rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
                 <h3 className="text-base font-bold text-foreground">Session Attendance</h3>
@@ -321,7 +437,7 @@ export function MemberMeetingsView() {
               </div>
               <button
                 onClick={() => setSelectedMeetingForAttendees(null)}
-                className="text-muted-foreground hover:text-foreground text-sm"
+                className="text-muted-foreground hover:text-foreground text-sm cursor-pointer"
               >
                 ✕
               </button>
@@ -357,7 +473,7 @@ export function MemberMeetingsView() {
             <div className="flex justify-end pt-2">
               <button
                 onClick={() => setSelectedMeetingForAttendees(null)}
-                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold"
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold cursor-pointer"
               >
                 Done
               </button>

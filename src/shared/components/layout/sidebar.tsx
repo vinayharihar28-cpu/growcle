@@ -14,7 +14,7 @@ import { X, LogOut } from "lucide-react";
 export function Sidebar() {
   const pathname = usePathname();
   const { isOpen, setIsOpen } = useSidebarStore();
-  const { activeRole } = useWorkspaceStore();
+  const { activeRole, setActiveRole, availableRoles } = useWorkspaceStore();
   const { user, currentMember, logout } = useAuthStore();
 
   const navigation = getNavigationForRole(activeRole);
@@ -76,7 +76,7 @@ export function Sidebar() {
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto p-4 space-y-6">
+        <nav className="flex-1 overflow-y-auto nav-scrollbar p-4 space-y-6">
           {navigation.map((section, idx) => (
             <div key={idx}>
               {section.title && (
@@ -123,11 +123,42 @@ export function Sidebar() {
           ))}
         </nav>
 
-        {/* User Profile & Logout Bottom Card */}
-        <div className="p-3 border-t bg-sidebar-accent/20">
-          <div className="flex items-center justify-between p-2 rounded-xl bg-card border border-border/80 shadow-xs hover:border-primary/30 transition-colors">
+        {/* Mobile Only: Role Switcher & User Card Drawer Footer */}
+        <div className="p-3 border-t bg-sidebar-accent/20 lg:hidden space-y-2.5">
+          {/* Mobile Role Switcher */}
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1 mb-1 block">
+              Active Role Workspace
+            </label>
+            <select
+              value={activeRole ?? undefined}
+              onChange={(e) => {
+                const val = e.target.value as any;
+                setActiveRole(val);
+                if (typeof document !== "undefined") {
+                  document.cookie = `active-role=${encodeURIComponent(val)}; path=/; max-age=31536000; SameSite=Lax`;
+                }
+                setIsOpen(false);
+                if (val === "Admin") window.location.href = "/dashboard/admin";
+                else if (val === "Director") window.location.href = "/dashboard/director";
+                else if (val === "Leadership Team") window.location.href = "/dashboard/leadership";
+                else window.location.href = "/dashboard/member";
+              }}
+              className="w-full rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-semibold text-foreground focus:ring-2 focus:ring-primary"
+            >
+              {availableRoles.map((role: string) => (
+                <option key={role} value={role}>
+                  {role}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* User Profile & Logout Bottom Card */}
+          <div className="flex items-center justify-between p-2 rounded-xl bg-card border border-border/80 shadow-xs">
             <Link
               href="/dashboard/member/profile"
+              onClick={() => setIsOpen(false)}
               className="flex items-center gap-2.5 min-w-0 flex-1 hover:opacity-80 transition-opacity"
               title="View Profile"
             >

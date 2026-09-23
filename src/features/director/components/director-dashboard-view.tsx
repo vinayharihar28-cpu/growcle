@@ -26,7 +26,7 @@ export function DirectorDashboardView() {
     isOpen: boolean;
     chapterId: string;
     chapterName: string;
-    position: "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER";
+    position: "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER" | "DIRECTOR";
   }>({
     isOpen: false,
     chapterId: "",
@@ -54,7 +54,7 @@ export function DirectorDashboardView() {
 
   const handleOpenAssignLeadership = async (
     chapterId: string,
-    position: "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER"
+    position: "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER" | "DIRECTOR"
   ) => {
     const chap = chapters.find((c) => c.id === chapterId);
     if (!chap) return;

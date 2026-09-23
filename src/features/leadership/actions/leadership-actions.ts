@@ -900,6 +900,316 @@ export async function ensureUpcomingMeeting(chapterId: string) {
   return { success: true, meetingId: meeting.id };
 }
 
+function getOrdinalSuffix(n: number): string {
+  const j = n % 10;
+  const k = n % 100;
+  if (j === 1 && k !== 11) return `${n}st`;
+  if (j === 2 && k !== 12) return `${n}nd`;
+  if (j === 3 && k !== 13) return `${n}rd`;
+  return `${n}th`;
+}
+
+function getDayOfWeekIndex(dayName: string): number {
+  const map: Record<string, number> = {
+    sunday: 0,
+    monday: 1,
+    tuesday: 2,
+    wednesday: 3,
+    thursday: 4,
+    friday: 5,
+    saturday: 6,
+  };
+  return map[dayName.toLowerCase()] ?? 0;
+}
+
+/**
+ * Update chapter's regular meeting day (e.g. Sunday, Wednesday), time, and venue
+ */
+export async function updateChapterMeetingSettings(data: {
+  chapterId: string;
+  meetingDay: string;
+  meetingTime?: string;
+  meetingLocation?: string;
+  meetingFee?: number;
+}) {
+  const dayOfWeek = getDayOfWeekIndex(data.meetingDay);
+
+  const updated = await db.chapter.update({
+    where: { id: data.chapterId },
+    data: {
+      meetingDay: data.meetingDay,
+      meetingDayOfWeek: dayOfWeek,
+      ...(data.meetingTime ? { meetingTime: data.meetingTime } : {}),
+      ...(data.meetingLocation ? { meetingLocation: data.meetingLocation } : {}),
+      ...(data.meetingFee !== undefined ? { meetingFee: Number(data.meetingFee) } : {}),
+    } as any,
+  });
+
+  // Automatically adjust upcoming scheduled meetings or generate next meetings on the new day
+  const now = new Date();
+  const futureMeetings = await db.meeting.findMany({
+    where: {
+      chapterId: data.chapterId,
+      date: { gte: now },
+      status: MeetingStatus.SCHEDULED,
+    },
+    orderBy: { date: "asc" },
+  });
+
+  if (futureMeetings.length === 0) {
+    await batchGenerateRegularMeetings(data.chapterId, 4);
+  } else {
+    const currentDayIndex = now.getDay();
+    let daysUntil = (dayOfWeek - currentDayIndex + 7) % 7;
+    if (daysUntil === 0) daysUntil = 7;
+
+    for (let i = 0; i < futureMeetings.length; i++) {
+      const nextDate = new Date(now);
+      nextDate.setDate(now.getDate() + daysUntil + i * 7);
+      nextDate.setHours(7, 30, 0, 0);
+
+      await db.meeting.update({
+        where: { id: futureMeetings[i].id },
+        data: {
+          date: nextDate,
+          location: data.meetingLocation || updated.meetingLocation || futureMeetings[i].location,
+        },
+      });
+    }
+  }
+
+  revalidatePath("/dashboard/leadership/meetings");
+  revalidatePath("/dashboard/leadership");
+  revalidatePath("/dashboard/member/meetings");
+  revalidatePath("/dashboard/director/chapters");
+  revalidatePath("/dashboard/admin/chapters");
+
+  return { success: true, chapter: updated };
+}
+
+/**
+ * Computes suggested next meeting info (e.g., 23rd Week Meeting, upcoming Sunday/Wednesday date)
+ */
+export async function getSuggestedNextMeetingInfo(chapterId: string) {
+  const chapter = await db.chapter.findUnique({ where: { id: chapterId } });
+  if (!chapter) throw new Error("Chapter not found");
+
+  const totalMeetings = await db.meeting.count({ where: { chapterId } });
+  const nextWeekNumber = totalMeetings + 1;
+  const suggestedTitle = `${getOrdinalSuffix(nextWeekNumber)} Week Meeting`;
+
+  const targetDayOfWeek = (chapter as any).meetingDayOfWeek ?? getDayOfWeekIndex(chapter.meetingDay || "Sunday");
+  const now = new Date();
+  const currentDay = now.getDay();
+  let daysUntil = (targetDayOfWeek - currentDay + 7) % 7;
+  if (daysUntil === 0) daysUntil = 7; // Next week's occurrence
+
+  const nextDate = new Date(now);
+  nextDate.setDate(now.getDate() + daysUntil);
+  nextDate.setHours(7, 30, 0, 0);
+
+  return {
+    nextWeekNumber,
+    suggestedTitle,
+    meetingDay: chapter.meetingDay || "Sunday",
+    meetingTime: chapter.meetingTime || "07:30 AM",
+    meetingLocation: chapter.meetingLocation || "Business Suites Executive Room",
+    nextDate: nextDate.toISOString().split("T")[0],
+    nextDateFormatted: nextDate.toLocaleDateString("en-IN", { weekday: "long", month: "short", day: "numeric", year: "numeric" }),
+  };
+}
+
+/**
+ * Schedule next regular meeting with sequential week naming (e.g. 23rd Week Meeting)
+ */
+export async function scheduleNextRegularMeeting(data: {
+  chapterId: string;
+  date?: Date | string;
+  title?: string;
+  location?: string;
+  meetingType?: string;
+  speaker?: string;
+  theme?: string;
+  agenda?: string;
+}) {
+  const chapter = await db.chapter.findUnique({ where: { id: data.chapterId } });
+  if (!chapter) throw new Error("Chapter not found");
+
+  let meetingDate: Date;
+  if (data.date) {
+    meetingDate = typeof data.date === "string" ? new Date(data.date) : data.date;
+  } else {
+    const targetDay = (chapter as any).meetingDayOfWeek ?? getDayOfWeekIndex(chapter.meetingDay || "Sunday");
+    const now = new Date();
+    const currentDay = now.getDay();
+    let daysUntil = (targetDay - currentDay + 7) % 7;
+    if (daysUntil === 0) daysUntil = 7;
+    meetingDate = new Date(now);
+    meetingDate.setDate(now.getDate() + daysUntil);
+    meetingDate.setHours(7, 30, 0, 0);
+  }
+
+  const count = await db.meeting.count({ where: { chapterId: data.chapterId } });
+  const weekNum = count + 1;
+  const title = data.title?.trim() || `${getOrdinalSuffix(weekNum)} Week Meeting`;
+
+  const meeting = await db.meeting.create({
+    data: {
+      chapterId: data.chapterId,
+      title,
+      date: meetingDate,
+      location: data.location || chapter.meetingLocation || "Business Suites Executive Room",
+      meetingType: data.meetingType || "HYBRID",
+      speaker: data.speaker || "",
+      theme: data.theme || "Weekly Referral & Business Exchange",
+      agenda:
+        data.agenda ||
+        "1. Open Networking & Coffee\n2. President's Welcome Address\n3. 45-Second Member Introductions\n4. Feature Presentation\n5. Referral & Closed Business Round\n6. Visitor Acknowledgement & Wrap-up",
+      status: MeetingStatus.SCHEDULED,
+      meetingNumber: `M-${weekNum.toString().padStart(3, "0")}`,
+    },
+  });
+
+  const activeMembers = await db.member.findMany({
+    where: { chapterId: data.chapterId, status: MemberStatus.ACTIVE },
+  });
+
+  for (const m of activeMembers) {
+    await db.meetingAttendance.create({
+      data: {
+        meetingId: meeting.id,
+        memberId: m.id,
+        status: AttendanceStatus.ABSENT,
+      },
+    });
+  }
+
+  revalidatePath("/dashboard/leadership/meetings");
+  revalidatePath("/dashboard/leadership");
+  revalidatePath("/dashboard/member/meetings");
+  return { success: true, meetingId: meeting.id, title, date: meetingDate };
+}
+
+/**
+ * Batch generate sequential upcoming regular meetings (e.g. next 4 or 8 weeks)
+ */
+export async function batchGenerateRegularMeetings(chapterId: string, count: number = 4) {
+  const chapter = await db.chapter.findUnique({ where: { id: chapterId } });
+  if (!chapter) throw new Error("Chapter not found");
+
+  const targetDay = (chapter as any).meetingDayOfWeek ?? getDayOfWeekIndex(chapter.meetingDay || "Sunday");
+  const latestMeeting = await db.meeting.findFirst({
+    where: { chapterId },
+    orderBy: { date: "desc" },
+  });
+
+  let baseDate = new Date();
+  if (latestMeeting && new Date(latestMeeting.date) > baseDate) {
+    baseDate = new Date(latestMeeting.date);
+  }
+
+  const existingTotal = await db.meeting.count({ where: { chapterId } });
+  const activeMembers = await db.member.findMany({
+    where: { chapterId, status: MemberStatus.ACTIVE },
+  });
+
+  const createdIds: string[] = [];
+
+  for (let i = 1; i <= count; i++) {
+    const nextDate = new Date(baseDate);
+    const currentDay = nextDate.getDay();
+    let daysUntil = (targetDay - currentDay + 7) % 7;
+    if (daysUntil === 0) daysUntil = 7;
+    nextDate.setDate(nextDate.getDate() + daysUntil + (i - 1) * 7);
+    nextDate.setHours(7, 30, 0, 0);
+
+    const weekNum = existingTotal + i;
+    const title = `${getOrdinalSuffix(weekNum)} Week Meeting`;
+
+    const meeting = await db.meeting.create({
+      data: {
+        chapterId,
+        title,
+        date: nextDate,
+        location: chapter.meetingLocation || "Business Suites Executive Room",
+        meetingType: "HYBRID",
+        status: MeetingStatus.SCHEDULED,
+        speaker: "Feature Presenter Slot Open",
+        theme: "Weekly Business Exchange",
+        agenda:
+          "1. 07:30 AM Open Networking\n2. 08:00 AM President Opening\n3. 45-Sec Introductions\n4. Feature Showcase\n5. Referral Exchange\n6. Close",
+        meetingNumber: `M-${weekNum.toString().padStart(3, "0")}`,
+      },
+    });
+
+    for (const m of activeMembers) {
+      await db.meetingAttendance.create({
+        data: {
+          meetingId: meeting.id,
+          memberId: m.id,
+          status: AttendanceStatus.ABSENT,
+        },
+      });
+    }
+
+    createdIds.push(meeting.id);
+  }
+
+  revalidatePath("/dashboard/leadership/meetings");
+  revalidatePath("/dashboard/leadership");
+  revalidatePath("/dashboard/member/meetings");
+  return { success: true, createdCount: count };
+}
+
+/**
+ * Edit / Update an existing chapter meeting (Day, Date, Title, Venue, Keynote, Theme)
+ */
+export async function updateLeadershipMeeting(data: {
+  meetingId: string;
+  title?: string;
+  date?: Date | string;
+  location?: string;
+  meetingType?: string;
+  speaker?: string;
+  theme?: string;
+  agenda?: string;
+}) {
+  const updateData: any = {};
+  if (data.title !== undefined) updateData.title = data.title.trim();
+  if (data.date !== undefined) {
+    updateData.date = typeof data.date === "string" ? new Date(data.date) : data.date;
+  }
+  if (data.location !== undefined) updateData.location = data.location.trim();
+  if (data.meetingType !== undefined) updateData.meetingType = data.meetingType;
+  if (data.speaker !== undefined) updateData.speaker = data.speaker.trim();
+  if (data.theme !== undefined) updateData.theme = data.theme.trim();
+  if (data.agenda !== undefined) updateData.agenda = data.agenda.trim();
+
+  const updated = await db.meeting.update({
+    where: { id: data.meetingId },
+    data: updateData,
+  });
+
+  revalidatePath("/dashboard/leadership/meetings");
+  revalidatePath("/dashboard/leadership/attendance");
+  revalidatePath("/dashboard/leadership");
+  revalidatePath("/dashboard/member/meetings");
+  return { success: true, meeting: updated };
+}
+
+/**
+ * Delete a scheduled chapter meeting
+ */
+export async function deleteLeadershipMeeting(meetingId: string) {
+  await db.meeting.delete({ where: { id: meetingId } });
+
+  revalidatePath("/dashboard/leadership/meetings");
+  revalidatePath("/dashboard/leadership/attendance");
+  revalidatePath("/dashboard/leadership");
+  revalidatePath("/dashboard/member/meetings");
+  return { success: true };
+}
+
 /**
  * Create a new meeting schedule.
  */
@@ -913,10 +1223,14 @@ export async function createLeadershipMeeting(data: {
   theme?: string;
   agenda?: string;
 }) {
+  const count = await db.meeting.count({ where: { chapterId: data.chapterId } });
+  const weekNum = count + 1;
+  const defaultTitle = `${getOrdinalSuffix(weekNum)} Week Meeting`;
+
   const meeting = await db.meeting.create({
     data: {
       chapterId: data.chapterId,
-      title: data.title,
+      title: data.title?.trim() || defaultTitle,
       date: data.date,
       location: data.location,
       meetingType: data.meetingType,
@@ -924,7 +1238,7 @@ export async function createLeadershipMeeting(data: {
       theme: data.theme,
       agenda: data.agenda,
       status: MeetingStatus.SCHEDULED,
-      meetingNumber: `M-${Math.floor(100 + Math.random() * 900)}`,
+      meetingNumber: `M-${weekNum.toString().padStart(3, "0")}`,
     },
   });
 
@@ -944,8 +1258,11 @@ export async function createLeadershipMeeting(data: {
 
   revalidatePath("/dashboard/leadership/meetings");
   revalidatePath("/dashboard/leadership/attendance");
+  revalidatePath("/dashboard/leadership");
+  revalidatePath("/dashboard/member/meetings");
   return { success: true, meetingId: meeting.id };
 }
+
 
 /**
  * Attendance sheet for the selected meeting.
@@ -1582,11 +1899,18 @@ export async function getLeadershipReferrals(chapterId: string) {
 export async function getLeadershipOneToOnes(chapterId: string) {
   const oneToOnes = await db.oneToOne.findMany({
     where: {
-      initiator: { chapterId },
+      OR: [
+        { initiator: { chapterId } },
+        { receiver: { chapterId } },
+      ],
     },
     include: {
-      initiator: true,
-      receiver: true,
+      initiator: {
+        include: { business: true },
+      },
+      receiver: {
+        include: { business: true },
+      },
     },
     orderBy: { date: "desc" },
   });
@@ -1594,11 +1918,27 @@ export async function getLeadershipOneToOnes(chapterId: string) {
   return oneToOnes.map((o) => ({
     id: o.id,
     initiator: `${o.initiator.firstName} ${o.initiator.lastName}`,
-    receiver: `${o.receiver.firstName} ${o.receiver.lastName}`,
-    date: new Date(o.date).toLocaleDateString("en-IN"),
-    duration: o.duration || 60,
+    initiatorEmail: o.initiator.email,
+    initiatorBusiness: o.initiator.business?.businessName || "Member Firm",
+    receiver: o.receiver ? `${o.receiver.firstName} ${o.receiver.lastName}` : (o.visitorName || "Guest Visitor"),
+    receiverEmail: o.receiver?.email || o.visitorEmail || "",
+    receiverBusiness: o.receiver?.business?.businessName || (o.isVisitorSession ? "Visitor Enterprise" : "Member Firm"),
+    date: new Date(o.date).toLocaleDateString("en-IN", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+    rawDate: o.date.toISOString(),
+    duration: o.duration || Math.round(Number(o.durationHours || 1) * 60),
+    durationHours: Number(o.durationHours || 1),
     status: o.status,
     outcome: o.outcome || "Completed 1-to-1 synergy discussion.",
+    location: o.location || "Business Executive Suites / Cafe",
+    meetingMode: o.meetingMode || "IN_PERSON",
+    selfieUrl: o.selfieUrl || null,
+    notes: o.notes || "",
+    isVisitorSession: o.isVisitorSession,
   }));
 }
 

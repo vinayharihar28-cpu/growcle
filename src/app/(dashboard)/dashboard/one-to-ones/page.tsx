@@ -1,16 +1,11 @@
-import { OneToOnesTable } from "@/features/networking/components/one-to-ones-table";
+import { Metadata } from "next";
+import { OneToOnesManagementView } from "@/features/director/components/one-to-ones-management-view";
+
+export const metadata: Metadata = {
+  title: "1-to-1 Synergy Sessions | Admin Operations",
+  description: "Monitor 1-to-1 member networking discussions and collaboration outcomes across chapters.",
+};
 
 export default function OneToOnesPage() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">1-to-1 Meetings</h2>
-        <p className="text-muted-foreground">Log and track relationship-building meetings with other chapter members.</p>
-      </div>
-      
-      <div className="grid grid-cols-1 gap-6">
-        <OneToOnesTable />
-      </div>
-    </div>
-  );
+  return <OneToOnesManagementView />;
 }

@@ -10,6 +10,7 @@ import {
   BarChart3,
   BellRing,
   CreditCard,
+  Sparkles,
 } from "lucide-react";
 
 export const leadershipNavigation: NavigationConfig = [
@@ -44,6 +45,16 @@ export const leadershipNavigation: NavigationConfig = [
         title: "Meetings",
         href: "/dashboard/leadership/meetings",
         icon: Calendar,
+      },
+      {
+        title: "Attendance & QR",
+        href: "/dashboard/leadership/attendance",
+        icon: ClipboardCheck,
+      },
+      {
+        title: "Feature Presentations",
+        href: "/dashboard/leadership/meetings",
+        icon: Sparkles,
       },
     ],
   },

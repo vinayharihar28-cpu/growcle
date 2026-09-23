@@ -25,55 +25,44 @@ function getTimeAgo(date: Date): string {
 }
 
 /**
- * Retrieves notifications for the active session user.
- * Seeds initial welcome alerts if none exist yet.
+ * Retrieves authentic notifications for the active session user and their chapter context.
  */
 export async function getHeaderNotifications(): Promise<HeaderNotification[]> {
   const session = await getCurrentSession();
   if (!session?.user?.id) return [];
 
-  let notifications = await db.notification.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "desc" },
-    take: 15,
+  // Find member to check their chapter
+  const member = await db.member.findFirst({
+    where: {
+      OR: [
+        { userId: session.user.id },
+        { email: session.user.email },
+      ],
+    },
+    select: { id: true, chapterId: true },
   });
 
-  // If no notifications exist for this user, seed useful default alerts
-  if (notifications.length === 0) {
-    const defaultAlerts = [
-      {
-        userId: session.user.id,
-        title: "Welcome to Growcle Workspace",
-        body: "Your account is active with full workspace privileges. Switch roles anytime in the header.",
-        type: "SYSTEM",
-        isRead: false,
-      },
-      {
-        userId: session.user.id,
-        title: "Chapter Synchronization Active",
-        body: "2 chapters registered: Apex Central Chapter (APX-01) & Silicon Valley Founders (SVF-02).",
-        type: "CHAPTER",
-        isRead: false,
-      },
-      {
-        userId: session.user.id,
-        title: "Next Chapter Meeting Scheduled",
-        body: "Upcoming chapter meeting scheduled for Wednesday at 07:30 AM.",
-        type: "MEETING",
-        isRead: true,
-      },
-    ];
+  const orConditions: any[] = [
+    { userId: session.user.id },
+  ];
 
-    for (const alert of defaultAlerts) {
-      await db.notification.create({ data: alert });
-    }
-
-    notifications = await db.notification.findMany({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: "desc" },
-      take: 15,
-    });
+  if (member?.id) {
+    orConditions.push({ memberId: member.id });
   }
+
+  if (member?.chapterId) {
+    orConditions.push({ chapterId: member.chapterId });
+  } else {
+    orConditions.push({ chapterId: null });
+  }
+
+  const notifications = await db.notification.findMany({
+    where: {
+      OR: orConditions,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 25,
+  });
 
   return notifications.map((n) => ({
     id: n.id,
@@ -93,7 +82,7 @@ export async function markNotificationAsRead(notificationId: string) {
   if (!session?.user?.id) return { success: false };
 
   await db.notification.updateMany({
-    where: { id: notificationId, userId: session.user.id },
+    where: { id: notificationId },
     data: { isRead: true, readAt: new Date() },
   });
 
@@ -109,7 +98,7 @@ export async function markAllNotificationsAsRead() {
   if (!session?.user?.id) return { success: false };
 
   await db.notification.updateMany({
-    where: { userId: session.user.id, isRead: false },
+    where: { isRead: false },
     data: { isRead: true, readAt: new Date() },
   });
 
@@ -125,50 +114,15 @@ export async function clearAllNotifications() {
   if (!session?.user?.id) return { success: false };
 
   await db.notification.deleteMany({
-    where: { userId: session.user.id },
-  });
-
-  revalidatePath("/", "layout");
-  return { success: true };
-}
-
-/**
- * Create a live test notification
- */
-export async function createTestNotification() {
-  const session = await getCurrentSession();
-  if (!session?.user?.id) return { success: false };
-
-  const testAlerts = [
-    {
-      title: "New Visitor Registered",
-      body: "Rajesh Sharma from Apex Tech has registered to attend the next chapter meeting.",
-      type: "VISITOR",
-    },
-    {
-      title: "Referral Received",
-      body: "You received a new high-intent business referral from Silicon Valley Founders.",
-      type: "REFERRAL",
-    },
-    {
-      title: "Meeting Attendance Reminder",
-      body: "Weekly chapter meeting begins in 24 hours. Verify your attendance roster.",
-      type: "MEETING",
-    },
-  ];
-
-  const randomAlert = testAlerts[Math.floor(Math.random() * testAlerts.length)];
-
-  await db.notification.create({
-    data: {
-      userId: session.user.id,
-      title: randomAlert.title,
-      body: randomAlert.body,
-      type: randomAlert.type,
-      isRead: false,
+    where: {
+      OR: [
+        { userId: session.user.id },
+        { isRead: true },
+      ],
     },
   });
 
   revalidatePath("/", "layout");
   return { success: true };
 }
+

@@ -20,10 +20,15 @@ import {
   Award,
   Layers,
   BarChart3,
+  Edit3,
+  Handshake,
+  MessagesSquare,
+  Sparkles,
 } from "lucide-react";
 import {
   getLeadershipContext,
   getLeadershipDashboardData,
+  updateLeadershipMeeting,
   LeadershipContext,
   LeadershipKPIs,
   UpcomingMeetingSummary,
@@ -58,31 +63,82 @@ export function LeadershipDashboardView() {
   const [activeTab, setActiveTab] = useState<"attendance" | "revenue">("attendance");
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const ctx = await getLeadershipContext();
-        const effectiveChapterId = (selectedChapterId && selectedChapterId !== "all") ? selectedChapterId : ctx.chapterId;
-        setContext({ ...ctx, chapterId: effectiveChapterId });
-        const data = await getLeadershipDashboardData(effectiveChapterId);
-        setKpis(data.kpis);
-        setUpcomingMeeting(data.upcomingMeeting);
-        setMeetingHistory(data.meetingHistory || []);
-        if (data.meetingHistory && data.meetingHistory.length > 0) {
-          setCurrentMeetingIdx(data.meetingHistory.length - 1);
-        }
-        setAttendanceComposition(data.attendanceCompositionTrend || []);
-        setWeeklyRevenue(data.weeklyRevenueTrend || []);
-        setTopReferrers(data.topReferrers || []);
-      } catch (err) {
-        console.error("Failed to load leadership dashboard data", err);
-      } finally {
-        setLoading(false);
+  // Edit Meeting Dialog State
+  const [editingMeeting, setEditingMeeting] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    date: "",
+    location: "",
+    meetingType: "HYBRID",
+    speaker: "",
+    theme: "",
+    agenda: "",
+  });
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const ctx = await getLeadershipContext();
+      const effectiveChapterId = (selectedChapterId && selectedChapterId !== "all") ? selectedChapterId : ctx.chapterId;
+      setContext({ ...ctx, chapterId: effectiveChapterId });
+      const data = await getLeadershipDashboardData(effectiveChapterId);
+      setKpis(data.kpis);
+      setUpcomingMeeting(data.upcomingMeeting);
+      setMeetingHistory(data.meetingHistory || []);
+      if (data.meetingHistory && data.meetingHistory.length > 0) {
+        setCurrentMeetingIdx(data.meetingHistory.length - 1);
       }
+      setAttendanceComposition(data.attendanceCompositionTrend || []);
+      setWeeklyRevenue(data.weeklyRevenueTrend || []);
+      setTopReferrers(data.topReferrers || []);
+    } catch (err) {
+      console.error("Failed to load leadership dashboard data", err);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     load();
   }, [selectedChapterId]);
+
+  const handleOpenEdit = (m: any) => {
+    setEditingMeeting(m);
+    setEditForm({
+      title: m.title || "",
+      date: m.rawDate ? new Date(m.rawDate).toISOString().split("T")[0] : "",
+      location: m.location || "Business Suites Executive Room",
+      meetingType: m.meetingType || "HYBRID",
+      speaker: m.speaker || "",
+      theme: m.theme || "",
+      agenda: m.agenda || "",
+    });
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMeeting) return;
+    setEditSubmitting(true);
+    try {
+      await updateLeadershipMeeting({
+        meetingId: editingMeeting.id,
+        title: editForm.title,
+        date: editForm.date,
+        location: editForm.location,
+        meetingType: editForm.meetingType,
+        speaker: editForm.speaker,
+        theme: editForm.theme,
+        agenda: editForm.agenda,
+      });
+      setEditingMeeting(null);
+      await load();
+    } catch (err) {
+      console.error("Failed to update meeting", err);
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
 
   if (loading || !context || !kpis) {
     return (
@@ -146,10 +202,22 @@ export function LeadershipDashboardView() {
       <div className="rounded-xl border bg-card p-4 shadow-sm flex flex-wrap items-center gap-2">
         <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground mr-2">Quick Actions:</span>
         <Link
-          href="/dashboard/leadership/attendance"
-          className="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 flex items-center gap-1.5 shadow-sm"
+          href="/dashboard/leadership/referrals"
+          className="rounded-md border bg-background px-3 py-1.5 text-xs font-semibold hover:bg-accent flex items-center gap-1.5"
         >
-          <QrCode className="h-3.5 w-3.5" /> Take Attendance & Fee QR
+          <Handshake className="h-3.5 w-3.5 text-emerald-600" /> Referrals
+        </Link>
+        <Link
+          href="/dashboard/leadership/one-to-ones"
+          className="rounded-md border bg-background px-3 py-1.5 text-xs font-semibold hover:bg-accent flex items-center gap-1.5"
+        >
+          <MessagesSquare className="h-3.5 w-3.5 text-blue-600" /> 1-to-1s
+        </Link>
+        <Link
+          href="/dashboard/leadership/meetings"
+          className="rounded-md border bg-background px-3 py-1.5 text-xs font-semibold hover:bg-accent flex items-center gap-1.5"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Feature Presentations
         </Link>
         <Link
           href="/dashboard/leadership/members"
@@ -273,13 +341,137 @@ export function LeadershipDashboardView() {
                 </div>
               )}
 
-              <Link
-                href={`/dashboard/leadership/attendance?meetingId=${inspectedMeeting.id}`}
-                className="rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-all text-center flex items-center justify-center gap-2 shadow-sm"
+              {/* Edit Meeting Button */}
+              <button
+                onClick={() => handleOpenEdit(inspectedMeeting)}
+                className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-xs font-bold text-foreground hover:bg-muted transition-all text-center flex items-center justify-center gap-1.5 shadow-sm"
+                title="Edit Meeting Date or Details"
               >
-                <QrCode className="h-4 w-4" /> Take Attendance & Fee QR
-              </Link>
+                <Edit3 className="h-3.5 w-3.5 text-primary" /> Edit Meeting
+              </button>
+
+              {inspectedMeeting.isTimeLocked ? (
+                <div className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-muted/70 text-muted-foreground text-xs font-semibold border border-border">
+                  <Lock className="h-4 w-4 text-amber-500 shrink-0" />
+                  <span>Opens 12:00 AM on meeting date</span>
+                </div>
+              ) : (
+                <Link
+                  href={`/dashboard/leadership/attendance?meetingId=${inspectedMeeting.id}`}
+                  className="rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-all text-center flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <QrCode className="h-4 w-4" /> Take Attendance & Fee QR
+                </Link>
+              )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Meeting Dialog */}
+      {editingMeeting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-xs p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <Edit3 className="h-5 w-5 text-primary" />
+                <h3 className="text-base font-bold text-foreground">Edit Meeting Details & Date</h3>
+              </div>
+              <button
+                onClick={() => setEditingMeeting(null)}
+                className="text-muted-foreground hover:text-foreground text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-3.5">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-foreground">Meeting Title *</label>
+                <input
+                  type="text"
+                  required
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  className="w-full border border-input rounded-xl bg-background px-3 py-2 text-xs font-bold focus:ring-2 focus:ring-primary outline-hidden"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-foreground">Meeting Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={editForm.date}
+                    onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                    className="w-full border border-input rounded-xl bg-background px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-primary outline-hidden"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-foreground">Meeting Format</label>
+                  <select
+                    value={editForm.meetingType}
+                    onChange={(e) => setEditForm({ ...editForm, meetingType: e.target.value })}
+                    className="w-full border border-input rounded-xl bg-background px-3 py-2 text-xs font-semibold focus:ring-2 focus:ring-primary outline-hidden"
+                  >
+                    <option value="HYBRID">Hybrid (In-Person & Virtual)</option>
+                    <option value="IN_PERSON">In-Person Executive</option>
+                    <option value="ONLINE">Virtual Chapter Webcast</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-foreground">Meeting Venue / Hall Location</label>
+                <input
+                  type="text"
+                  value={editForm.location}
+                  onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                  className="w-full border border-input rounded-xl bg-background px-3 py-2 text-xs focus:ring-2 focus:ring-primary outline-hidden"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-foreground">Feature Presenter / Speaker</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. John Doe"
+                    value={editForm.speaker}
+                    onChange={(e) => setEditForm({ ...editForm, speaker: e.target.value })}
+                    className="w-full border border-input rounded-xl bg-background px-3 py-2 text-xs focus:ring-2 focus:ring-primary outline-hidden"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-foreground">Meeting Theme / Showcase</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Tech Scaleups"
+                    value={editForm.theme}
+                    onChange={(e) => setEditForm({ ...editForm, theme: e.target.value })}
+                    className="w-full border border-input rounded-xl bg-background px-3 py-2 text-xs focus:ring-2 focus:ring-primary outline-hidden"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setEditingMeeting(null)}
+                  className="px-4 py-2 rounded-xl border border-border text-xs font-semibold hover:bg-muted transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSubmitting}
+                  className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer"
+                >
+                  {editSubmitting ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
