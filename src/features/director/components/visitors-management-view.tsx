@@ -83,7 +83,7 @@ export function VisitorsManagementView() {
           <div className="h-64 animate-pulse bg-muted" />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
+            <table className="w-full text-left text-sm border-collapse min-w-[650px]">
               <thead className="border-b bg-muted/50 text-xs font-semibold uppercase text-muted-foreground">
                 <tr>
                   <th className="px-6 py-3 whitespace-nowrap">Visitor Name</th>

@@ -382,7 +382,7 @@ export function MemberDashboardView() {
             </div>
 
             {/* Self Attendance Check-In Button */}
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5">
               {data.upcomingMeeting.hasCheckedIn ? (
                 <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-semibold">
                   <CheckCircle2 className="h-4 w-4" />
@@ -438,7 +438,7 @@ export function MemberDashboardView() {
           </div>
 
           {/* Chart View Switcher */}
-          <div className="flex items-center bg-muted/60 p-1 rounded-xl text-xs font-semibold">
+          <div className="flex items-center bg-muted/60 p-1 rounded-xl text-xs font-semibold overflow-x-auto max-w-full">
             <button
               onClick={() => setActiveChartTab("referrals")}
               className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${

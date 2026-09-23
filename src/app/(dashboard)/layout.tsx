@@ -1,5 +1,6 @@
 import { Sidebar } from "@/shared/components/layout/sidebar";
 import { Header } from "@/shared/components/layout/header";
+import { MobileNavBar } from "@/shared/components/layout/mobile-nav-bar";
 import { db } from "@/shared/lib/db";
 import { AuthInitializer } from "@/shared/components/layout/auth-initializer";
 import { ChapterThemeApplier } from "@/shared/components/layout/chapter-theme-applier";
@@ -160,10 +161,11 @@ export default async function DashboardLayout({
       <Sidebar />
       <div className="flex flex-1 flex-col transition-all duration-300 ease-in-out lg:ml-64">
         <Header />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 overflow-y-auto pb-20 sm:pb-8">
           {children}
         </main>
       </div>
+      <MobileNavBar />
     </div>
   );
 }

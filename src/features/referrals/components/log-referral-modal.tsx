@@ -11,7 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/sha
 import { createReferral } from "../actions/referrals";
 import { getMembers } from "@/features/members/actions/members";
 import { useAuthStore } from "@/shared/stores/auth";
-import { X, Handshake, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, Handshake, CheckCircle2, AlertCircle, Smartphone, BookUser } from "lucide-react";
+import { useContactPicker, PickedContact } from "@/shared/hooks/use-contact-picker";
+import { ContactPickerModal } from "@/shared/components/contact-picker-modal";
 
 const referralSchema = z.object({
   toMemberId: z.string().min(1, "Please select a member to pass referral to"),
@@ -37,7 +39,11 @@ export function LogReferralModal({ isOpen, onClose, onSuccess }: LogReferralModa
   const [submitSuccess, setSubmitSuccess] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState("");
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ReferralFormData>({
+  // Contact Picker States
+  const { isSupported: isContactPickerSupported, pickContact } = useContactPicker();
+  const [isContactModalOpen, setIsContactModalOpen] = React.useState(false);
+
+  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<ReferralFormData>({
     resolver: zodResolver(referralSchema),
     defaultValues: {
       toMemberId: "",
@@ -49,6 +55,27 @@ export function LogReferralModal({ isOpen, onClose, onSuccess }: LogReferralModa
       notes: "",
     }
   });
+
+  const handleSelectContact = (contact: PickedContact) => {
+    if (contact.name) setValue("referralName", contact.name, { shouldValidate: true });
+    if (contact.phone) setValue("referralPhone", contact.phone, { shouldValidate: true });
+    if (contact.email) setValue("referralEmail", contact.email, { shouldValidate: true });
+  };
+
+  const handleOpenContactPicker = async () => {
+    if (isContactPickerSupported) {
+      try {
+        const contact = await pickContact();
+        if (contact && (contact.name || contact.phone || contact.email)) {
+          handleSelectContact(contact);
+          return;
+        }
+      } catch (err) {
+        console.warn("[ContactPicker] Picker closed or error:", err);
+      }
+    }
+    setIsContactModalOpen(true);
+  };
 
   React.useEffect(() => {
     if (isOpen) {
@@ -100,10 +127,10 @@ export function LogReferralModal({ isOpen, onClose, onSuccess }: LogReferralModa
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="relative w-full max-w-lg rounded-3xl bg-background border border-border shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-3xl bg-background border border-border shadow-2xl">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b bg-muted/30">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b bg-background/95 backdrop-blur-sm">
           <div className="flex items-center gap-2 text-primary font-bold text-base">
             <Handshake className="h-5 w-5" />
             <span>Log New Referral</span>
@@ -148,6 +175,27 @@ export function LogReferralModal({ isOpen, onClose, onSuccess }: LogReferralModa
                   ))}
                 </select>
                 {errors.toMemberId && <p className="text-[11px] text-rose-500 font-medium">{errors.toMemberId.message}</p>}
+              </div>
+
+              {/* Contact Picker Trigger Banner */}
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-primary/5 border border-primary/20">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                    <BookUser className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">Select Prospect Contact</p>
+                    <p className="text-[11px] text-muted-foreground">Pick from phonebook or directory to auto-fill</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenContactPicker}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors shadow-xs cursor-pointer shrink-0"
+                >
+                  <Smartphone className="h-3.5 w-3.5" />
+                  <span>Choose Contact</span>
+                </button>
               </div>
 
               <div className="space-y-1.5">
@@ -235,6 +283,23 @@ export function LogReferralModal({ isOpen, onClose, onSuccess }: LogReferralModa
           )}
         </div>
       </div>
+
+      {/* Device Contacts & Directory Picker */}
+      <ContactPickerModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+        onSelectContact={handleSelectContact}
+        directoryContacts={members.map((m) => ({
+          id: m.id,
+          name: `${m.firstName} ${m.lastName}`.trim(),
+          phone: m.phone,
+          email: m.email,
+          businessName: m.business?.businessName,
+          industry: m.business?.industry,
+        }))}
+        title="Select Prospect Contact"
+        description="Choose a contact from your chapter directory, paste raw contact info, or use your phonebook."
+      />
     </div>
   );
 }

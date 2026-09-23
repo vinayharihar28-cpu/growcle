@@ -172,7 +172,7 @@ export function Header() {
               >
                 <SelectTrigger
                   id="header-chapter-selector"
-                  className="h-9 px-3 w-auto min-w-[170px] sm:min-w-[240px] md:min-w-[280px] max-w-[250px] sm:max-w-xs md:max-w-sm bg-muted/40 border-border/80 text-xs sm:text-sm font-medium transition-all"
+                  className="h-9 px-2.5 sm:px-3 w-auto min-w-[130px] sm:min-w-[240px] md:min-w-[280px] max-w-[170px] sm:max-w-xs md:max-w-sm bg-muted/40 border-border/80 text-xs sm:text-sm font-medium transition-all"
                 >
                   <SelectValue placeholder="All Chapters">
                     {(() => {
@@ -253,7 +253,7 @@ export function Header() {
                     className="inline-block w-2.5 h-2.5 rounded-full shrink-0 ring-1 ring-background shadow-xs"
                     style={{ backgroundColor: chapTheme.hex }}
                   />
-                  <span className="font-semibold text-foreground truncate max-w-[150px] sm:max-w-[240px]">
+                  <span className="font-semibold text-foreground truncate max-w-[120px] sm:max-w-[240px]">
                     {activeChap.name}
                   </span>
                   {activeChap.chapterCode && (
@@ -269,17 +269,25 @@ export function Header() {
 
         {/* Right: Role Switcher, Theme Toggle, Notifications, User Menu */}
         <div className="flex items-center gap-x-1.5 sm:gap-x-2.5">
-          {/* Role Switcher on Desktop/Tablet */}
-          <div className="hidden sm:block">
+          {/* Role Switcher (Mobile & Desktop) */}
+          <div className="flex items-center">
             <Select value={activeRole ?? undefined} onValueChange={(val: any) => handleRoleChange(val as Role)}>
-              <SelectTrigger className="w-[130px] sm:w-[150px] text-xs sm:text-sm h-9 bg-muted/40 hover:bg-muted/70 border-border/80 rounded-xl font-medium">
+              <SelectTrigger
+                id="header-role-switcher"
+                className="h-8 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm bg-muted/40 hover:bg-muted/70 border-border/80 rounded-xl font-bold w-auto min-w-[70px] sm:min-w-[140px] max-w-[95px] sm:max-w-[150px]"
+              >
                 <SelectValue placeholder="Role">
-                  {activeRole === "Admin" || activeRole === "Director" ? "Admin" : activeRole}
+                  <span className="inline sm:hidden font-bold text-primary truncate">
+                    {activeRole === "Leadership Team" ? "LT" : activeRole === "Admin" || activeRole === "Director" ? "Admin" : "Member"}
+                  </span>
+                  <span className="hidden sm:inline font-bold">
+                    {activeRole === "Admin" || activeRole === "Director" ? "Admin" : activeRole}
+                  </span>
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent align="end" className="min-w-[150px]">
+              <SelectContent align="end" className="min-w-[160px]">
                 {availableRoles.map((role: string) => (
-                  <SelectItem key={role} value={role}>
+                  <SelectItem key={role} value={role} className="cursor-pointer font-medium text-xs sm:text-sm">
                     {role === "Admin" || role === "Director" ? "Admin" : role}
                   </SelectItem>
                 ))}

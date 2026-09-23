@@ -141,7 +141,7 @@ export function ReportsManagementView() {
               <BarChart3 className="h-5 w-5 text-primary" /> Assigned Chapters Comparison
             </h3>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
+              <table className="w-full text-left text-sm border-collapse min-w-[650px]">
                 <thead className="border-b bg-muted/50 text-xs font-semibold uppercase text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 whitespace-nowrap">Chapter</th>

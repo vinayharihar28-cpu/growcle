@@ -14,6 +14,8 @@ import {
   Users,
   Globe,
   Quote,
+  Smartphone,
+  BookUser,
 } from "lucide-react";
 import {
   getMemberContext,
@@ -29,6 +31,8 @@ import {
 } from "../actions/member-actions";
 import { MemberHeaderBar } from "./member-header-bar";
 import { ReferralStatus } from "@prisma/client";
+import { useContactPicker, PickedContact } from "@/shared/hooks/use-contact-picker";
+import { ContactPickerModal } from "@/shared/components/contact-picker-modal";
 
 export function MemberReferralsView() {
   const [context, setContext] = useState<MemberContext | null>(null);
@@ -59,6 +63,11 @@ export function MemberReferralsView() {
     notes: "",
   });
   const [submitting, setSubmitting] = useState(false);
+
+  // Contact Picker & Mobile View States
+  const { isSupported: isContactPickerSupported, pickContact } = useContactPicker();
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"GIVEN" | "RECEIVED">("GIVEN");
 
   // TYFCB Converted Modal State
   const [selectedReferralForTYFCB, setSelectedReferralForTYFCB] = useState<any | null>(null);
@@ -118,6 +127,32 @@ export function MemberReferralsView() {
       currency: "INR",
       maximumFractionDigits: 0,
     }).format(val);
+  };
+
+  const handleSelectContact = (contact: PickedContact) => {
+    setGiveForm((prev) => ({
+      ...prev,
+      clientName: contact.name || prev.clientName,
+      clientPhone: contact.phone || prev.clientPhone,
+      clientEmail: contact.email || prev.clientEmail,
+      referralName: prev.referralName || (contact.name ? `Referral for ${contact.name}` : ""),
+    }));
+  };
+
+  const handleOpenContactPicker = async () => {
+    if (isContactPickerSupported) {
+      try {
+        const contact = await pickContact();
+        if (contact && (contact.name || contact.phone || contact.email)) {
+          handleSelectContact(contact);
+          return;
+        }
+      } catch (err) {
+        console.warn("[ContactPicker] Picker closed or error:", err);
+      }
+    }
+    // Fallback: Open directory search & smart paste card modal
+    setIsContactModalOpen(true);
   };
 
   const handleGiveSubmit = async (e: React.FormEvent) => {
@@ -263,7 +298,33 @@ export function MemberReferralsView() {
         />
       </div>
 
-      {/* Two Separate Columns: Given & Received (As requested in requirements) */}
+      {/* Mobile Tab Switcher */}
+      <div className="lg:hidden flex rounded-xl bg-muted/60 p-1 text-xs font-semibold">
+        <button
+          onClick={() => setMobileTab("GIVEN")}
+          className={`flex-1 py-2 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            mobileTab === "GIVEN"
+              ? "bg-background text-foreground shadow-xs font-bold"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <ArrowUpRight className="h-3.5 w-3.5 text-primary" />
+          Given ({referrals.given.length})
+        </button>
+        <button
+          onClick={() => setMobileTab("RECEIVED")}
+          className={`flex-1 py-2 rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            mobileTab === "RECEIVED"
+              ? "bg-background text-foreground shadow-xs font-bold"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <ArrowDownLeft className="h-3.5 w-3.5 text-blue-500" />
+          Received ({referrals.received.length})
+        </button>
+      </div>
+
+      {/* Two Separate Columns: Given & Received */}
       {loading ? (
         <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground">
           Loading referrals exchange...
@@ -271,7 +332,7 @@ export function MemberReferralsView() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           {/* COLUMN 1: GIVEN REFERRALS */}
-          <div className="space-y-4">
+          <div className={`space-y-4 ${mobileTab === "GIVEN" ? "block" : "hidden lg:block"}`}>
             <div className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border shadow-xs">
               <div className="flex items-center gap-2">
                 <ArrowUpRight className="h-4 w-4 text-primary" />
@@ -369,7 +430,7 @@ export function MemberReferralsView() {
           </div>
 
           {/* COLUMN 2: RECEIVED REFERRALS */}
-          <div className="space-y-4">
+          <div className={`space-y-4 ${mobileTab === "RECEIVED" ? "block" : "hidden lg:block"}`}>
             <div className="flex items-center justify-between p-3.5 rounded-xl bg-card border border-border shadow-xs">
               <div className="flex items-center gap-2">
                 <ArrowDownLeft className="h-4 w-4 text-blue-500" />
@@ -653,6 +714,27 @@ export function MemberReferralsView() {
                 />
               </div>
 
+              {/* Contact Picker Trigger Banner */}
+              <div className="flex items-center justify-between p-3 rounded-xl bg-primary/5 border border-primary/20">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                    <BookUser className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">Select Client Contact</p>
+                    <p className="text-[11px] text-muted-foreground">Pick from phonebook or directory to auto-fill</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenContactPicker}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors shadow-xs cursor-pointer shrink-0"
+                >
+                  <Smartphone className="h-3.5 w-3.5" />
+                  <span>Choose Contact</span>
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">Client Name / Business *</label>
@@ -812,6 +894,16 @@ export function MemberReferralsView() {
           </div>
         </div>
       )}
+
+      {/* Contact Picker Modal Fallback & Chapter Directory Picker */}
+      <ContactPickerModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+        onSelectContact={handleSelectContact}
+        directoryContacts={chapterMembers}
+        title="Select Referral Contact"
+        description="Choose a contact from your chapter directory, paste raw contact info, or use your phonebook."
+      />
     </div>
   );
 }

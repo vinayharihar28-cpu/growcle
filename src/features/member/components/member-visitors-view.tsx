@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { UserPlus, Plus, Calendar, Mail, Phone, Building2, CheckCircle2, Clock, Edit3, MessageSquare } from "lucide-react";
+import { UserPlus, Plus, Calendar, Mail, Phone, Building2, CheckCircle2, Clock, Edit3, MessageSquare, Smartphone, BookUser } from "lucide-react";
 import {
   getMemberContext,
   getMemberVisitors,
@@ -11,11 +11,17 @@ import {
 } from "../actions/member-actions";
 import { MemberHeaderBar } from "./member-header-bar";
 import { VisitorStatus } from "@prisma/client";
+import { useContactPicker, PickedContact } from "@/shared/hooks/use-contact-picker";
+import { ContactPickerModal } from "@/shared/components/contact-picker-modal";
 
 export function MemberVisitorsView() {
   const [context, setContext] = useState<MemberContext | null>(null);
   const [visitors, setVisitors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Contact Picker States
+  const { isSupported: isContactPickerSupported, pickContact } = useContactPicker();
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [form, setForm] = useState({
@@ -38,6 +44,36 @@ export function MemberVisitorsView() {
   });
   const [followUpSubmitting, setFollowUpSubmitting] = useState(false);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  const handleSelectContact = (contact: PickedContact) => {
+    const rawName = (contact.name || "").trim();
+    const parts = rawName.split(" ");
+    const firstName = parts[0] || "";
+    const lastName = parts.slice(1).join(" ");
+
+    setForm((prev) => ({
+      ...prev,
+      firstName: firstName || prev.firstName,
+      lastName: lastName || prev.lastName,
+      email: contact.email || prev.email,
+      phone: contact.phone || prev.phone,
+    }));
+  };
+
+  const handleOpenContactPicker = async () => {
+    if (isContactPickerSupported) {
+      try {
+        const contact = await pickContact();
+        if (contact && (contact.name || contact.phone || contact.email)) {
+          handleSelectContact(contact);
+          return;
+        }
+      } catch (err) {
+        console.warn("[ContactPicker] Picker closed or error:", err);
+      }
+    }
+    setIsContactModalOpen(true);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -266,6 +302,27 @@ export function MemberVisitorsView() {
             </div>
 
             <form onSubmit={handleInviteSubmit} className="space-y-4">
+              {/* Contact Picker Trigger Banner */}
+              <div className="flex items-center justify-between p-3 rounded-2xl bg-primary/5 border border-primary/20">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                    <BookUser className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-foreground">Select Visitor Contact</p>
+                    <p className="text-[11px] text-muted-foreground">Pick from phonebook to auto-fill details</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleOpenContactPicker}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors shadow-xs cursor-pointer shrink-0"
+                >
+                  <Smartphone className="h-3.5 w-3.5" />
+                  <span>Choose Contact</span>
+                </button>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-muted-foreground">First Name *</label>
@@ -440,6 +497,15 @@ export function MemberVisitorsView() {
           </div>
         </div>
       )}
+
+      {/* Device Contacts Picker Modal Fallback */}
+      <ContactPickerModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+        onSelectContact={handleSelectContact}
+        title="Select Visitor Contact"
+        description="Choose a contact from your phonebook or paste their contact info to auto-fill."
+      />
     </div>
   );
 }

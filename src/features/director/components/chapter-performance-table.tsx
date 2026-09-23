@@ -190,7 +190,7 @@ export function ChapterPerformanceTable({
       ) : (
         /* Table View */
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
+          <table className="w-full text-left text-sm border-collapse min-w-[700px]">
             <thead className="border-b bg-muted/50 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-6 py-3 whitespace-nowrap">Chapter</th>

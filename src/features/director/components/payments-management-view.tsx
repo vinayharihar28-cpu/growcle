@@ -165,10 +165,10 @@ export function PaymentsManagementView() {
       </div>
 
       {/* Tabs */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-border pb-1">
+      <div className="flex items-center gap-2 border-b border-border pb-1 overflow-x-auto max-w-full">
         <button
           onClick={() => setActiveTab("LEDGER")}
-          className={`px-4 py-2 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+          className={`px-4 py-2 text-sm font-bold border-b-2 whitespace-nowrap transition-all cursor-pointer ${
             activeTab === "LEDGER"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -178,7 +178,7 @@ export function PaymentsManagementView() {
         </button>
         <button
           onClick={() => setActiveTab("MEMBERSHIP_DUES")}
-          className={`px-4 py-2 text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+          className={`px-4 py-2 text-sm font-bold border-b-2 whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 ${
             activeTab === "MEMBERSHIP_DUES"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -193,7 +193,7 @@ export function PaymentsManagementView() {
         </button>
         <button
           onClick={() => setActiveTab("UPI_SETTINGS")}
-          className={`px-4 py-2 text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+          className={`px-4 py-2 text-sm font-bold border-b-2 whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 ${
             activeTab === "UPI_SETTINGS"
               ? "border-primary text-primary"
               : "border-transparent text-muted-foreground hover:text-foreground"
@@ -275,7 +275,7 @@ export function PaymentsManagementView() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm border-collapse">
+                <table className="w-full text-left text-sm border-collapse min-w-[650px]">
                   <thead className="border-b border-border bg-muted/50 text-xs font-semibold uppercase text-muted-foreground">
                     <tr>
                       <th className="px-6 py-3.5 whitespace-nowrap">Invoice Ref</th>
@@ -345,7 +345,7 @@ export function PaymentsManagementView() {
 
           <div className="rounded-xl border border-border bg-card shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm border-collapse">
+              <table className="w-full text-left text-sm border-collapse min-w-[650px]">
                 <thead className="border-b border-border bg-muted/50 text-xs font-semibold uppercase text-muted-foreground">
                   <tr>
                     <th className="px-6 py-3.5 whitespace-nowrap">Member Name</th>

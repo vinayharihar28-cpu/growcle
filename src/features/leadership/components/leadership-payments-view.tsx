@@ -328,7 +328,7 @@ export function LeadershipPaymentsView() {
           {/* Transactions Ledger */}
           <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-sm">
+              <table className="w-full text-left border-collapse text-sm min-w-[650px]">
                 <thead>
                   <tr className="border-b bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     <th className="py-3 px-4">Attendee Name</th>
@@ -475,7 +475,7 @@ export function LeadershipPaymentsView() {
           {/* Membership Terms Table */}
           <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-sm">
+              <table className="w-full text-left border-collapse text-sm min-w-[650px]">
                 <thead>
                   <tr className="border-b bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     <th className="py-3 px-4">Member & Business</th>
