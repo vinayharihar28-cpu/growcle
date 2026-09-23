@@ -13,6 +13,11 @@ import {
   DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 
+const getRoleLabel = (role: string) => {
+  if (role === "Admin" || role === "Director") return "Admin / Director";
+  return role;
+};
+
 export function WorkspaceSwitcher() {
   const { activeRole, availableRoles, setActiveRole } = useWorkspaceStore();
 
@@ -21,7 +26,7 @@ export function WorkspaceSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="flex h-10 w-[200px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-        {activeRole}
+        {getRoleLabel(activeRole)}
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-[200px] p-0">
@@ -35,7 +40,7 @@ export function WorkspaceSwitcher() {
             onSelect={() => setActiveRole(role)}
             className="flex items-center justify-between px-3 py-2 cursor-pointer"
           >
-            <span>{role}</span>
+            <span>{getRoleLabel(role)}</span>
             {activeRole === role && <Check className="h-4 w-4" />}
           </DropdownMenuItem>
         ))}

@@ -65,17 +65,12 @@ export const memberNavigation: NavigationConfig = [
     ],
   },
   {
-    title: "Meetings & Attendance",
+    title: "Chapter Meetings",
     items: [
       {
         title: "Chapter Meetings",
         href: "/dashboard/member/meetings",
         icon: Calendar,
-      },
-      {
-        title: "My Attendance",
-        href: "/dashboard/member/attendance",
-        icon: CheckCircle2,
       },
     ],
   },

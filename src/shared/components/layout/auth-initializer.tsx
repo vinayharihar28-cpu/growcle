@@ -39,10 +39,8 @@ export function AuthInitializer({
 
       // Determine active role based on current pathname first
       let resolvedRole: Role | null = null;
-      if (pathname.startsWith("/dashboard/admin") && availableRoles.includes("Admin")) {
+      if ((pathname.startsWith("/dashboard/admin") || pathname.startsWith("/dashboard/director")) && availableRoles.includes("Admin")) {
         resolvedRole = "Admin";
-      } else if (pathname.startsWith("/dashboard/director") && availableRoles.includes("Director")) {
-        resolvedRole = "Director";
       } else if (pathname.startsWith("/dashboard/leadership") && availableRoles.includes("Leadership Team")) {
         resolvedRole = "Leadership Team";
       } else if (pathname.startsWith("/dashboard/member") && availableRoles.includes("Member")) {
@@ -54,7 +52,9 @@ export function AuthInitializer({
         const roleCookieMatch = document.cookie.match(new RegExp("(^| )active-role=([^;]+)"));
         if (roleCookieMatch && roleCookieMatch[2]) {
           const cookieVal = decodeURIComponent(roleCookieMatch[2]) as Role;
-          if (availableRoles.includes(cookieVal)) {
+          if (cookieVal === "Director" && availableRoles.includes("Admin")) {
+            resolvedRole = "Admin";
+          } else if (availableRoles.includes(cookieVal)) {
             resolvedRole = cookieVal;
           }
         }
@@ -65,7 +65,7 @@ export function AuthInitializer({
         resolvedRole = availableRoles.includes("Admin")
           ? "Admin"
           : availableRoles.includes("Director")
-          ? "Director"
+          ? "Admin"
           : availableRoles.includes("Leadership Team")
           ? "Leadership Team"
           : availableRoles[0] || "Member";

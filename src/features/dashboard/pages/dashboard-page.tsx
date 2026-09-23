@@ -16,9 +16,8 @@ export default async function DashboardPage() {
   const savedRoleCookie = cookieStore.get("active-role")?.value;
   const savedRole = savedRoleCookie ? (decodeURIComponent(savedRoleCookie) as Role) : undefined;
 
-  if (savedRole && roles.includes(savedRole)) {
-    if (savedRole === "Admin") redirect("/dashboard/admin");
-    if (savedRole === "Director") redirect("/dashboard/director");
+  if (savedRole && (roles.includes(savedRole) || (savedRole === "Director" && roles.includes("Admin")))) {
+    if (savedRole === "Admin" || savedRole === "Director") redirect("/dashboard/admin");
     if (savedRole === "Leadership Team") redirect("/dashboard/leadership");
     if (savedRole === "Member") redirect("/dashboard/member");
   }

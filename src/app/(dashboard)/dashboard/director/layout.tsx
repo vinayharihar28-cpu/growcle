@@ -13,15 +13,13 @@ export default async function DirectorLayout({
   }
 
   const roles = await getUserAvailableRoles(session.user.id, session.user.email);
-  if (!roles.includes("Director")) {
-    if (roles.includes("Admin")) {
-      redirect("/dashboard/admin");
-    }
-    if (roles.includes("Leadership Team")) {
-      redirect("/dashboard/leadership");
-    }
-    redirect("/dashboard/member");
+  if (roles.includes("Admin") || roles.includes("Director")) {
+    redirect("/dashboard/admin");
   }
+  if (roles.includes("Leadership Team")) {
+    redirect("/dashboard/leadership");
+  }
+  redirect("/dashboard/member");
 
   return <>{children}</>;
 }

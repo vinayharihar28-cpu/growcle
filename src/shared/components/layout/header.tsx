@@ -104,10 +104,8 @@ export function Header() {
     if (typeof document !== "undefined") {
       document.cookie = `active-role=${encodeURIComponent(val)}; path=/; max-age=31536000; SameSite=Lax`;
     }
-    if (val === "Admin") {
+    if (val === "Admin" || val === "Director") {
       router.push("/dashboard/admin");
-    } else if (val === "Director") {
-      router.push("/dashboard/director");
     } else if (val === "Leadership Team") {
       router.push("/dashboard/leadership");
     } else {
@@ -273,13 +271,15 @@ export function Header() {
           {/* Role Switcher on Desktop/Tablet */}
           <div className="hidden sm:block">
             <Select value={activeRole ?? undefined} onValueChange={(val: any) => handleRoleChange(val as Role)}>
-              <SelectTrigger className="w-[130px] sm:w-[160px] text-xs sm:text-sm h-9 bg-muted/40 hover:bg-muted/70 border-border/80 rounded-xl font-medium">
-                <SelectValue placeholder="Role" />
+              <SelectTrigger className="w-[140px] sm:w-[170px] text-xs sm:text-sm h-9 bg-muted/40 hover:bg-muted/70 border-border/80 rounded-xl font-medium">
+                <SelectValue placeholder="Role">
+                  {activeRole === "Admin" || activeRole === "Director" ? "Admin / Director" : activeRole}
+                </SelectValue>
               </SelectTrigger>
-              <SelectContent align="end" className="min-w-[150px]">
+              <SelectContent align="end" className="min-w-[160px]">
                 {availableRoles.map((role: string) => (
                   <SelectItem key={role} value={role}>
-                    {role}
+                    {role === "Admin" || role === "Director" ? "Admin / Director" : role}
                   </SelectItem>
                 ))}
               </SelectContent>

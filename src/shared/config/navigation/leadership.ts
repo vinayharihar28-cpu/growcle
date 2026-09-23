@@ -53,7 +53,7 @@ export const leadershipNavigation: NavigationConfig = [
       },
       {
         title: "Feature Presentations",
-        href: "/dashboard/leadership/meetings",
+        href: "/dashboard/leadership/presentations",
         icon: Sparkles,
       },
     ],

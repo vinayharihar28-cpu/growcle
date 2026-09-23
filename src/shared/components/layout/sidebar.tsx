@@ -55,10 +55,8 @@ export function Sidebar() {
         <div className="flex h-16 shrink-0 items-center justify-between px-5 border-b">
           <Link 
             href={
-              activeRole === "Admin"
+              activeRole === "Admin" || activeRole === "Director"
                 ? "/dashboard/admin"
-                : activeRole === "Director"
-                ? "/dashboard/director"
                 : activeRole === "Leadership Team"
                 ? "/dashboard/leadership"
                 : "/dashboard/member"
@@ -139,8 +137,7 @@ export function Sidebar() {
                   document.cookie = `active-role=${encodeURIComponent(val)}; path=/; max-age=31536000; SameSite=Lax`;
                 }
                 setIsOpen(false);
-                if (val === "Admin") window.location.href = "/dashboard/admin";
-                else if (val === "Director") window.location.href = "/dashboard/director";
+                if (val === "Admin" || val === "Director") window.location.href = "/dashboard/admin";
                 else if (val === "Leadership Team") window.location.href = "/dashboard/leadership";
                 else window.location.href = "/dashboard/member";
               }}
@@ -148,7 +145,7 @@ export function Sidebar() {
             >
               {availableRoles.map((role: string) => (
                 <option key={role} value={role}>
-                  {role}
+                  {role === "Admin" || role === "Director" ? "Admin / Director" : role}
                 </option>
               ))}
             </select>

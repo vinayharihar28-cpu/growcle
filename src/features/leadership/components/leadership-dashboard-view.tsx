@@ -214,7 +214,7 @@ export function LeadershipDashboardView() {
           <MessagesSquare className="h-3.5 w-3.5 text-blue-600" /> 1-to-1s
         </Link>
         <Link
-          href="/dashboard/leadership/meetings"
+          href="/dashboard/leadership/presentations"
           className="rounded-md border bg-background px-3 py-1.5 text-xs font-semibold hover:bg-accent flex items-center gap-1.5"
         >
           <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Feature Presentations
