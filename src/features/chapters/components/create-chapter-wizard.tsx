@@ -86,7 +86,7 @@ export function CreateChapterWizard({ isOpen, onClose, onComplete }: CreateChapt
                 <div className="col-span-2 sm:col-span-1 space-y-1">
                   <label className="text-xs font-semibold text-muted-foreground">Meeting Day</label>
                   <select value={formData.meetingDay} onChange={(e) => handleChange('meetingDay', e.target.value)} className="w-full p-2 text-sm border rounded-lg bg-background">
-                    {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(d => <option key={d}>{d}</option>)}
+                    {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => <option key={d}>{d}</option>)}
                   </select>
                 </div>
                 <div className="col-span-2 sm:col-span-1 space-y-1">

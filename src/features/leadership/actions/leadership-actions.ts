@@ -549,6 +549,66 @@ export async function updateMemberStatus(memberId: string, status: MemberStatus)
 }
 
 /**
+ * Edit and update an existing Chapter Member's details
+ */
+export async function updateLeadershipMember(data: {
+  memberId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  businessName?: string;
+  industry?: string;
+  roleName?: string;
+  status?: MemberStatus;
+}) {
+  const member = await db.member.findUnique({
+    where: { id: data.memberId },
+    include: { business: true },
+  });
+  if (!member) throw new Error("Member not found");
+
+  await db.member.update({
+    where: { id: data.memberId },
+    data: {
+      firstName: data.firstName.trim(),
+      lastName: data.lastName.trim(),
+      email: data.email.trim().toLowerCase(),
+      phoneNumber: data.phone,
+      ...(data.status ? { status: data.status } : {}),
+      business: {
+        upsert: {
+          create: {
+            businessName: data.businessName || "Member Business",
+            industry: data.industry || "General",
+          },
+          update: {
+            businessName: data.businessName || "Member Business",
+            industry: data.industry || "General",
+          },
+        },
+      },
+    },
+  });
+
+  if (data.roleName) {
+    const role = await db.role.upsert({
+      where: { name: data.roleName },
+      create: { name: data.roleName, description: `${data.roleName} role` },
+      update: {},
+    });
+    await db.memberRole.deleteMany({ where: { memberId: data.memberId } });
+    await db.memberRole.create({
+      data: { memberId: data.memberId, roleId: role.id },
+    });
+  }
+
+  revalidatePath("/dashboard/leadership/members");
+  revalidatePath("/dashboard/leadership");
+  return { success: true };
+}
+
+/**
  * Fetch chapter visitors.
  */
 export async function getLeadershipVisitors(chapterId: string, status?: string) {
@@ -619,6 +679,49 @@ export async function addLeadershipVisitor(data: {
   revalidatePath("/dashboard/director/visitors");
   revalidatePath("/dashboard/member/visitors");
   return { success: true, visitorId: visitor.id };
+}
+
+/**
+ * Update visitor attendance status (ATTENDED vs NO_SHOW)
+ */
+export async function updateLeadershipVisitorStatus(visitorId: string, status: VisitorStatus) {
+  await db.visitor.update({
+    where: { id: visitorId },
+    data: { status },
+  });
+  revalidatePath("/dashboard/leadership/visitors");
+  revalidatePath("/dashboard/director/visitors");
+  return { success: true };
+}
+
+/**
+ * Edit existing visitor details
+ */
+export async function updateLeadershipVisitor(data: {
+  visitorId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  company?: string;
+  industry?: string;
+  notes?: string;
+}) {
+  await db.visitor.update({
+    where: { id: data.visitorId },
+    data: {
+      firstName: data.firstName.trim(),
+      lastName: data.lastName.trim(),
+      email: data.email.trim().toLowerCase(),
+      phone: data.phone,
+      company: data.company,
+      industry: data.industry,
+      notes: data.notes,
+    },
+  });
+  revalidatePath("/dashboard/leadership/visitors");
+  revalidatePath("/dashboard/director/visitors");
+  return { success: true };
 }
 
 /**
@@ -1557,3 +1660,122 @@ export async function getLeadershipBroadcastHistory(chapterId: string) {
     deliveredCount: 24,
   }));
 }
+
+/**
+ * Reserve or update a Feature Presentation speaker slot for a chapter meeting
+ */
+export async function bookFeaturePresentation(data: {
+  meetingId: string;
+  speaker: string;
+  theme?: string;
+  memberId?: string;
+}) {
+  const meeting = await db.meeting.update({
+    where: { id: data.meetingId },
+    data: {
+      speaker: data.speaker.trim(),
+      theme: data.theme?.trim() || "Feature Presentation",
+    },
+  });
+
+  revalidatePath("/dashboard/leadership/meetings");
+  revalidatePath("/dashboard/leadership");
+  return { success: true, meeting };
+}
+
+/**
+ * Fetch chapter membership payment status, 1-year terms, last payments, and dues
+ */
+export async function getMembershipDuesAndStatus(chapterId: string) {
+  const members = await db.member.findMany({
+    where: { chapterId, deletedAt: null },
+    include: {
+      business: true,
+      roles: { include: { role: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const now = new Date();
+
+  return members.map((m) => {
+    const joined = m.joinedAt || m.createdAt || now;
+    const renewal = m.renewalDate || m.expiresAt || new Date(new Date(joined).getTime() + 365 * 24 * 60 * 60 * 1000);
+    const isExpired = new Date(renewal).getTime() < now.getTime();
+    const daysRemaining = Math.ceil((new Date(renewal).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    let paymentStatus: "CURRENT" | "DUE_SOON" | "EXPIRED" | "OVERDUE" = "CURRENT";
+    if (isExpired) {
+      paymentStatus = "EXPIRED";
+    } else if (daysRemaining <= 30) {
+      paymentStatus = "DUE_SOON";
+    }
+
+    return {
+      memberId: m.id,
+      name: `${m.firstName} ${m.lastName}`,
+      email: m.email,
+      phone: m.phoneNumber || "N/A",
+      businessName: m.business?.businessName || "Member Firm",
+      industry: m.business?.industry || "Services",
+      membershipNumber: m.membershipNumber || `GC-MEM-${m.id.substring(0, 4).toUpperCase()}`,
+      termStartDate: new Date(joined).toLocaleDateString("en-IN"),
+      termEndDate: new Date(renewal).toLocaleDateString("en-IN"),
+      termStartDateRaw: new Date(joined).toISOString(),
+      termEndDateRaw: new Date(renewal).toISOString(),
+      daysRemaining,
+      annualFee: 25000, // Standard Annual Membership Fee
+      paymentStatus,
+      lastPaymentDate: new Date(joined).toLocaleDateString("en-IN"),
+      status: m.status,
+    };
+  });
+}
+
+/**
+ * Record an annual membership fee renewal or new term payment
+ */
+export async function recordMembershipFeePayment(data: {
+  memberId: string;
+  amount: number;
+  paymentMethod: string;
+  utr?: string;
+  termYears?: number;
+}) {
+  const member = await db.member.findUnique({ where: { id: data.memberId } });
+  if (!member) throw new Error("Member not found");
+
+  const currentRenewal = member.renewalDate || member.expiresAt || new Date();
+  const baseDate = new Date(currentRenewal) > new Date() ? new Date(currentRenewal) : new Date();
+  const years = data.termYears || 1;
+  const newRenewalDate = new Date(baseDate.getTime() + years * 365 * 24 * 60 * 60 * 1000);
+
+  await db.member.update({
+    where: { id: data.memberId },
+    data: {
+      renewalDate: newRenewalDate,
+      expiresAt: newRenewalDate,
+      status: MemberStatus.ACTIVE,
+    },
+  });
+
+  // Record transaction
+  await db.transaction.create({
+    data: {
+      memberId: data.memberId,
+      amount: data.amount,
+      currency: "INR",
+      paymentMethod: data.paymentMethod || "UPI",
+      status: "SUCCESS",
+      utr: data.utr || null,
+      description: `Annual Membership Fee Renewal (${years} Year Term)`,
+      notes: "Recorded by Leadership / Director Console",
+    } as any,
+  });
+
+  revalidatePath("/dashboard/leadership/payments");
+  revalidatePath("/dashboard/leadership/members");
+  revalidatePath("/dashboard/director/payments");
+  return { success: true, newRenewalDate };
+}
+

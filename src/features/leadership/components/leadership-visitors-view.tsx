@@ -1,14 +1,17 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { UserPlus, Search, Plus, Mail, Phone, Building2, CheckCircle2, UserCheck, ArrowRight } from "lucide-react";
+import { UserPlus, Search, Plus, Mail, Phone, Building2, CheckCircle2, UserCheck, ArrowRight, Edit3 } from "lucide-react";
 import {
   getLeadershipContext,
   getLeadershipVisitors,
   addLeadershipVisitor,
+  updateLeadershipVisitor,
+  updateLeadershipVisitorStatus,
   convertLeadershipVisitor,
   LeadershipContext,
 } from "../actions/leadership-actions";
+import { VisitorStatus } from "@prisma/client";
 import { LeadershipHeaderBar } from "./leadership-header-bar";
 
 export function LeadershipVisitorsView() {
@@ -88,6 +91,65 @@ export function LeadershipVisitorsView() {
     }
   };
 
+  // Edit Visitor Modal State
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingVisitor, setEditingVisitor] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    company: "",
+    industry: "",
+    notes: "",
+  });
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  const handleOpenEditVisitor = (visitor: any) => {
+    const nameParts = (visitor.name || "").split(" ");
+    const fName = visitor.firstName || nameParts[0] || "";
+    const lName = visitor.lastName || nameParts.slice(1).join(" ") || "";
+    setEditingVisitor(visitor);
+    setEditForm({
+      firstName: fName,
+      lastName: lName,
+      email: visitor.email || "",
+      phone: visitor.phone === "N/A" ? "" : (visitor.phone || ""),
+      company: visitor.company || "",
+      industry: visitor.industry || "",
+      notes: visitor.notes || "",
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleEditVisitorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVisitor || !editForm.firstName || !editForm.email) return;
+    setEditSubmitting(true);
+    try {
+      await updateLeadershipVisitor({
+        visitorId: editingVisitor.id,
+        ...editForm,
+      });
+      setIsEditOpen(false);
+      setEditingVisitor(null);
+      await loadData();
+    } catch (err) {
+      console.error("Failed to update visitor", err);
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  const handleStatusChange = async (visitorId: string, newStatus: VisitorStatus) => {
+    try {
+      await updateLeadershipVisitorStatus(visitorId, newStatus);
+      await loadData();
+    } catch (err) {
+      console.error("Failed to update visitor status", err);
+    }
+  };
+
   const handleConvert = async (visitor: any) => {
     if (!context) return;
     setConvertSubmitting(true);
@@ -97,6 +159,7 @@ export function LeadershipVisitorsView() {
         chapterId: context.chapterId,
       });
       setConvertingVisitor(null);
+      setIsEditOpen(false);
       await loadData();
     } catch (err) {
       console.error("Failed to convert visitor", err);
@@ -246,32 +309,32 @@ export function LeadershipVisitorsView() {
                       {v.invitedBy}
                     </td>
                     <td className="py-3 px-4">
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${
-                          v.status === "CONVERTED"
-                            ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                            : v.status === "ATTENDED"
-                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
-                            : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
-                        }`}
-                      >
-                        {v.status}
-                      </span>
+                      {v.status === "CONVERTED" ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Converted Member
+                        </span>
+                      ) : (
+                        <select
+                          value={v.status === "ATTENDED" ? "ATTENDED" : "NO_SHOW"}
+                          onChange={(e) => handleStatusChange(v.id, e.target.value as VisitorStatus)}
+                          className={`text-xs font-bold px-2.5 py-1 rounded-lg border focus:outline-hidden cursor-pointer ${
+                            v.status === "ATTENDED"
+                              ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30"
+                              : "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30"
+                          }`}
+                        >
+                          <option value="ATTENDED">Attended</option>
+                          <option value="NO_SHOW">Not Attended</option>
+                        </select>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-right">
-                      {v.status !== "CONVERTED" ? (
-                        <button
-                          onClick={() => setConvertingVisitor(v)}
-                          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline px-2.5 py-1 rounded bg-primary/10 border border-primary/20"
-                        >
-                          <UserCheck className="h-3.5 w-3.5" />
-                          <span>Convert to Member</span>
-                        </button>
-                      ) : (
-                        <span className="text-xs text-emerald-600 font-medium inline-flex items-center gap-1">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Member Active
-                        </span>
-                      )}
+                      <button
+                        onClick={() => handleOpenEditVisitor(v)}
+                        className="rounded-lg border border-input bg-card px-2.5 py-1 text-xs font-semibold hover:bg-accent text-foreground inline-flex items-center gap-1 shadow-xs cursor-pointer"
+                      >
+                        <Edit3 className="h-3.5 w-3.5 text-primary" /> Edit
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -402,6 +465,147 @@ export function LeadershipVisitorsView() {
                   className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50"
                 >
                   {submitting ? "Registering..." : "Confirm Registration"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Visitor Modal */}
+      {isEditOpen && editingVisitor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
+          <div className="bg-card border border-border rounded-xl shadow-xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <Edit3 className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-bold text-foreground">Edit Visitor Details</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsEditOpen(false);
+                  setEditingVisitor(null);
+                }}
+                className="text-muted-foreground hover:text-foreground text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleEditVisitorSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">First Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.firstName}
+                    onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Last Name</label>
+                  <input
+                    type="text"
+                    value={editForm.lastName}
+                    onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Email Address *</label>
+                  <input
+                    type="email"
+                    required
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    placeholder="+91 98765 00000"
+                    className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Company Name</label>
+                  <input
+                    type="text"
+                    value={editForm.company}
+                    onChange={(e) => setEditForm({ ...editForm, company: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Industry / Category</label>
+                  <input
+                    type="text"
+                    value={editForm.industry}
+                    onChange={(e) => setEditForm({ ...editForm, industry: e.target.value })}
+                    className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Notes / Purpose</label>
+                <textarea
+                  rows={2}
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                  placeholder="Visitor interest, guest of, or industry notes..."
+                  className="w-full mt-1 px-3 py-2 rounded-lg bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              {/* Conversion callout inside edit modal */}
+              {editingVisitor.status !== "CONVERTED" && (
+                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">Ready to join chapter?</div>
+                    <div className="text-[11px] text-muted-foreground">Enroll this visitor directly as a member</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConvertingVisitor(editingVisitor);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 cursor-pointer flex items-center gap-1.5 shadow-xs"
+                  >
+                    <UserCheck className="h-3.5 w-3.5" /> Convert to Member
+                  </button>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditOpen(false);
+                    setEditingVisitor(null);
+                  }}
+                  className="px-4 py-2 rounded-lg border border-border text-muted-foreground hover:bg-muted text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSubmitting}
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                >
+                  {editSubmitting ? "Saving..." : "Save Changes"}
                 </button>
               </div>
             </form>

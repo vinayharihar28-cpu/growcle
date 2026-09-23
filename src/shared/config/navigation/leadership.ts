@@ -38,17 +38,12 @@ export const leadershipNavigation: NavigationConfig = [
     ],
   },
   {
-    title: "Meeting Operations",
+    title: "Chapter Meetings",
     items: [
       {
         title: "Meetings",
         href: "/dashboard/leadership/meetings",
         icon: Calendar,
-      },
-      {
-        title: "Attendance Sheet",
-        href: "/dashboard/leadership/attendance",
-        icon: ClipboardCheck,
       },
     ],
   },

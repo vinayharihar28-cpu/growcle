@@ -592,6 +592,8 @@ export async function getChapterMemberDirectory(
   });
 }
 
+export const getChapterMembersList = getChapterMemberDirectory;
+
 /**
  * Detailed view of a fellow chapter member for 1-to-1 request or giving a referral
  */
@@ -1509,4 +1511,54 @@ import { getMemberNotifications as _getMemberNotifications } from "@/features/no
 export async function getMemberNotifications(memberId?: string, chapterId?: string) {
   return _getMemberNotifications(memberId, chapterId);
 }
+
+/**
+ * Record a direct TYFCB (Thank You For Closed Business) slip
+ */
+export async function recordDirectTYFCB(data: {
+  fromMemberId: string;
+  toMemberId: string;
+  chapterId: string;
+  businessName: string;
+  amount: number;
+  notes?: string;
+}) {
+  const ref = await db.referral.create({
+    data: {
+      fromMemberId: data.fromMemberId,
+      toMemberId: data.toMemberId,
+      chapterId: data.chapterId,
+      referralName: `Direct Business: ${data.businessName}`,
+      destinationBusiness: data.businessName,
+      value: data.amount,
+      tyfcbAmount: data.amount,
+      status: ReferralStatus.CLOSED_WON,
+      isClosed: true,
+      closedDate: new Date(),
+      notes: data.notes || "Direct Thank You For Closed Business slip recorded.",
+    },
+  });
+
+  try {
+    const recipient = await db.member.findUnique({
+      where: { id: data.toMemberId },
+      select: { firstName: true, lastName: true },
+    });
+    await createSystemNotification({
+      memberId: data.fromMemberId,
+      chapterId: data.chapterId,
+      title: "Direct TYFCB Slip Received! 💰",
+      message: `${recipient ? `${recipient.firstName} ${recipient.lastName}` : "A colleague"} passed a Direct Thank-You-For-Closed-Business slip for ₹${data.amount.toLocaleString("en-IN")}.`,
+      type: "TYFCB",
+    });
+  } catch (err) {
+    console.error("Failed to send TYFCB notification", err);
+  }
+
+  revalidatePath("/dashboard/member/tyfcb");
+  revalidatePath("/dashboard/member");
+  revalidatePath("/dashboard/director");
+  return { success: true, id: ref.id };
+}
+
 

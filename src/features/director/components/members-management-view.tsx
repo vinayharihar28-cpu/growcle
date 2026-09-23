@@ -14,7 +14,7 @@ import {
   CheckCircle2,
   MoreHorizontal,
 } from "lucide-react";
-import { getDirectorMembers, getAssignedChapters, addDirectorMember } from "../actions/director-actions";
+import { getDirectorMembers, getAssignedChapters, addDirectorMember, transferDirectorMember, deleteDirectorMember } from "../actions/director-actions";
 import { MemberRoleModal } from "./member-role-modal";
 
 export function MembersManagementView() {
@@ -32,6 +32,23 @@ export function MembersManagementView() {
     isOpen: boolean;
     member: any | null;
   }>({ isOpen: false, member: null });
+
+  // Transfer Member Modal State
+  const [transferState, setTransferState] = useState<{
+    isOpen: boolean;
+    memberId: string;
+    memberName: string;
+    targetChapterId: string;
+  }>({ isOpen: false, memberId: "", memberName: "", targetChapterId: "" });
+  const [transferLoading, setTransferLoading] = useState(false);
+
+  // Delete Member Modal State
+  const [deleteMemberState, setDeleteMemberState] = useState<{
+    isOpen: boolean;
+    memberId: string;
+    memberName: string;
+  }>({ isOpen: false, memberId: "", memberName: "" });
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Add Member Modal
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
@@ -87,6 +104,34 @@ export function MembersManagementView() {
       console.error("Failed to add member", err);
     } finally {
       setAddLoading(false);
+    }
+  };
+
+  const handleTransferSubmit = async () => {
+    if (!transferState.memberId || !transferState.targetChapterId) return;
+    setTransferLoading(true);
+    try {
+      await transferDirectorMember(transferState.memberId, transferState.targetChapterId);
+      setTransferState({ isOpen: false, memberId: "", memberName: "", targetChapterId: "" });
+      loadMembers();
+    } catch (err) {
+      console.error("Failed to transfer member", err);
+    } finally {
+      setTransferLoading(false);
+    }
+  };
+
+  const handleDeleteSubmit = async () => {
+    if (!deleteMemberState.memberId) return;
+    setDeleteLoading(true);
+    try {
+      await deleteDirectorMember(deleteMemberState.memberId);
+      setDeleteMemberState({ isOpen: false, memberId: "", memberName: "" });
+      loadMembers();
+    } catch (err) {
+      console.error("Failed to delete member", err);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -200,12 +245,29 @@ export function MembersManagementView() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => setRoleModalState({ isOpen: true, member: m })}
-                          className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-3 py-1 text-xs font-semibold hover:bg-accent transition-colors"
-                        >
-                          <ShieldAlert className="h-3.5 w-3.5 text-primary" /> Change Role
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setRoleModalState({ isOpen: true, member: m })}
+                            className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2.5 py-1 text-xs font-semibold hover:bg-accent transition-colors"
+                            title="Change Role"
+                          >
+                            <ShieldAlert className="h-3.5 w-3.5 text-primary" /> Role
+                          </button>
+                          <button
+                            onClick={() => setTransferState({ isOpen: true, memberId: m.id, memberName: `${m.firstName} ${m.lastName}`, targetChapterId: chapters[0]?.id || "" })}
+                            className="inline-flex items-center gap-1 rounded-md border border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2.5 py-1 text-xs font-semibold hover:bg-indigo-500/20 transition-colors"
+                            title="Transfer Chapter"
+                          >
+                            <Building2 className="h-3.5 w-3.5" /> Transfer
+                          </button>
+                          <button
+                            onClick={() => setDeleteMemberState({ isOpen: true, memberId: m.id, memberName: `${m.firstName} ${m.lastName}` })}
+                            className="inline-flex items-center gap-1 rounded-md border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2.5 py-1 text-xs font-semibold hover:bg-rose-500/20 transition-colors"
+                            title="Remove Member"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -230,6 +292,54 @@ export function MembersManagementView() {
         } : null}
         onSuccess={loadMembers}
       />
+
+      {/* Transfer Member Modal */}
+      {transferState.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl space-y-4">
+            <h3 className="text-lg font-bold">Transfer Member to Chapter</h3>
+            <p className="text-xs text-muted-foreground">
+              Transfer <span className="font-semibold text-foreground">{transferState.memberName}</span> to a different chapter.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase mb-1">Target Chapter *</label>
+              <select
+                value={transferState.targetChapterId}
+                onChange={(e) => setTransferState({ ...transferState, targetChapterId: e.target.value })}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                {chapters.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <button onClick={() => setTransferState({ isOpen: false, memberId: "", memberName: "", targetChapterId: "" })} className="rounded-md border px-4 py-2 text-sm font-semibold">Cancel</button>
+              <button onClick={handleTransferSubmit} disabled={transferLoading} className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                {transferLoading ? "Transferring..." : "Confirm Transfer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove / Delete Member Modal */}
+      {deleteMemberState.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-xl border bg-card p-6 shadow-xl space-y-4">
+            <h3 className="text-lg font-bold text-rose-600">Remove Member</h3>
+            <p className="text-xs text-muted-foreground">
+              Are you sure you want to remove <span className="font-semibold text-foreground">{deleteMemberState.memberName}</span> from chapter membership? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <button onClick={() => setDeleteMemberState({ isOpen: false, memberId: "", memberName: "" })} className="rounded-md border px-4 py-2 text-sm font-semibold">Cancel</button>
+              <button onClick={handleDeleteSubmit} disabled={deleteLoading} className="rounded-md bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700">
+                {deleteLoading ? "Removing..." : "Remove Member"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Member Modal */}
       {isAddMemberOpen && (

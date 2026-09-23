@@ -17,9 +17,12 @@ import {
 import {
   getMemberContext,
   getMemberTYFCBSummary,
+  recordDirectTYFCB,
+  getChapterMembersList,
   MemberContext,
 } from "@/features/member/actions/member-actions";
 import { MemberHeaderBar } from "@/features/member/components/member-header-bar";
+import { Button } from "@/shared/components/ui/button";
 
 export function TYFCBDashboardView() {
   const [context, setContext] = useState<MemberContext | null>(null);
@@ -42,6 +45,15 @@ export function TYFCBDashboardView() {
   const [activeTab, setActiveTab] = useState<"received" | "given" | "testimonials">("received");
   const [search, setSearch] = useState("");
 
+  // Direct TYFCB modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [members, setMembers] = useState<any[]>([]);
+  const [selectedFromMemberId, setSelectedFromMemberId] = useState("");
+  const [businessName, setBusinessName] = useState("");
+  const [amount, setAmount] = useState("");
+  const [notes, setNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -49,6 +61,10 @@ export function TYFCBDashboardView() {
       setContext(ctx);
       const summary = await getMemberTYFCBSummary(ctx.memberId);
       setData(summary);
+      if (ctx.chapterId) {
+        const mems = await getChapterMembersList(ctx.chapterId);
+        setMembers(mems.filter((m: any) => m.id !== ctx.memberId));
+      }
     } catch (err) {
       console.error("Failed to load TYFCB summary", err);
     } finally {
@@ -59,6 +75,31 @@ export function TYFCBDashboardView() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleRecordDirectTYFCB = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!context || !selectedFromMemberId || !businessName || !amount) return;
+    setSubmitting(true);
+    try {
+      await recordDirectTYFCB({
+        fromMemberId: selectedFromMemberId,
+        toMemberId: context.memberId,
+        chapterId: context.chapterId,
+        businessName,
+        amount: parseFloat(amount) || 0,
+        notes,
+      });
+      setIsModalOpen(false);
+      setBusinessName("");
+      setAmount("");
+      setNotes("");
+      loadData();
+    } catch (err) {
+      console.error("Failed to record direct TYFCB", err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const formatINR = (val: number) => {
     return new Intl.NumberFormat("en-IN", {
@@ -96,6 +137,9 @@ export function TYFCBDashboardView() {
             Track business revenue generated for fellow chapter colleagues and closed deals won through referral synergy.
           </p>
         </div>
+        <Button onClick={() => setIsModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+          + Record Direct TYFCB Slip
+        </Button>
       </div>
 
       {/* Summary KPI Cards */}

@@ -28,6 +28,64 @@ export function ReportsManagementView() {
     load();
   }, [chapterId]);
 
+  const handleExportExcel = async () => {
+    if (!reports || !chapters) return;
+    try {
+      const { exportMultiSheetExcel } = await import("@/lib/export-utils");
+      const { getDirectorMembers, getDirectorMeetings } = await import("../actions/director-actions");
+
+      const sheets: any[] = [];
+
+      // Sheet 1: Chapters Overview
+      const overviewHeaders = ["Chapter Name", "Region", "Active Members", "Attendance %", "Visitors", "Visitor Conv %", "Closed Business (INR)"];
+      const overviewRows = reports.chapters.map((c: any) => [
+        c.name,
+        c.region || "Region",
+        c.memberCount,
+        `${c.attendanceRate}%`,
+        c.visitorCount,
+        `${c.visitorConversion}%`,
+        c.closedBusiness,
+      ]);
+      sheets.push({ name: "Chapters Overview", headers: overviewHeaders, rows: overviewRows });
+
+      // Sheet 2..N: Chapter-Wise Members Sheets
+      for (const chap of reports.chapters) {
+        const mems = await getDirectorMembers({ chapterId: chap.id });
+        const memHeaders = ["Member Name", "Email", "Phone", "Business Name", "Industry", "Role", "Status"];
+        const memRows = mems.map((m: any) => [
+          `${m.firstName} ${m.lastName}`,
+          m.email,
+          m.phone || "N/A",
+          m.businessName || "Member",
+          m.industry || "General",
+          m.currentRole || "MEMBER",
+          m.status,
+        ]);
+        sheets.push({ name: `${chap.name.substring(0, 20)} Members`, headers: memHeaders, rows: memRows });
+      }
+
+      // Meeting-Wise Breakdown Sheet
+      const meetings = await getDirectorMeetings(chapterId);
+      const meetingHeaders = ["Meeting Date", "Chapter", "Meeting Title", "Speaker", "Location", "Type", "Attendees", "Status"];
+      const meetingRows = meetings.map((m: any) => [
+        new Date(m.date).toLocaleDateString("en-IN"),
+        m.chapterName,
+        m.title,
+        m.speaker,
+        m.location,
+        m.meetingType,
+        m.attendanceCount,
+        m.status,
+      ]);
+      sheets.push({ name: "Meeting-Wise Breakdown", headers: meetingHeaders, rows: meetingRows });
+
+      await exportMultiSheetExcel(`director_reports_${new Date().toISOString().split("T")[0]}`, sheets);
+    } catch (err) {
+      console.error("Failed to export Excel report", err);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -36,10 +94,10 @@ export function ReportsManagementView() {
           <p className="text-muted-foreground">Comprehensive chapter performance, membership metrics, referral revenues, and leadership reports.</p>
         </div>
         <button
-          onClick={() => alert("Report exported successfully as CSV/PDF!")}
-          className="rounded-md border border-input bg-background px-4 py-2 text-sm font-semibold hover:bg-accent flex items-center gap-2 self-start md:self-auto"
+          onClick={handleExportExcel}
+          className="rounded-md border border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-4 py-2 text-sm font-semibold hover:bg-indigo-500/20 flex items-center gap-2 self-start md:self-auto cursor-pointer"
         >
-          <Download className="h-4 w-4" /> Export Report Data
+          <Download className="h-4 w-4" /> Export Multi-Sheet Excel
         </button>
       </div>
 

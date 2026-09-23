@@ -86,8 +86,15 @@ export function Sidebar() {
               )}
               <ul className="space-y-1">
                 {section.items.map((item) => {
-                  const isActive =
-                    pathname === item.href || pathname.startsWith(`${item.href}/`);
+                  const isRootDashboard =
+                    item.href === "/dashboard/leadership" ||
+                    item.href === "/dashboard/director" ||
+                    item.href === "/dashboard/member" ||
+                    item.href === "/dashboard/admin" ||
+                    item.href === "/dashboard";
+                  const isActive = isRootDashboard
+                    ? pathname === item.href
+                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
                   const Icon = item.icon;
                   return (
                     <li key={item.href}>

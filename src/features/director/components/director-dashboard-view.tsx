@@ -118,6 +118,64 @@ export function DirectorDashboardView() {
         </div>
       )}
 
+      {/* Visitor Pipeline Status Overview */}
+      {kpis && (
+        <div className="bg-card border border-border rounded-xl p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b pb-3">
+            <div>
+              <h3 className="font-bold text-base text-foreground flex items-center gap-2">
+                <Users className="h-5 w-5 text-indigo-500" /> Visitors Pipeline & Status Tracking
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Real-time visitor conversion funnel across assigned chapters.
+              </p>
+            </div>
+            <Link
+              href="/dashboard/director/visitors"
+              className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+            >
+              View Detailed Visitors List <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="p-4 rounded-xl border border-blue-500/20 bg-blue-500/5 space-y-1">
+              <div className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                Upcoming / Pending
+              </div>
+              <div className="text-2xl font-bold text-foreground">{kpis.upcomingVisitors}</div>
+              <p className="text-[11px] text-muted-foreground">Registered for upcoming meetings</p>
+            </div>
+
+            <div className="p-4 rounded-xl border border-indigo-500/20 bg-indigo-500/5 space-y-1">
+              <div className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                Attended Meetings
+              </div>
+              <div className="text-2xl font-bold text-foreground">{kpis.attendedVisitors}</div>
+              <p className="text-[11px] text-muted-foreground">Visited chapter meeting</p>
+            </div>
+
+            <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 space-y-1">
+              <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+                Converted Members
+              </div>
+              <div className="text-2xl font-bold text-foreground">{kpis.convertedVisitors}</div>
+              <p className="text-[11px] text-muted-foreground">
+                {kpis.visitorConversionRate}% conversion rate
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl border border-rose-500/20 bg-rose-500/5 space-y-1">
+              <div className="text-xs font-semibold text-rose-600 dark:text-rose-400 uppercase tracking-wider">
+                No Shows
+              </div>
+              <div className="text-2xl font-bold text-foreground">{kpis.noShowVisitors}</div>
+              <p className="text-[11px] text-muted-foreground">Requires follow-up invite</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Chapters Performance & Comparison Table */}
       <ChapterPerformanceTable
         chapters={chapters}

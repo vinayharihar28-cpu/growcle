@@ -25,7 +25,7 @@ export async function getMemberNotifications(
   chapterId?: string
 ): Promise<NotificationItem[]> {
   try {
-    const whereConditions: any[] = [{ chapterId: null, memberId: null }];
+    const whereConditions: any[] = [{ chapterId: null }];
 
     if (chapterId && chapterId !== "all") {
       whereConditions.push({ chapterId });

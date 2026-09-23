@@ -17,11 +17,13 @@ import {
   UserCheck,
   UserPlus,
   RefreshCw,
+  Edit3,
 } from "lucide-react";
 import {
   getLeadershipContext,
   getLeadershipMembers,
   addLeadershipMember,
+  updateLeadershipMember,
   getLeadershipVisitors,
   addLeadershipVisitor,
   updateMemberStatus,
@@ -60,7 +62,7 @@ export function LeadershipMembersView() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // Quick Add Visitor Modal
+  // Add Visitor Modal
   const [isAddVisitorOpen, setIsAddVisitorOpen] = useState(false);
   const [visitorForm, setVisitorForm] = useState({
     firstName: "",
@@ -72,6 +74,67 @@ export function LeadershipMembersView() {
     invitedByMemberId: "",
   });
   const [visitorSubmitting, setVisitorSubmitting] = useState(false);
+
+  // Edit Member Modal State
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    businessName: string;
+    industry: string;
+    roleName: string;
+    status: MemberStatus;
+  }>({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    businessName: "",
+    industry: "",
+    roleName: "MEMBER",
+    status: MemberStatus.ACTIVE,
+  });
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  const handleOpenEdit = (member: any) => {
+    const nameParts = (member.name || "").split(" ");
+    const fName = member.firstName || nameParts[0] || "";
+    const lName = member.lastName || nameParts.slice(1).join(" ") || "";
+    setEditingMemberId(member.id);
+    setEditForm({
+      firstName: fName,
+      lastName: lName,
+      email: member.email || "",
+      phone: member.phone || "",
+      businessName: member.businessName || "",
+      industry: member.industry || "",
+      roleName: member.currentRole || "MEMBER",
+      status: member.status || MemberStatus.ACTIVE,
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMemberId || !editForm.firstName || !editForm.email) return;
+    setEditSubmitting(true);
+    try {
+      await updateLeadershipMember({
+        memberId: editingMemberId,
+        ...editForm,
+      });
+      setIsEditOpen(false);
+      setEditingMemberId(null);
+      loadData();
+    } catch (err) {
+      console.error("Failed to update member", err);
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -366,8 +429,8 @@ export function LeadershipMembersView() {
                         </td>
 
                         <td className="px-6 py-3.5">
-                          <div className="text-foreground font-semibold flex items-center gap-1.5">
-                            <Building2 className="h-3.5 w-3.5 text-primary" /> {m.businessName}
+                          <div className="text-foreground font-semibold">
+                            {m.businessName}
                           </div>
                           <div className="text-xs text-muted-foreground">{m.industry}</div>
                         </td>
@@ -394,10 +457,10 @@ export function LeadershipMembersView() {
 
                         <td className="px-6 py-3.5 text-right">
                           <button
-                            onClick={() => handleToggleStatus(m.id, m.status)}
-                            className="rounded-lg border border-input bg-card px-2.5 py-1 text-xs font-semibold hover:bg-accent text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                            onClick={() => handleOpenEdit(m)}
+                            className="rounded-lg border border-input bg-card px-2.5 py-1 text-xs font-semibold hover:bg-accent text-foreground inline-flex items-center gap-1 shadow-xs cursor-pointer"
                           >
-                            <RefreshCw className="h-3 w-3" /> Toggle Status
+                            <Edit3 className="h-3.5 w-3.5 text-primary" /> Edit
                           </button>
                         </td>
                       </tr>
@@ -697,6 +760,130 @@ export function LeadershipMembersView() {
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
                 >
                   {visitorSubmitting ? "Saving..." : "Add Visitor"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {isEditOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="w-full max-w-md rounded-2xl border bg-card p-6 shadow-2xl space-y-4 animate-in zoom-in-95">
+            <h3 className="text-lg font-bold text-foreground">Edit Member Details</h3>
+            <p className="text-xs text-muted-foreground">
+              Update contact information, business profile, and chapter roles.
+            </p>
+
+            <form onSubmit={handleEditSubmit} className="space-y-3.5">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">First Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.firstName}
+                    onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Last Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.lastName}
+                    onChange={(e) => setEditForm({ ...editForm, lastName: e.target.value })}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm mt-1"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Email *</label>
+                  <input
+                    type="email"
+                    required
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm mt-1"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Phone</label>
+                  <input
+                    type="text"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm mt-1"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Business Name</label>
+                <input
+                  type="text"
+                  value={editForm.businessName}
+                  onChange={(e) => setEditForm({ ...editForm, businessName: e.target.value })}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm mt-1"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Industry / Classification</label>
+                <input
+                  type="text"
+                  value={editForm.industry}
+                  onChange={(e) => setEditForm({ ...editForm, industry: e.target.value })}
+                  className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm mt-1"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Chapter Role</label>
+                  <select
+                    value={editForm.roleName}
+                    onChange={(e) => setEditForm({ ...editForm, roleName: e.target.value })}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm mt-1"
+                  >
+                    <option value="MEMBER">Member</option>
+                    <option value="PRESIDENT">President</option>
+                    <option value="VICE_PRESIDENT">Vice President</option>
+                    <option value="TREASURER">Treasurer</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Membership Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as MemberStatus })}
+                    className="w-full rounded-lg border border-input bg-background px-3 py-1.5 text-sm mt-1"
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="INACTIVE">Inactive</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsEditOpen(false)}
+                  className="rounded-lg border border-input bg-background px-4 py-2 text-xs font-semibold hover:bg-accent"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSubmitting}
+                  className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {editSubmitting ? "Saving Changes..." : "Save Member"}
                 </button>
               </div>
             </form>

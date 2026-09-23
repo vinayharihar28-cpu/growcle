@@ -13,13 +13,15 @@ import {
 import Link from 'next/link';
 
 import { updateChapterDetails } from '@/features/director/actions/director-actions';
+import { ChapterDetailView } from '@/features/director/components/chapter-detail-view';
 
 export function ChapterDetailsPage({ chapterId }: { chapterId: string }) {
   const [chapter, setChapter] = useState<ChapterDetails | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'leadership' | 'meetings' | 'referrals' | 'settings'>('overview');
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [togglingStatus, setTogglingStatus] = useState(false);
   const [settingsForm, setSettingsForm] = useState({
     name: '',
     code: '',
@@ -97,6 +99,26 @@ export function ChapterDetailsPage({ chapterId }: { chapterId: string }) {
     }
   };
 
+  const handleToggleStatus = async () => {
+    if (!chapter) return;
+    setTogglingStatus(true);
+    const newStatus = chapter.status === 'ACTIVE' ? false : true;
+    try {
+      await updateChapterDetails({
+        chapterId,
+        isActive: newStatus,
+      });
+      setChapter((prev) => prev ? {
+        ...prev,
+        status: newStatus ? 'ACTIVE' : 'INACTIVE',
+      } : null);
+    } catch (err) {
+      console.error("Failed to update chapter status", err);
+    } finally {
+      setTogglingStatus(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6 p-6">
@@ -157,8 +179,22 @@ export function ChapterDetailsPage({ chapterId }: { chapterId: string }) {
             <Button size="sm" variant="outline" className="text-xs cursor-pointer" onClick={() => setActiveTab('settings')}>
               <FileEdit className="w-4 h-4 mr-1" /> Edit Chapter
             </Button>
-            <Button size="sm" variant="outline" className="text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50">
-              <Ban className="w-4 h-4 mr-1" /> Deactivate
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={togglingStatus}
+              onClick={handleToggleStatus}
+              className={`text-xs cursor-pointer ${
+                chapter.status === 'ACTIVE'
+                  ? 'text-rose-600 hover:text-rose-700 hover:bg-rose-50'
+                  : 'text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50'
+              }`}
+            >
+              {chapter.status === 'ACTIVE' ? (
+                <><Ban className="w-4 h-4 mr-1" /> {togglingStatus ? 'Deactivating...' : 'Deactivate'}</>
+              ) : (
+                <><CheckCircle className="w-4 h-4 mr-1" /> {togglingStatus ? 'Activating...' : 'Activate'}</>
+              )}
             </Button>
           </div>
         </div>
@@ -279,10 +315,10 @@ export function ChapterDetailsPage({ chapterId }: { chapterId: string }) {
               <div className="p-5 rounded-2xl border bg-card space-y-4">
                 <h3 className="font-bold text-sm border-b pb-2">Chapter Actions</h3>
                 <div className="flex flex-col gap-2">
-                  <Button variant="outline" className="justify-start text-xs h-9">
+                  <Button variant="outline" className="justify-start text-xs h-9 cursor-pointer" onClick={() => setActiveTab('members')}>
                     <Users className="w-4 h-4 mr-2 text-muted-foreground" /> View Member Directory
                   </Button>
-                  <Button variant="outline" className="justify-start text-xs h-9">
+                  <Button variant="outline" className="justify-start text-xs h-9 cursor-pointer" onClick={() => setActiveTab('meetings')}>
                     <Calendar className="w-4 h-4 mr-2 text-muted-foreground" /> Schedule Meeting
                   </Button>
                   <Button variant="outline" className="justify-start text-xs h-9 cursor-pointer" onClick={() => setActiveTab('settings')}>
@@ -473,12 +509,7 @@ export function ChapterDetailsPage({ chapterId }: { chapterId: string }) {
         )}
 
         {activeTab !== 'overview' && activeTab !== 'settings' && (
-          <div className="p-12 text-center border rounded-2xl bg-card border-dashed">
-            <h3 className="text-lg font-bold text-foreground">Tab Content</h3>
-            <p className="text-sm text-muted-foreground mt-2">
-              The {activeTab} view for this chapter would be rendered here.
-            </p>
-          </div>
+          <ChapterDetailView chapterId={chapterId} />
         )}
       </div>
 

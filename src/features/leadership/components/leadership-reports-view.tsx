@@ -76,17 +76,17 @@ export function LeadershipReportsView({ forcedRole }: ReportsViewProps) {
 
   const handleExportCsv = () => {
     const { exportToCsv } = require("@/lib/export-utils");
-    const headers = ["Meeting Date", "Meeting Title", "Turnout %", "Present", "Absent", "Visitors", "Fee Collected (INR)"];
+    const headers = ["Meeting Date", "Meeting Title", "Turnout %", "Present Attendees", "Absent Attendees", "Total Expected", "Fee Collected (INR)"];
     const rows = reports.map((r) => [
-      new Date(r.meetingDate).toLocaleDateString(),
-      r.meetingTitle || "Weekly Meeting",
+      r.date || (r.rawDate ? new Date(r.rawDate).toLocaleDateString("en-IN") : "N/A"),
+      r.title || "Chapter Business Meeting",
       `${r.turnoutPercentage}%`,
-      r.presentCount,
-      r.absentCount,
-      r.visitorCount,
-      r.totalCollection,
+      r.presentCount || 0,
+      r.absentCount || 0,
+      r.totalAttendees || 0,
+      r.totalCollection || 0,
     ]);
-    exportToCsv(`meeting_reports_${context?.chapterName || "chapter"}`, headers, rows);
+    exportToCsv(`chapter_meeting_reports_${context?.chapterCode || "CHP"}`, headers, rows);
   };
 
   const roleTitle =
@@ -244,11 +244,36 @@ export function LeadershipReportsView({ forcedRole }: ReportsViewProps) {
 
       {/* Detailed Meeting Report Inspection Modal */}
       {selectedMeetingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="relative w-full max-w-3xl rounded-2xl border bg-card p-6 shadow-2xl space-y-6 my-8 animate-in fade-in zoom-in duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto print:static print:bg-transparent print:p-0 print:overflow-visible">
+          <style>{`
+            @media print {
+              body * {
+                visibility: hidden !important;
+              }
+              #printable-meeting-report, #printable-meeting-report * {
+                visibility: visible !important;
+              }
+              #printable-meeting-report {
+                position: absolute !important;
+                left: 0 !important;
+                top: 0 !important;
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 20px !important;
+                background: white !important;
+                color: black !important;
+                box-shadow: none !important;
+                border: none !important;
+              }
+              .print-hide-button {
+                display: none !important;
+              }
+            }
+          `}</style>
+          <div id="printable-meeting-report" className="relative w-full max-w-3xl rounded-2xl border bg-card p-6 shadow-2xl space-y-6 my-8 animate-in fade-in zoom-in duration-150">
             <button
               onClick={() => setSelectedMeetingId(null)}
-              className="absolute right-4 top-4 rounded-full p-1.5 text-muted-foreground hover:bg-muted"
+              className="absolute right-4 top-4 rounded-full p-1.5 text-muted-foreground hover:bg-muted print-hide-button"
             >
               <X className="h-5 w-5" />
             </button>
@@ -261,7 +286,7 @@ export function LeadershipReportsView({ forcedRole }: ReportsViewProps) {
               <div className="space-y-6">
                 {/* Header */}
                 <div className="border-b pb-4">
-                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary">
+                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary print:border print:border-black">
                     Executive Meeting Report
                   </span>
                   <h3 className="text-2xl font-bold text-foreground mt-2">{reportDetail.meeting.title}</h3>
@@ -353,7 +378,7 @@ export function LeadershipReportsView({ forcedRole }: ReportsViewProps) {
                 )}
 
                 {/* Modal Footer */}
-                <div className="flex justify-end gap-2 pt-2 border-t">
+                <div className="flex justify-end gap-2 pt-2 border-t print-hide-button">
                   <button
                     onClick={() => setSelectedMeetingId(null)}
                     className="rounded-lg border border-input bg-background px-4 py-2 text-xs font-semibold hover:bg-accent"
