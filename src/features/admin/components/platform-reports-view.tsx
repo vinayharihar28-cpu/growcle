@@ -16,11 +16,13 @@ import {
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { LeadershipReportsView } from '@/features/leadership/components/leadership-reports-view';
-import { exportToCsv } from '@/lib/export-utils';
+import { exportToCsv, exportMeetingWiseReportToExcel } from '@/lib/export-utils';
+import { getMeetingWiseReportData } from '@/features/director/actions/director-actions';
 
 export function PlatformReportsView() {
   const [timeRange, setTimeRange] = useState<'30d' | '3m' | '6m' | '12m'>('6m');
   const [activeSubTab, setActiveSubTab] = useState<'membership' | 'chapters' | 'visitors' | 'referrals' | 'finance' | 'meetings'>('membership');
+  const [exporting, setExporting] = useState(false);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -34,7 +36,20 @@ export function PlatformReportsView() {
     window.print();
   };
 
-  const handleExportCsv = () => {
+  const handleExportCsv = async () => {
+    if (activeSubTab === 'meetings') {
+      try {
+        setExporting(true);
+        const data = await getMeetingWiseReportData();
+        exportMeetingWiseReportToExcel(data, `platform_all_meetings_report_${new Date().toISOString().split("T")[0]}`);
+      } catch (err) {
+        console.error("Meeting export error", err);
+      } finally {
+        setExporting(false);
+      }
+      return;
+    }
+
     const headers = ["Metric", "Range", "Active Tab", "Generated Date"];
     const rows = [
       ["Platform Performance Analytics", timeRange, activeSubTab, new Date().toLocaleDateString()],
@@ -79,10 +94,12 @@ export function PlatformReportsView() {
           <Button
             size="sm"
             variant="outline"
+            disabled={exporting}
             className="text-xs h-9 cursor-pointer"
             onClick={handleExportCsv}
           >
-            <Download className="w-4 h-4 mr-1.5 text-indigo-500" /> Export CSV / Excel
+            <Download className="w-4 h-4 mr-1.5 text-indigo-500" />
+            {exporting ? "Exporting..." : "Export CSV / Excel"}
           </Button>
 
           <Button

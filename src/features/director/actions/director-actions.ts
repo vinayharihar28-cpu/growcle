@@ -386,22 +386,23 @@ export async function updateChapterDetails(data: {
   themeColor?: string;
   upiId?: string;
   upiName?: string;
+  description?: string;
   isActive?: boolean;
 }) {
   const existing = await db.chapter.findUnique({ where: { id: data.chapterId } });
   if (!existing) throw new Error("Chapter not found");
 
   const updateData: any = {};
-  if (data.name !== undefined) updateData.name = data.name;
-  if (data.chapterCode !== undefined) updateData.chapterCode = data.chapterCode;
-  if (data.region !== undefined) updateData.region = data.region;
-  if (data.meetingLocation !== undefined) updateData.meetingLocation = data.meetingLocation;
-  if (data.meetingTime !== undefined) updateData.meetingTime = data.meetingTime;
+  if (data.name !== undefined) updateData.name = data.name.trim();
+  if (data.chapterCode !== undefined) updateData.chapterCode = data.chapterCode.trim();
+  if (data.region !== undefined) updateData.region = data.region.trim();
+  if (data.meetingLocation !== undefined) updateData.meetingLocation = data.meetingLocation.trim();
+  if (data.meetingTime !== undefined) updateData.meetingTime = data.meetingTime.trim();
   if (data.meetingFee !== undefined) updateData.meetingFee = Number(data.meetingFee);
-  if (data.upiId !== undefined) updateData.upiId = data.upiId;
-  if (data.upiName !== undefined) updateData.upiName = data.upiName;
-  if (data.isActive !== undefined) updateData.isActive = data.isActive;
-
+  if (data.upiId !== undefined) updateData.upiId = data.upiId.trim();
+  if (data.upiName !== undefined) updateData.upiName = data.upiName.trim();
+  if (data.description !== undefined) updateData.description = data.description.trim();
+  if (data.isActive !== undefined) updateData.isActive = Boolean(data.isActive);
   if (data.themeColor !== undefined) updateData.themeColor = data.themeColor;
 
   if (data.meetingDay !== undefined) {
@@ -428,20 +429,40 @@ export async function updateChapterDetails(data: {
     });
 
     if (upcoming) {
+      let startDateTime: Date = new Date(nextDate);
+      const timeToParse = data.meetingTime || existing.meetingTime || "07:30 AM";
+      try {
+        const [timePart, meridiem] = timeToParse.split(" ");
+        let [hrs, mins] = (timePart || "07:30").split(":").map(Number);
+        if (meridiem === "PM" && hrs < 12) hrs += 12;
+        if (meridiem === "AM" && hrs === 12) hrs = 0;
+        startDateTime.setHours(hrs || 7, mins || 30, 0, 0);
+      } catch {
+        startDateTime = nextDate;
+      }
+
       await db.meeting.update({
         where: { id: upcoming.id },
         data: {
           date: nextDate,
-          startTime: data.meetingTime || upcoming.startTime,
+          startTime: startDateTime,
         },
       });
     }
   }
 
-  const updated = await db.chapter.update({
-    where: { id: data.chapterId },
-    data: updateData,
-  });
+  let updated;
+  try {
+    updated = await db.chapter.update({
+      where: { id: data.chapterId },
+      data: updateData,
+    });
+  } catch (err: any) {
+    if (err.code === "P2002") {
+      throw new Error(`A chapter named "${data.name}" already exists in this organization.`);
+    }
+    throw err;
+  }
 
   if (data.themeColor) {
     await db.$executeRawUnsafe(
@@ -451,12 +472,19 @@ export async function updateChapterDetails(data: {
     ).catch(() => {});
   }
 
-  revalidatePath("/dashboard/director");
-  revalidatePath("/dashboard/director/chapters");
-  revalidatePath(`/dashboard/chapters/${data.chapterId}`);
-  revalidatePath("/dashboard/chapters");
-  revalidatePath("/dashboard/leadership");
-  revalidatePath("/dashboard/member/meetings");
+  try {
+    revalidatePath("/dashboard/director");
+    revalidatePath("/dashboard/director/chapters");
+    revalidatePath(`/dashboard/director/chapters/${data.chapterId}`);
+    revalidatePath(`/dashboard/chapters/${data.chapterId}`);
+    revalidatePath("/dashboard/chapters");
+    revalidatePath("/dashboard/admin/chapters");
+    revalidatePath(`/dashboard/admin/chapters/${data.chapterId}`);
+    revalidatePath("/dashboard/leadership");
+    revalidatePath("/dashboard/member/meetings");
+  } catch (e) {
+    // revalidatePath may not run outside Next request context
+  }
   return updated;
 }
 
@@ -1273,6 +1301,11 @@ export async function getDirectorChapterDetail(chapterId: string) {
     location: chapter.meetingLocation || "Main Conference Center",
     meetingDay: chapter.meetingDay || "Wednesday",
     meetingTime: chapter.meetingTime || "07:30 AM",
+    meetingFee: Number(chapter.meetingFee ?? 800),
+    upiId: chapter.upiId || "",
+    upiName: chapter.upiName || `${chapter.name} Chapter Treasury`,
+    themeColor: chapter.themeColor || "emerald",
+    description: chapter.description || "",
     isActive: chapter.isActive,
     status: (vacancies === 0 ? "HEALTHY" : "NEEDS_ATTENTION") as "HEALTHY" | "NEEDS_ATTENTION",
     president: president
@@ -1469,4 +1502,144 @@ export async function getDirectorMembershipDues(chapterId?: string) {
     };
   });
 }
+
+/**
+ * Comprehensive Meeting-Wise Report Data
+ * Includes meeting dates, chapters, number of members present, visitors present, turnout,
+ * total amount of business generated (TYFCB / closed business), referrals passed, and fees.
+ */
+export async function getMeetingWiseReportData(chapterId?: string) {
+  await ensureSampleDirectorData();
+  const effectiveChapterId = await getEffectiveChapterId(chapterId);
+
+  const chapters = await db.chapter.findMany({
+    where: effectiveChapterId ? { id: effectiveChapterId } : {},
+    include: {
+      members: {
+        select: { id: true, status: true },
+      },
+      meetings: {
+        include: {
+          attendances: {
+            include: {
+              member: true,
+              visitor: true,
+            },
+          },
+        },
+        orderBy: { date: "asc" },
+      },
+      referrals: {
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+
+  const allItems: any[] = [];
+
+  for (const c of chapters) {
+    const activeMembersCount = c.members.filter((m) => m.status === MemberStatus.ACTIVE).length || c.members.length;
+    const standardFee = Number((c as any).meetingFee ?? 800);
+    const sortedMeetings = [...c.meetings].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    sortedMeetings.forEach((meeting, idx) => {
+      // Define cycle window for this meeting
+      const meetingDateTime = new Date(meeting.date).getTime();
+      const endOfMeetingDay = new Date(meeting.date);
+      endOfMeetingDay.setHours(23, 59, 59, 999);
+
+      let startWindow: Date;
+      if (idx > 0) {
+        startWindow = new Date(sortedMeetings[idx - 1].date);
+        startWindow.setHours(23, 59, 59, 999);
+      } else {
+        startWindow = new Date(meetingDateTime - 7 * 24 * 60 * 60 * 1000);
+      }
+
+      // Referrals closed in this meeting cycle
+      const closedRefsInWindow = c.referrals.filter((r) => {
+        const isClosed = r.status === ReferralStatus.CLOSED_WON || Number(r.tyfcbAmount || r.convertedBusinessValue || 0) > 0;
+        if (!isClosed) return false;
+        const refDate = new Date(r.closedDate || r.convertedAt || r.createdAt);
+        return refDate > startWindow && refDate <= endOfMeetingDay;
+      });
+
+      let businessGenerated = closedRefsInWindow.reduce(
+        (sum, r) => sum + Number(r.tyfcbAmount || r.convertedBusinessValue || r.value || 0),
+        0
+      );
+
+      // If 0 business in exact window and single meeting or historical catch-up
+      if (businessGenerated === 0 && sortedMeetings.length === 1) {
+        const anyClosed = c.referrals.filter(
+          (r) => r.status === ReferralStatus.CLOSED_WON || Number(r.tyfcbAmount || r.convertedBusinessValue || 0) > 0
+        );
+        businessGenerated = anyClosed.reduce(
+          (sum, r) => sum + Number(r.tyfcbAmount || r.convertedBusinessValue || r.value || 0),
+          0
+        );
+      }
+
+      // Referrals exchanged in window
+      const refsExchangedInWindow = c.referrals.filter((r) => {
+        const refDate = new Date(r.createdAt);
+        return refDate > startWindow && refDate <= endOfMeetingDay;
+      });
+
+      // Attendance breakdown
+      const memberAtts = meeting.attendances.filter((a) => a.memberId != null);
+      const membersPresent = memberAtts.filter(
+        (a) => a.status === AttendanceStatus.PRESENT || (a as any).paid === true
+      ).length;
+      const membersAbsent = memberAtts.length > 0 ? memberAtts.length - membersPresent : Math.max(0, activeMembersCount - membersPresent);
+
+      const visitorAtts = meeting.attendances.filter((a) => a.visitorId != null);
+      const visitorsPresent = visitorAtts.filter(
+        (a) => a.status === AttendanceStatus.PRESENT || (a.status as string) === 'ATTENDED'
+      ).length;
+
+      const totalPresent = membersPresent + visitorsPresent;
+      const turnoutRate = activeMembersCount > 0 ? Math.round((membersPresent / activeMembersCount) * 100) : (totalPresent > 0 ? 100 : 0);
+
+      const totalFeeCollected = meeting.attendances
+        .filter((a) => (a as any).paid === true || a.status === AttendanceStatus.PRESENT)
+        .reduce((sum, a) => sum + (Number((a as any).amount) || standardFee), 0);
+
+      allItems.push({
+        id: meeting.id,
+        meetingId: meeting.id,
+        meetingNumber: meeting.meetingNumber || `M-${idx + 1}`,
+        meetingDate: new Date(meeting.date).toISOString().split("T")[0],
+        meetingDateFormatted: new Date(meeting.date).toLocaleDateString("en-IN", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        }),
+        meetingTitle: meeting.title || `${c.name} Weekly Business Meeting`,
+        chapterId: c.id,
+        chapterName: c.name,
+        chapterCode: c.chapterCode || `CHP-${c.id.substring(0, 4).toUpperCase()}`,
+        region: c.region || "Primary Region",
+        location: meeting.location || c.meetingLocation || "Main Meeting Room",
+        speaker: meeting.speaker || "Featured Chapter Member",
+        meetingType: meeting.meetingType || "HYBRID",
+        status: meeting.status,
+        totalChapterMembers: activeMembersCount,
+        membersPresent,
+        membersAbsent,
+        memberTurnoutRate: turnoutRate,
+        visitorsPresent,
+        totalAttendees: totalPresent,
+        totalBusinessGenerated: businessGenerated,
+        referralsExchanged: refsExchangedInWindow.length,
+        feesCollected: totalFeeCollected,
+      });
+    });
+  }
+
+  // Sort descending by date
+  return allItems.sort((a, b) => new Date(b.meetingDate).getTime() - new Date(a.meetingDate).getTime());
+}
+
 

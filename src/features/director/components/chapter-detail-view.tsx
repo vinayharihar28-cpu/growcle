@@ -19,11 +19,17 @@ import {
   ExternalLink,
   ShieldCheck,
   IndianRupee,
+  FileEdit,
+  Settings,
+  Save,
+  CheckCircle,
+  Power,
 } from "lucide-react";
-import { getDirectorChapterDetail } from "../actions/director-actions";
+import { getDirectorChapterDetail, updateChapterDetails } from "../actions/director-actions";
 import { AssignLeadershipModal } from "./assign-leadership-modal";
 import { MemberRoleModal } from "./member-role-modal";
 import { ConvertVisitorModal } from "./convert-visitor-modal";
+import { EditChapterModal } from "./edit-chapter-modal";
 import Link from "next/link";
 
 interface ChapterDetailViewProps {
@@ -33,9 +39,27 @@ interface ChapterDetailViewProps {
 export function ChapterDetailView({ chapterId }: ChapterDetailViewProps) {
   const [detail, setDetail] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "members" | "leadership" | "meetings" | "visitors" | "referrals" | "payments"
+    "overview" | "members" | "leadership" | "meetings" | "visitors" | "referrals" | "payments" | "settings"
   >("overview");
   const [loading, setLoading] = useState(true);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsForm, setSettingsForm] = useState({
+    name: "",
+    chapterCode: "",
+    region: "",
+    location: "",
+    meetingDay: "Wednesday",
+    meetingTime: "07:30 AM",
+    meetingFee: 800,
+    upiId: "",
+    upiName: "",
+    themeColor: "emerald",
+    description: "",
+    isActive: true,
+  });
 
   // Modals state
   const [leadershipModal, setLeadershipModal] = useState<{
@@ -58,6 +82,22 @@ export function ChapterDetailView({ chapterId }: ChapterDetailViewProps) {
     try {
       const data = await getDirectorChapterDetail(chapterId);
       setDetail(data);
+      if (data) {
+        setSettingsForm({
+          name: data.name || "",
+          chapterCode: data.chapterCode || "",
+          region: data.region || "",
+          location: data.location || "",
+          meetingDay: data.meetingDay || "Wednesday",
+          meetingTime: data.meetingTime || "07:30 AM",
+          meetingFee: data.meetingFee ?? 800,
+          upiId: data.upiId || "",
+          upiName: data.upiName || "",
+          themeColor: data.themeColor || "emerald",
+          description: data.description || "",
+          isActive: data.isActive !== undefined ? data.isActive : true,
+        });
+      }
     } catch (err) {
       console.error("Failed to load chapter detail", err);
     } finally {
@@ -120,8 +160,14 @@ export function ChapterDetailView({ chapterId }: ChapterDetailViewProps) {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setIsEditModalOpen(true)}
+            className="rounded-md border border-input bg-background px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent flex items-center gap-1.5 transition-colors cursor-pointer"
+          >
+            <FileEdit className="h-3.5 w-3.5 text-primary" /> Edit Chapter
+          </button>
+          <button
             onClick={() => setLeadershipModal({ isOpen: true, position: "PRESIDENT" })}
-            className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5"
+            className="rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 cursor-pointer"
           >
             <UserCheck className="h-3.5 w-3.5" /> Assign Leadership
           </button>
@@ -138,6 +184,7 @@ export function ChapterDetailView({ chapterId }: ChapterDetailViewProps) {
           { id: "visitors", label: `Visitors (${detail.visitors.length})`, icon: UserPlus },
           { id: "referrals", label: `Referrals (${detail.referrals.length})`, icon: Handshake },
           { id: "payments", label: `Payments (${detail.payments.length})`, icon: CreditCard },
+          { id: "settings", label: "Settings & Details", icon: Settings },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -518,7 +565,265 @@ export function ChapterDetailView({ chapterId }: ChapterDetailViewProps) {
         </div>
       )}
 
+      {/* Tab 8: Settings & Details */}
+      {activeTab === "settings" && (
+        <div className="max-w-4xl border rounded-2xl bg-card p-6 shadow-xs space-y-6">
+          <div className="flex items-start justify-between gap-4 border-b pb-4">
+            <div>
+              <h3 className="text-lg font-bold text-foreground">Chapter Settings & Configuration</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Manage identity, meeting schedule, venue location, standard fees, UPI credentials, and branding colors.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsEditModalOpen(true)}
+              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 shrink-0"
+            >
+              <FileEdit className="h-3.5 w-3.5" /> Open Edit Modal
+            </button>
+          </div>
+
+          {settingsSaved && (
+            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-2">
+              <CheckCircle className="w-4 h-4 shrink-0" />
+              Chapter settings and details updated successfully!
+            </div>
+          )}
+
+          {settingsError && (
+            <div className="p-3.5 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              {settingsError}
+            </div>
+          )}
+
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setSavingSettings(true);
+              setSettingsSaved(false);
+              setSettingsError(null);
+              try {
+                await updateChapterDetails({
+                  chapterId: detail.id,
+                  name: settingsForm.name,
+                  chapterCode: settingsForm.chapterCode,
+                  region: settingsForm.region,
+                  meetingLocation: settingsForm.location,
+                  meetingDay: settingsForm.meetingDay,
+                  meetingTime: settingsForm.meetingTime,
+                  meetingFee: Number(settingsForm.meetingFee),
+                  upiId: settingsForm.upiId,
+                  upiName: settingsForm.upiName,
+                  themeColor: settingsForm.themeColor,
+                  description: settingsForm.description,
+                  isActive: settingsForm.isActive,
+                });
+                await loadData();
+                setSettingsSaved(true);
+                setTimeout(() => setSettingsSaved(false), 4000);
+              } catch (err: any) {
+                setSettingsError(err?.message || "Failed to update chapter settings.");
+              } finally {
+                setSavingSettings(false);
+              }
+            }}
+            className="space-y-6"
+          >
+            {/* Identity & Code */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Identity & Location</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Chapter Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={settingsForm.name}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, name: e.target.value })}
+                    className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Chapter Code</label>
+                  <input
+                    type="text"
+                    value={settingsForm.chapterCode}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, chapterCode: e.target.value })}
+                    className="w-full p-2.5 text-sm border rounded-xl bg-background font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Region / Territory</label>
+                  <input
+                    type="text"
+                    value={settingsForm.region}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, region: e.target.value })}
+                    className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Meeting Venue / Location</label>
+                  <input
+                    type="text"
+                    value={settingsForm.location}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, location: e.target.value })}
+                    className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Description / Notes</label>
+                <textarea
+                  rows={2}
+                  value={settingsForm.description}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, description: e.target.value })}
+                  className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                />
+              </div>
+            </div>
+
+            {/* Meeting Schedule & Fees */}
+            <div className="space-y-4 pt-4 border-t">
+              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Schedule & Fees</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Regular Meeting Day</label>
+                  <select
+                    value={settingsForm.meetingDay}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, meetingDay: e.target.value })}
+                    className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                  >
+                    {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
+                      <option key={day} value={day}>
+                        {day}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Meeting Time</label>
+                  <input
+                    type="text"
+                    value={settingsForm.meetingTime}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, meetingTime: e.target.value })}
+                    className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Meeting Fee (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={settingsForm.meetingFee}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, meetingFee: Number(e.target.value) })}
+                    className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* UPI & Treasury */}
+            <div className="space-y-4 pt-4 border-t">
+              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Chapter UPI Collection</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">UPI VPA ID</label>
+                  <input
+                    type="text"
+                    value={settingsForm.upiId}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, upiId: e.target.value })}
+                    className="w-full p-2.5 text-sm border rounded-xl bg-background font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-muted-foreground">Payee Name</label>
+                  <input
+                    type="text"
+                    value={settingsForm.upiName}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, upiName: e.target.value })}
+                    className="w-full p-2.5 text-sm border rounded-xl bg-background"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Theme & Status */}
+            <div className="space-y-4 pt-4 border-t">
+              <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Branding & Status</h4>
+              <div className="flex flex-wrap gap-2.5">
+                {[
+                  { id: "emerald", label: "Emerald Green", bg: "bg-emerald-500" },
+                  { id: "indigo", label: "Indigo Royal", bg: "bg-indigo-500" },
+                  { id: "purple", label: "Purple Velvet", bg: "bg-purple-500" },
+                  { id: "amber", label: "Amber Gold", bg: "bg-amber-500" },
+                  { id: "rose", label: "Rose Crimson", bg: "bg-rose-500" },
+                  { id: "cyan", label: "Cyan Ocean", bg: "bg-cyan-500" },
+                  { id: "orange", label: "Sunset Orange", bg: "bg-orange-500" },
+                ].map((color) => (
+                  <button
+                    key={color.id}
+                    type="button"
+                    onClick={() => setSettingsForm({ ...settingsForm, themeColor: color.id })}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
+                      settingsForm.themeColor === color.id
+                        ? "border-primary ring-2 ring-primary/20 bg-primary/5 font-bold"
+                        : "border-border hover:bg-muted"
+                    }`}
+                  >
+                    <span className={`w-3.5 h-3.5 rounded-full ${color.bg}`} />
+                    {color.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 rounded-xl border bg-muted/20">
+                <div>
+                  <h5 className="text-xs font-bold text-foreground">Operating Status</h5>
+                  <p className="text-[11px] text-muted-foreground">
+                    {settingsForm.isActive ? "Chapter is currently active and accepting meetings." : "Chapter is inactive."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSettingsForm({ ...settingsForm, isActive: !settingsForm.isActive })}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                    settingsForm.isActive
+                      ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                      : "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                  }`}
+                >
+                  {settingsForm.isActive ? "ACTIVE" : "INACTIVE"}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <button
+                type="submit"
+                disabled={savingSettings}
+                className="rounded-xl bg-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 flex items-center gap-2 transition-colors disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                {savingSettings ? "Saving Changes..." : "Save Chapter Settings"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Modals */}
+      <EditChapterModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        chapter={detail}
+        onSuccess={loadData}
+      />
+
       <AssignLeadershipModal
         isOpen={leadershipModal.isOpen}
         onClose={() => setLeadershipModal((prev) => ({ ...prev, isOpen: false }))}

@@ -24,6 +24,7 @@ import {
   Handshake,
   MessagesSquare,
   Sparkles,
+  CreditCard,
 } from "lucide-react";
 import {
   getLeadershipContext,
@@ -350,19 +351,12 @@ export function LeadershipDashboardView() {
                 <Edit3 className="h-3.5 w-3.5 text-primary" /> Edit Meeting
               </button>
 
-              {inspectedMeeting.isTimeLocked ? (
-                <div className="flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg bg-muted/70 text-muted-foreground text-xs font-semibold border border-border">
-                  <Lock className="h-4 w-4 text-amber-500 shrink-0" />
-                  <span>Opens 12:00 AM on meeting date</span>
-                </div>
-              ) : (
-                <Link
-                  href={`/dashboard/leadership/attendance?meetingId=${inspectedMeeting.id}`}
-                  className="rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-all text-center flex items-center justify-center gap-2 shadow-sm"
-                >
-                  <QrCode className="h-4 w-4" /> Take Attendance & Fee QR
-                </Link>
-              )}
+              <Link
+                href={`/dashboard/leadership/meetings?meetingId=${inspectedMeeting.id}`}
+                className="rounded-lg bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-all text-center flex items-center justify-center gap-2 shadow-sm"
+              >
+                <CreditCard className="h-4 w-4" /> Meeting Fees & Attendance
+              </Link>
             </div>
           </div>
         </div>

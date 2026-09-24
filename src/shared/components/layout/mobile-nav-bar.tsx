@@ -9,6 +9,7 @@ import {
   Home,
   Handshake,
   CalendarCheck,
+  Calendar,
   Users,
   Menu,
   CreditCard,
@@ -38,8 +39,8 @@ export function MobileNavBar() {
     } else if (activeRole === "Leadership Team") {
       return [
         { label: "Dashboard", href: "/dashboard/leadership", icon: Home },
-        { label: "Attendance", href: "/dashboard/leadership/attendance", icon: CalendarCheck },
-        { label: "Meetings", href: "/dashboard/leadership/meetings", icon: Users },
+        { label: "Meetings", href: "/dashboard/leadership/meetings", icon: Calendar },
+        { label: "Members", href: "/dashboard/leadership/members", icon: Users },
       ];
     } else {
       // Member default

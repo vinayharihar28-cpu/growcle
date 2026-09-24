@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Calendar,
   Clock,
@@ -27,6 +28,10 @@ import {
   Edit3,
   Trash2,
   Sliders,
+  UserPlus,
+  RotateCcw,
+  Eye,
+  ShieldCheck,
 } from "lucide-react";
 import {
   getLeadershipContext,
@@ -34,6 +39,7 @@ import {
   createLeadershipMeeting,
   getLeadershipAttendance,
   markAttendance,
+  addLeadershipVisitor,
   bookFeaturePresentation,
   updateChapterMeetingSettings,
   getSuggestedNextMeetingInfo,
@@ -44,6 +50,8 @@ import {
   LeadershipContext,
 } from "../actions/leadership-actions";
 import { LeadershipHeaderBar } from "./leadership-header-bar";
+import { QRCodeSvg } from "@/components/QRCodeSvg";
+import { playSuccessChime } from "@/lib/audio-chime";
 
 export function LeadershipMeetingsView() {
   const [context, setContext] = useState<LeadershipContext | null>(null);
@@ -100,12 +108,34 @@ export function LeadershipMeetingsView() {
   const [speakerForm, setSpeakerForm] = useState({ speaker: "", theme: "" });
   const [speakerSubmitting, setSpeakerSubmitting] = useState(false);
 
-  // Embedded Attendance Modal
+  // URL search params
+  const searchParams = useSearchParams();
+  const initialMeetingId = searchParams.get("meetingId");
+
+  // Embedded Attendance & Fee Collection Modal State
   const [activeAttendanceMeeting, setActiveAttendanceMeeting] = useState<any | null>(null);
   const [attendanceData, setAttendanceData] = useState<any | null>(null);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [attendanceSearch, setAttendanceSearch] = useState("");
+  const [attendanceStatusFilter, setAttendanceStatusFilter] = useState("all");
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
+  // QR Modals
+  const [isChapterQrOpen, setIsChapterQrOpen] = useState(false);
+  const [qrAttendee, setQrAttendee] = useState<any | null>(null);
+
+  // Quick Add Visitor Modal
+  const [isVisitorModalOpen, setIsVisitorModalOpen] = useState(false);
+  const [visitorForm, setVisitorForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    company: "",
+    industry: "",
+    invitedByMemberId: "",
+  });
+  const [visitorSubmitting, setVisitorSubmitting] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -125,6 +155,13 @@ export function LeadershipMeetingsView() {
       ]);
       setMeetings(data);
       setNextMeetingInfo(nextInfo);
+
+      if (initialMeetingId) {
+        const found = data.find((m) => m.id === initialMeetingId);
+        if (found) {
+          handleOpenAttendance(found);
+        }
+      }
 
       setRegularForm({
         title: nextInfo.suggestedTitle,
@@ -256,6 +293,8 @@ export function LeadershipMeetingsView() {
     if (!context) return;
     setActiveAttendanceMeeting(meeting);
     setAttendanceLoading(true);
+    setAttendanceStatusFilter("all");
+    setAttendanceSearch("");
     try {
       const att = await getLeadershipAttendance(context.chapterId, meeting.id);
       setAttendanceData(att);
@@ -266,24 +305,119 @@ export function LeadershipMeetingsView() {
     }
   };
 
+  const getUpiUri = (attendee?: any) => {
+    const rawPa = attendanceData?.selectedMeeting?.upiId || context?.upiId || "120040530420@cnrb";
+    const pa = rawPa.trim();
+    const pn = encodeURIComponent(attendanceData?.selectedMeeting?.upiName || context?.upiName || "Chapter Treasury");
+    const rawFee = attendee?.amount || attendanceData?.selectedMeeting?.standardFee || activeAttendanceMeeting?.meetingFee || context?.meetingFee || 800;
+    const feeNum = Number(rawFee);
+    const am = !isNaN(feeNum) && feeNum > 0 ? feeNum.toFixed(2) : "800.00";
+    const safeId = (attendee?.id || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 10) || "ATT";
+    const tr = `ATT${safeId.toUpperCase()}`;
+    const desc = attendee ? `Meeting Fee - ${attendee.memberName}` : `Meeting Fee - ${activeAttendanceMeeting?.title || "Session"}`;
+    const tn = encodeURIComponent(desc.trim());
+    return `upi://pay?pa=${pa}&pn=${pn}&am=${am}&tr=${tr}&tn=${tn}&cu=INR`;
+  };
+
   const handleToggleAttendance = async (item: any, isPresent: boolean, method: string = "UPI") => {
-    if (!activeAttendanceMeeting) return;
+    if (!activeAttendanceMeeting || !context) return;
     setActionLoadingId(item.id);
+    const feeAmount = activeAttendanceMeeting.meetingFee || attendanceData?.selectedMeeting?.standardFee || 800;
+
+    // Optimistically update local attendanceData in modal
+    setAttendanceData((prev: any) => {
+      if (!prev) return prev;
+      const updated = prev.attendances.map((a: any) =>
+        a.id === item.id
+          ? {
+              ...a,
+              status: isPresent ? "PRESENT" : "ABSENT",
+              paid: isPresent,
+              paymentMethod: isPresent ? method : null,
+              amount: isPresent ? feeAmount : null,
+            }
+          : a
+      );
+      const present = updated.filter((a: any) => a.status === "PRESENT" || a.paid).length;
+      const absent = updated.length - present;
+      const totalCollection = updated
+        .filter((a: any) => a.paid)
+        .reduce((sum: number, a: any) => sum + (Number(a.amount) || feeAmount), 0);
+      return {
+        ...prev,
+        attendances: updated,
+        selectedMeeting: {
+          ...prev.selectedMeeting,
+          present,
+          absent,
+          totalCollection,
+          attendanceRate: updated.length > 0 ? Math.round((present / updated.length) * 100) : 0,
+        },
+      };
+    });
+
     try {
       await markAttendance({
         memberId: item.memberId,
         meetingId: activeAttendanceMeeting.id,
         checked: isPresent,
         paymentMethod: method,
+        amount: feeAmount,
       });
-      if (context) {
-        const att = await getLeadershipAttendance(context.chapterId, activeAttendanceMeeting.id);
-        setAttendanceData(att);
+
+      if (isPresent) {
+        playSuccessChime();
       }
+
+      // Background update outer meetings list stats
+      getLeadershipMeetings(context.chapterId).then(setMeetings).catch(console.error);
     } catch (err) {
-      console.error("Failed to update attendance", err);
+      console.error("Failed to update attendance and fee", err);
+      // Revert if error
+      const att = await getLeadershipAttendance(context.chapterId, activeAttendanceMeeting.id);
+      setAttendanceData(att);
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  const handleAddVisitorSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!context || !activeAttendanceMeeting || !visitorForm.firstName || !visitorForm.email) return;
+    setVisitorSubmitting(true);
+    try {
+      await addLeadershipVisitor({
+        chapterId: context.chapterId,
+        firstName: visitorForm.firstName,
+        lastName: visitorForm.lastName,
+        email: visitorForm.email,
+        phone: visitorForm.phone,
+        company: visitorForm.company,
+        industry: visitorForm.industry,
+        visitDate: new Date(activeAttendanceMeeting.rawDate || Date.now()),
+        invitedByMemberId: visitorForm.invitedByMemberId || undefined,
+      });
+
+      setIsVisitorModalOpen(false);
+      setVisitorForm({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        company: "",
+        industry: "",
+        invitedByMemberId: "",
+      });
+
+      const att = await getLeadershipAttendance(context.chapterId, activeAttendanceMeeting.id);
+      setAttendanceData(att);
+      const data = await getLeadershipMeetings(context.chapterId);
+      setMeetings(data);
+    } catch (err) {
+      console.error("Failed to add visitor", err);
+      alert("Failed to add visitor. Please check inputs.");
+    } finally {
+      setVisitorSubmitting(false);
     }
   };
 
@@ -532,42 +666,50 @@ export function LeadershipMeetingsView() {
                   </button>
                 </div>
 
-                {/* Right: Actions & Attendance Access */}
-                <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-border">
-                  {/* Edit Meeting Button */}
-                  <button
-                    onClick={() => handleOpenEdit(m)}
-                    className="p-2 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-                    title="Edit meeting day, date, venue, or title"
-                  >
-                    <Edit3 className="h-4 w-4" />
-                  </button>
+                {/* Right: Actions & Attendance / Meeting Fees Access */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-3 md:pt-0 border-border">
+                  <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                    <span className="font-semibold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                      ₹{m.meetingFee || 800} Fee
+                    </span>
+                    <span className="font-semibold px-2 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20">
+                      {m.presentCount || 0} Present
+                    </span>
+                    <span className="font-semibold px-2 py-0.5 rounded-md bg-muted text-muted-foreground border border-border">
+                      {m.paidCount || 0} Paid (₹{(m.collectedAmount || 0).toLocaleString("en-IN")})
+                    </span>
+                  </div>
 
-                  {/* Delete Future Meeting Button */}
-                  {isFuture && (
+                  <div className="flex items-center gap-2">
+                    {/* Edit Meeting Button */}
                     <button
-                      onClick={() => handleDeleteMeeting(m.id)}
-                      className="p-2 rounded-lg border border-border bg-card text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
-                      title="Delete scheduled meeting"
+                      onClick={() => handleOpenEdit(m)}
+                      className="p-2 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                      title="Edit meeting day, date, venue, or title"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Edit3 className="h-4 w-4" />
                     </button>
-                  )}
 
-                  {isFuture ? (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-xs font-medium border border-border">
-                      <Lock className="h-3.5 w-3.5 text-amber-500" />
-                      <span>Opens on meeting date</span>
-                    </div>
-                  ) : (
+                    {/* Delete Future Meeting Button */}
+                    {isFuture && (
+                      <button
+                        onClick={() => handleDeleteMeeting(m.id)}
+                        className="p-2 rounded-lg border border-border bg-card text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                        title="Delete scheduled meeting"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+
+                    {/* Meeting Fees & Attendance Button */}
                     <button
                       onClick={() => handleOpenAttendance(m)}
-                      className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-semibold transition-colors shadow-xs cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-all shadow-xs cursor-pointer active:scale-95"
                     >
-                      <UserCheck className="h-4 w-4" />
-                      <span>Open Attendance</span>
+                      <IndianRupee className="h-4 w-4" />
+                      <span>Meeting Fees & Attendance</span>
                     </button>
-                  )}
+                  </div>
                 </div>
               </div>
             );
@@ -931,27 +1073,51 @@ export function LeadershipMeetingsView() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-xs p-3 sm:p-6">
           <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden">
             {/* Modal Header */}
-            <div className="p-4 border-b border-border flex items-center justify-between bg-muted/20">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600">
-                  <UserCheck className="h-5 w-5" />
+            <div className="p-4 border-b border-border flex items-center justify-between bg-muted/20 gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 shrink-0">
+                  <CreditCard className="h-6 w-6" />
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-foreground">{activeAttendanceMeeting.title}</h3>
-                  <p className="text-xs text-muted-foreground">
-                    {activeAttendanceMeeting.date} • Chapter Meeting Fee: ₹{activeAttendanceMeeting.meetingFee || 800}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base font-bold text-foreground truncate">{activeAttendanceMeeting.title}</h3>
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                      Standard Fee: ₹{activeAttendanceMeeting.meetingFee || 800}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                    {activeAttendanceMeeting.date} • Venue: {activeAttendanceMeeting.location}
                   </p>
                 </div>
               </div>
-              <button
-                onClick={() => {
-                  setActiveAttendanceMeeting(null);
-                  setAttendanceData(null);
-                }}
-                className="text-muted-foreground hover:text-foreground text-sm p-1 cursor-pointer"
-              >
-                ✕
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsChapterQrOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 text-xs font-bold transition-colors cursor-pointer"
+                  title="Display UPI QR code for members to scan"
+                >
+                  <QrCode className="h-4 w-4" />
+                  <span className="hidden sm:inline">Chapter Fee QR</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsVisitorModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-primary-foreground hover:opacity-90 text-xs font-bold transition-opacity cursor-pointer shadow-xs"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  <span className="hidden sm:inline">+ Add Visitor</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveAttendanceMeeting(null);
+                    setAttendanceData(null);
+                  }}
+                  className="text-muted-foreground hover:text-foreground text-sm p-1.5 rounded-lg hover:bg-muted cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             {/* Attendance Statistics Summary */}
@@ -964,37 +1130,76 @@ export function LeadershipMeetingsView() {
                   </div>
                 </div>
                 <div className="bg-card border border-border rounded-lg p-2.5">
+                  <div className="text-[11px] font-medium text-muted-foreground">Collections Realized</div>
+                  <div className="text-xl font-extrabold text-primary mt-0.5">
+                    ₹{attendanceData.selectedMeeting.totalCollection.toLocaleString("en-IN")}
+                  </div>
+                </div>
+                <div className="bg-card border border-border rounded-lg p-2.5">
                   <div className="text-[11px] font-medium text-muted-foreground">Present Attendees</div>
                   <div className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">
                     {attendanceData.selectedMeeting.present}
                   </div>
                 </div>
                 <div className="bg-card border border-border rounded-lg p-2.5">
-                  <div className="text-[11px] font-medium text-muted-foreground">Absent Members</div>
+                  <div className="text-[11px] font-medium text-muted-foreground">Fee Pending / Absent</div>
                   <div className="text-xl font-extrabold text-amber-500 mt-0.5">
                     {attendanceData.selectedMeeting.absent}
-                  </div>
-                </div>
-                <div className="bg-card border border-border rounded-lg p-2.5">
-                  <div className="text-[11px] font-medium text-muted-foreground">Collections Realized</div>
-                  <div className="text-xl font-extrabold text-primary mt-0.5">
-                    ₹{attendanceData.selectedMeeting.totalCollection.toLocaleString("en-IN")}
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Search Filter Inside Attendance */}
-            <div className="p-3 border-b border-border flex items-center gap-3">
+            {/* Search & Status Filter Bar */}
+            <div className="p-3 border-b border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-muted/10">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Filter roster by member or visitor name..."
+                  placeholder="Filter roster by member, visitor, or company..."
                   value={attendanceSearch}
                   onChange={(e) => setAttendanceSearch(e.target.value)}
                   className="w-full pl-9 pr-4 py-1.5 rounded-lg bg-background border border-border text-foreground text-xs focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
+              </div>
+
+              <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setAttendanceStatusFilter("all")}
+                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                    attendanceStatusFilter === "all" ? "bg-primary text-primary-foreground font-bold" : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  All ({attendanceData?.attendances?.length || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAttendanceStatusFilter("PENDING")}
+                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                    attendanceStatusFilter === "PENDING" ? "bg-amber-500 text-white font-bold" : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  Fee Pending ({attendanceData?.attendances?.filter((a: any) => !a.paid).length || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAttendanceStatusFilter("PAID")}
+                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                    attendanceStatusFilter === "PAID" ? "bg-emerald-600 text-white font-bold" : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  Paid ({attendanceData?.attendances?.filter((a: any) => a.paid).length || 0})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAttendanceStatusFilter("VISITOR")}
+                  className={`px-2.5 py-1 rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                    attendanceStatusFilter === "VISITOR" ? "bg-indigo-600 text-white font-bold" : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  Visitors ({attendanceData?.attendances?.filter((a: any) => a.isVisitor).length || 0})
+                </button>
               </div>
             </div>
 
@@ -1011,11 +1216,17 @@ export function LeadershipMeetingsView() {
               ) : (
                 <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
                   {attendanceData.attendances
-                    .filter((a: any) =>
-                      !attendanceSearch ||
-                      a.memberName.toLowerCase().includes(attendanceSearch.toLowerCase()) ||
-                      a.businessName.toLowerCase().includes(attendanceSearch.toLowerCase())
-                    )
+                    .filter((a: any) => {
+                      const matchesSearch =
+                        !attendanceSearch ||
+                        a.memberName.toLowerCase().includes(attendanceSearch.toLowerCase()) ||
+                        a.businessName.toLowerCase().includes(attendanceSearch.toLowerCase());
+                      if (!matchesSearch) return false;
+                      if (attendanceStatusFilter === "PENDING") return !a.paid;
+                      if (attendanceStatusFilter === "PAID") return !!a.paid;
+                      if (attendanceStatusFilter === "VISITOR") return !!a.isVisitor;
+                      return true;
+                    })
                     .map((item: any) => {
                       const isPresent = item.status === "PRESENT" || item.paid;
                       const isWorking = actionLoadingId === item.id;
@@ -1052,25 +1263,42 @@ export function LeadershipMeetingsView() {
                           </div>
 
                           {/* Quick Action Toggles */}
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
                             {isPresent ? (
-                              <button
-                                disabled={isWorking}
-                                onClick={() => handleToggleAttendance(item, false)}
-                                className="px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-bold hover:bg-rose-500/10 hover:text-rose-600 hover:border-rose-500/30 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                              >
-                                <CheckCircle2 className="h-3.5 w-3.5" /> Present / Paid
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                                  <CheckCircle2 className="h-3.5 w-3.5" /> Present & Paid
+                                </span>
+                                <button
+                                  type="button"
+                                  disabled={isWorking}
+                                  onClick={() => handleToggleAttendance(item, false)}
+                                  className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-rose-600 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                  title="Mark Absent & Reset Fee"
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
                             ) : (
                               <div className="flex items-center gap-1.5">
                                 <button
+                                  type="button"
                                   disabled={isWorking}
                                   onClick={() => handleToggleAttendance(item, true, "UPI")}
-                                  className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 transition-opacity flex items-center gap-1 shadow-xs cursor-pointer disabled:opacity-50"
+                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all flex items-center gap-1 shadow-xs cursor-pointer disabled:opacity-50"
                                 >
-                                  <QrCode className="h-3.5 w-3.5" /> UPI Pay
+                                  <IndianRupee className="h-3.5 w-3.5" /> Collect UPI
                                 </button>
                                 <button
+                                  type="button"
+                                  onClick={() => setQrAttendee(item)}
+                                  className="p-1.5 rounded-lg border border-border bg-card text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                  title="Show UPI QR Code for this member"
+                                >
+                                  <QrCode className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
                                   disabled={isWorking}
                                   onClick={() => handleToggleAttendance(item, true, "CASH")}
                                   className="px-2.5 py-1.5 rounded-lg border border-border bg-card text-foreground text-xs font-semibold hover:bg-muted transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
@@ -1088,7 +1316,10 @@ export function LeadershipMeetingsView() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-3 border-t border-border flex items-center justify-end bg-muted/20">
+            <div className="p-3 border-t border-border flex items-center justify-between bg-muted/20">
+              <span className="text-xs text-muted-foreground">
+                Marking fee automatically updates attendance status to Present in real-time.
+              </span>
               <button
                 onClick={() => {
                   setActiveAttendanceMeeting(null);
@@ -1096,9 +1327,234 @@ export function LeadershipMeetingsView() {
                 }}
                 className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold cursor-pointer hover:opacity-90"
               >
-                Close Attendance Sheet
+                Close Sheet
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chapter Overall Fee QR Code Modal */}
+      {isChapterQrOpen && activeAttendanceMeeting && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-background/80 backdrop-blur-xs p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4 text-center">
+            <div className="flex items-center justify-between border-b pb-2">
+              <div className="flex items-center gap-2">
+                <QrCode className="h-5 w-5 text-primary" />
+                <h3 className="font-bold text-sm text-foreground">Scan Chapter Meeting Fee QR</h3>
+              </div>
+              <button
+                onClick={() => setIsChapterQrOpen(false)}
+                className="text-muted-foreground hover:text-foreground text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              {activeAttendanceMeeting.title}
+            </div>
+
+            <div className="flex justify-center p-3 bg-white rounded-2xl border shadow-xs">
+              <QRCodeSvg
+                value={getUpiUri()}
+                size={220}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-2xl font-black text-emerald-600">
+                ₹{activeAttendanceMeeting.meetingFee || 800}
+              </div>
+              <p className="text-xs font-medium text-muted-foreground">
+                Scan with any UPI app (Google Pay, PhonePe, Paytm, BHIM)
+              </p>
+              <div className="text-[11px] font-mono text-muted-foreground bg-muted p-1.5 rounded-lg">
+                {attendanceData?.selectedMeeting?.upiId || context?.upiId || "120040530420@cnrb"}
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsChapterQrOpen(false)}
+              className="w-full py-2 rounded-xl bg-primary text-primary-foreground font-bold text-xs cursor-pointer"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Member-Specific Fee QR Code Modal */}
+      {qrAttendee && activeAttendanceMeeting && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-background/80 backdrop-blur-xs p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-sm w-full p-6 space-y-4 text-center">
+            <div className="flex items-center justify-between border-b pb-2">
+              <div className="flex items-center gap-2">
+                <QrCode className="h-5 w-5 text-primary" />
+                <h3 className="font-bold text-sm text-foreground">Pay Meeting Fee</h3>
+              </div>
+              <button
+                onClick={() => setQrAttendee(null)}
+                className="text-muted-foreground hover:text-foreground text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div>
+              <h4 className="font-bold text-base text-foreground">{qrAttendee.memberName}</h4>
+              <p className="text-xs text-muted-foreground">{qrAttendee.businessName}</p>
+            </div>
+
+            <div className="flex justify-center p-3 bg-white rounded-2xl border shadow-xs">
+              <QRCodeSvg
+                value={getUpiUri(qrAttendee)}
+                size={220}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-2xl font-black text-emerald-600">
+                ₹{qrAttendee.amount || activeAttendanceMeeting.meetingFee || 800}
+              </div>
+              <p className="text-xs font-medium text-muted-foreground">
+                Scan with any UPI app to pay
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  handleToggleAttendance(qrAttendee, true, "UPI");
+                  setQrAttendee(null);
+                }}
+                className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs cursor-pointer"
+              >
+                Mark as Paid Now
+              </button>
+              <button
+                type="button"
+                onClick={() => setQrAttendee(null)}
+                className="px-4 py-2 rounded-xl border border-border text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Add Visitor Modal */}
+      {isVisitorModalOpen && activeAttendanceMeeting && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-background/80 backdrop-blur-xs p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-2">
+                <UserPlus className="h-5 w-5 text-primary" />
+                <div>
+                  <h3 className="text-base font-bold text-foreground">Add Guest Visitor to Meeting</h3>
+                  <p className="text-xs text-muted-foreground">{activeAttendanceMeeting.title}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsVisitorModalOpen(false)}
+                className="text-muted-foreground hover:text-foreground text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddVisitorSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-foreground">First Name *</label>
+                  <input
+                    type="text"
+                    required
+                    value={visitorForm.firstName}
+                    onChange={(e) => setVisitorForm({ ...visitorForm, firstName: e.target.value })}
+                    className="w-full mt-1 px-3 py-1.5 rounded-lg bg-background border border-input text-foreground text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-foreground">Last Name</label>
+                  <input
+                    type="text"
+                    value={visitorForm.lastName}
+                    onChange={(e) => setVisitorForm({ ...visitorForm, lastName: e.target.value })}
+                    className="w-full mt-1 px-3 py-1.5 rounded-lg bg-background border border-input text-foreground text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-foreground">Email Address *</label>
+                <input
+                  type="email"
+                  required
+                  value={visitorForm.email}
+                  onChange={(e) => setVisitorForm({ ...visitorForm, email: e.target.value })}
+                  className="w-full mt-1 px-3 py-1.5 rounded-lg bg-background border border-input text-foreground text-xs"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-bold text-foreground">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={visitorForm.phone}
+                    onChange={(e) => setVisitorForm({ ...visitorForm, phone: e.target.value })}
+                    className="w-full mt-1 px-3 py-1.5 rounded-lg bg-background border border-input text-foreground text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-foreground">Company / Enterprise</label>
+                  <input
+                    type="text"
+                    value={visitorForm.company}
+                    onChange={(e) => setVisitorForm({ ...visitorForm, company: e.target.value })}
+                    className="w-full mt-1 px-3 py-1.5 rounded-lg bg-background border border-input text-foreground text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-foreground">Invited By Member (Optional)</label>
+                <select
+                  value={visitorForm.invitedByMemberId}
+                  onChange={(e) => setVisitorForm({ ...visitorForm, invitedByMemberId: e.target.value })}
+                  className="w-full mt-1 px-3 py-1.5 rounded-lg bg-background border border-input text-foreground text-xs"
+                >
+                  <option value="">Direct Visitor (No Inviter)</option>
+                  {(attendanceData?.attendances || [])
+                    .filter((a: any) => !a.isVisitor)
+                    .map((m: any) => (
+                      <option key={m.memberId} value={m.memberId}>
+                        {m.memberName}
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsVisitorModalOpen(false)}
+                  className="px-4 py-2 rounded-xl border border-border text-muted-foreground hover:bg-muted text-xs font-medium cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={visitorSubmitting}
+                  className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                >
+                  {visitorSubmitting ? "Adding..." : "Add Visitor"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

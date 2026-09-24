@@ -807,6 +807,14 @@ export async function getLeadershipMeetings(chapterId: string) {
   return meetings.map((m) => {
     const meetingMidnight = new Date(m.date).setHours(0, 0, 0, 0);
     const isFuture = meetingMidnight > now;
+    const standardFee = Number((chapter as any)?.meetingFee ?? 800);
+    const presentCount = m.attendances.filter(
+      (a) => a.status === AttendanceStatus.PRESENT || (a as any).paid === true
+    ).length;
+    const paidCount = m.attendances.filter((a) => (a as any).paid === true).length;
+    const collectedAmount = m.attendances
+      .filter((a) => (a as any).paid === true)
+      .reduce((sum, a) => sum + (Number((a as any).amount) || standardFee), 0);
 
     return {
       id: m.id,
@@ -825,8 +833,11 @@ export async function getLeadershipMeetings(chapterId: string) {
       theme: m.theme || "Networking Growth",
       agenda: m.agenda || "1. Welcome\n2. Feature Presentation\n3. Referrals\n4. Visitors",
       attendanceCount: m.attendances.length,
+      presentCount,
+      paidCount,
+      collectedAmount,
       isTimeLocked: isFuture,
-      meetingFee: Number((chapter as any)?.meetingFee ?? 800),
+      meetingFee: standardFee,
     };
   });
 }
@@ -1709,26 +1720,84 @@ export async function getMeetingReports(chapterId: string) {
         },
       },
     },
-    orderBy: { date: "desc" },
+    orderBy: { date: "asc" },
   });
 
-  const chapter = await db.chapter.findUnique({ where: { id: chapterId } });
+  const chapter = await db.chapter.findUnique({
+    where: { id: chapterId },
+    include: {
+      members: { select: { id: true, status: true } },
+      referrals: true,
+    },
+  });
+
+  const activeMembersCount = chapter?.members.filter((m) => m.status === MemberStatus.ACTIVE).length || chapter?.members.length || 0;
   const standardFee = Number((chapter as any)?.meetingFee ?? 800);
 
-  return meetings.map((m) => {
+  const reports = meetings.map((m, idx) => {
     const total = m.attendances.length;
-    const presentCount = m.attendances.filter(
+    const memberAtts = m.attendances.filter((a) => a.memberId != null);
+    const membersPresent = memberAtts.filter(
       (a) => a.status === AttendanceStatus.PRESENT || (a as any).paid === true
     ).length;
-    const absentCount = total - presentCount;
-    const turnout = total > 0 ? Math.round((presentCount / total) * 100) : 0;
+    const membersAbsent = memberAtts.length > 0 ? memberAtts.length - membersPresent : Math.max(0, activeMembersCount - membersPresent);
+
+    const visitorAtts = m.attendances.filter((a) => a.visitorId != null);
+    const visitorsPresent = visitorAtts.filter(
+      (a) => a.status === AttendanceStatus.PRESENT || (a.status as string) === 'ATTENDED'
+    ).length;
+
+    const presentCount = membersPresent + visitorsPresent;
+    const absentCount = membersAbsent;
+    const turnout = activeMembersCount > 0 ? Math.round((membersPresent / activeMembersCount) * 100) : (total > 0 ? Math.round((presentCount / total) * 100) : 0);
+
     const totalCollection = m.attendances
-      .filter((a) => (a as any).paid === true)
+      .filter((a) => (a as any).paid === true || a.status === AttendanceStatus.PRESENT)
       .reduce((sum, a) => sum + (Number((a as any).amount) || standardFee), 0);
+
+    // Calculate closed business for this meeting cycle
+    const endWindow = new Date(m.date);
+    endWindow.setHours(23, 59, 59, 999);
+    let startWindow: Date;
+    if (idx > 0) {
+      startWindow = new Date(meetings[idx - 1].date);
+      startWindow.setHours(23, 59, 59, 999);
+    } else {
+      startWindow = new Date(new Date(m.date).getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+
+    const closedRefs = (chapter?.referrals || []).filter((r) => {
+      const isClosed = r.status === ReferralStatus.CLOSED_WON || Number(r.tyfcbAmount || r.convertedBusinessValue || 0) > 0;
+      if (!isClosed) return false;
+      const refDate = new Date(r.closedDate || r.convertedAt || r.createdAt);
+      return refDate > startWindow && refDate <= endWindow;
+    });
+
+    let businessGenerated = closedRefs.reduce(
+      (sum, r) => sum + Number(r.tyfcbAmount || r.convertedBusinessValue || r.value || 0),
+      0
+    );
+
+    if (businessGenerated === 0 && meetings.length === 1) {
+      const allClosed = (chapter?.referrals || []).filter(
+        (r) => r.status === ReferralStatus.CLOSED_WON || Number(r.tyfcbAmount || r.convertedBusinessValue || 0) > 0
+      );
+      businessGenerated = allClosed.reduce(
+        (sum, r) => sum + Number(r.tyfcbAmount || r.convertedBusinessValue || r.value || 0),
+        0
+      );
+    }
+
+    const refsExchanged = (chapter?.referrals || []).filter((r) => {
+      const refDate = new Date(r.createdAt);
+      return refDate > startWindow && refDate <= endWindow;
+    }).length;
 
     return {
       id: m.id,
       title: m.title || "Weekly Business Meeting",
+      chapterName: chapter?.name || "Chapter",
+      chapterCode: chapter?.chapterCode || "CHP",
       date: new Date(m.date).toLocaleDateString("en-IN", {
         weekday: "short",
         month: "short",
@@ -1737,13 +1806,21 @@ export async function getMeetingReports(chapterId: string) {
       }),
       rawDate: m.date.toISOString(),
       turnoutPercentage: turnout,
+      totalChapterMembers: activeMembersCount,
+      membersPresent,
+      membersAbsent,
+      visitorsPresent,
       presentCount,
       absentCount,
-      totalAttendees: total,
+      totalAttendees: total || (membersPresent + visitorsPresent),
       totalCollection,
+      businessGenerated,
+      referralsExchanged: refsExchanged,
       standardFee,
     };
   });
+
+  return reports.sort((a, b) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime());
 }
 
 /**

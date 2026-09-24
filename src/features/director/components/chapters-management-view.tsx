@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { DirectorHeaderBar } from "./director-header-bar";
 import { ChapterPerformanceTable } from "./chapter-performance-table";
 import { CreateChapterModal } from "./create-chapter-modal";
+import { EditChapterModal, EditChapterData } from "./edit-chapter-modal";
 import { AssignLeadershipModal } from "./assign-leadership-modal";
 import { getDirectorOverview, ChapterSummary, getDirectorMembers } from "../actions/director-actions";
 import { Building2, Plus } from "lucide-react";
@@ -15,6 +16,7 @@ export function ChaptersManagementView() {
   const [loading, setLoading] = useState(true);
 
   const [isCreateChapterOpen, setIsCreateChapterOpen] = useState(false);
+  const [editingChapter, setEditingChapter] = useState<EditChapterData | null>(null);
   const [assignLeadershipState, setAssignLeadershipState] = useState<{
     isOpen: boolean;
     chapterId: string;
@@ -89,12 +91,20 @@ export function ChaptersManagementView() {
         <ChapterPerformanceTable
           chapters={chapters}
           onAssignLeadership={handleOpenAssignLeadership}
+          onEditChapter={(chap) => setEditingChapter(chap as any)}
         />
       )}
 
       <CreateChapterModal
         isOpen={isCreateChapterOpen}
         onClose={() => setIsCreateChapterOpen(false)}
+        onSuccess={loadData}
+      />
+
+      <EditChapterModal
+        isOpen={!!editingChapter}
+        chapter={editingChapter}
+        onClose={() => setEditingChapter(null)}
         onSuccess={loadData}
       />
 

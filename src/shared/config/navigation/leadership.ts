@@ -4,7 +4,6 @@ import {
   Users,
   UserPlus,
   Calendar,
-  ClipboardCheck,
   Handshake,
   MessagesSquare,
   BarChart3,
@@ -45,11 +44,6 @@ export const leadershipNavigation: NavigationConfig = [
         title: "Meetings",
         href: "/dashboard/leadership/meetings",
         icon: Calendar,
-      },
-      {
-        title: "Attendance & QR",
-        href: "/dashboard/leadership/attendance",
-        icon: ClipboardCheck,
       },
       {
         title: "Feature Presentations",

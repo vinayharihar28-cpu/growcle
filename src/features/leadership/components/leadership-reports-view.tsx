@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   BarChart3,
   Users,
@@ -8,22 +9,20 @@ import {
   Calendar,
   Download,
   FileSpreadsheet,
-  CheckCircle2,
-  XCircle,
   Eye,
-  X,
-  Printer,
-  Sparkles,
   ArrowRight,
-  ShieldCheck,
 } from "lucide-react";
 import {
   getLeadershipContext,
   getMeetingReports,
-  getMeetingReportDetail,
   LeadershipContext,
 } from "../actions/leadership-actions";
 import { LeadershipHeaderBar } from "./leadership-header-bar";
+import {
+  exportMeetingWiseReportToExcel,
+  exportMeetingWiseReportToCsv,
+  MeetingWiseExportRow,
+} from "@/lib/export-utils";
 
 interface ReportsViewProps {
   forcedRole?: "ADMIN" | "DIRECTOR" | "LEADERSHIP";
@@ -33,11 +32,6 @@ export function LeadershipReportsView({ forcedRole }: ReportsViewProps) {
   const [context, setContext] = useState<LeadershipContext | null>(null);
   const [reports, setReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Selected Meeting Report Detail Modal
-  const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
-  const [reportDetail, setReportDetail] = useState<any | null>(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -57,122 +51,153 @@ export function LeadershipReportsView({ forcedRole }: ReportsViewProps) {
     loadData();
   }, []);
 
-  const handleOpenDetail = async (meetingId: string) => {
-    setSelectedMeetingId(meetingId);
-    setLoadingDetail(true);
-    try {
-      const detail = await getMeetingReportDetail(meetingId);
-      setReportDetail(detail);
-    } catch (err) {
-      console.error("Failed to load meeting report detail", err);
-    } finally {
-      setLoadingDetail(false);
-    }
-  };
-
-  const handlePrint = () => {
-    window.print();
+  const getMeetingExportRows = (): MeetingWiseExportRow[] => {
+    return reports.map((r) => ({
+      meetingDate: r.rawDate ? r.rawDate.split("T")[0] : r.date,
+      chapterName: r.chapterName || context?.chapterName || "Chapter",
+      chapterCode: r.chapterCode || context?.chapterCode || "CHP",
+      meetingTitle: r.title || "Weekly Business Meeting",
+      totalChapterMembers: r.totalChapterMembers || r.totalAttendees || 0,
+      membersPresent: r.membersPresent ?? r.presentCount ?? 0,
+      membersAbsent: r.membersAbsent ?? r.absentCount ?? 0,
+      memberTurnoutRate: r.turnoutPercentage,
+      visitorsPresent: r.visitorsPresent ?? 0,
+      totalAttendees: r.totalAttendees || (r.presentCount ?? 0),
+      totalBusinessGenerated: r.businessGenerated ?? 0,
+      referralsExchanged: r.referralsExchanged ?? 0,
+      feesCollected: r.totalCollection ?? 0,
+      status: "COMPLETED",
+    }));
   };
 
   const handleExportCsv = () => {
-    const { exportToCsv } = require("@/lib/export-utils");
-    const headers = ["Meeting Date", "Meeting Title", "Turnout %", "Present Attendees", "Absent Attendees", "Total Expected", "Fee Collected (INR)"];
-    const rows = reports.map((r) => [
-      r.date || (r.rawDate ? new Date(r.rawDate).toLocaleDateString("en-IN") : "N/A"),
-      r.title || "Chapter Business Meeting",
-      `${r.turnoutPercentage}%`,
-      r.presentCount || 0,
-      r.absentCount || 0,
-      r.totalAttendees || 0,
-      r.totalCollection || 0,
-    ]);
-    exportToCsv(`chapter_meeting_reports_${context?.chapterCode || "CHP"}`, headers, rows);
+    const rows = getMeetingExportRows();
+    exportMeetingWiseReportToCsv(
+      rows,
+      `${context?.chapterName || "Chapter"}_Meeting_Wise_Report`
+    );
   };
 
-  const roleTitle =
-    forcedRole === "ADMIN"
-      ? "Executive Admin Oversight"
-      : forcedRole === "DIRECTOR"
-      ? "Regional Director Analytics"
-      : "Chapter Leadership Reports";
+  const handleExportExcel = async () => {
+    const rows = getMeetingExportRows();
+    await exportMeetingWiseReportToExcel(
+      rows,
+      `${context?.chapterName || "Chapter"}_Meeting_Wise_Report`
+    );
+  };
+
+  const totalMembersPresentAcross = reports.reduce(
+    (acc, r) => acc + (r.membersPresent ?? r.presentCount ?? 0),
+    0
+  );
+  const totalBusinessGeneratedAcross = reports.reduce(
+    (acc, r) => acc + (r.businessGenerated || 0),
+    0
+  );
+  const totalCollectionsAcross = reports.reduce(
+    (acc, r) => acc + (r.totalCollection || 0),
+    0
+  );
+  const avgTurnoutRate = reports.length
+    ? Math.round(
+        reports.reduce((acc, r) => acc + Number(r.turnoutPercentage || 0), 0) /
+          reports.length
+      )
+    : 0;
 
   return (
-    <div className="space-y-6 print:p-0">
-      {context && <div className="print:hidden"><LeadershipHeaderBar context={context} /></div>}
+    <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+      {/* Leadership Header */}
+      {context && <LeadershipHeaderBar context={context} />}
 
-      {/* Header & Export Actions */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 print:hidden">
+      {/* Action and Title Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary border border-primary/20">
-              {roleTitle}
-            </span>
-          </div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground mt-1">
-            Meeting Attendance & Turnout Reports
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Historical meeting turnouts, fee realizations, present/absent breakdowns, and first-time visitors.
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground">Chapter Analytics & Meeting Reports</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Historical meeting breakdowns, attendance performance, and revenue records for {context?.chapterName || "your chapter"}.
           </p>
         </div>
-
         <div className="flex items-center gap-2">
           <button
             onClick={handleExportCsv}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-input bg-card text-foreground text-xs font-bold hover:bg-muted shadow-xs cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-input bg-card text-xs font-semibold text-foreground hover:bg-muted transition-colors shadow-sm cursor-pointer"
           >
-            <Download className="h-4 w-4 text-indigo-500" />
-            <span>Export CSV / Excel</span>
+            <Download className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>Meeting-Wise CSV</span>
           </button>
           <button
-            onClick={handlePrint}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:opacity-90 shadow-sm cursor-pointer"
+            onClick={handleExportExcel}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 transition-colors shadow-sm cursor-pointer"
           >
-            <Printer className="h-4 w-4" />
-            <span>Print / PDF Export</span>
+            <FileSpreadsheet className="h-3.5 w-3.5" />
+            <span>Meeting-Wise Excel</span>
           </button>
         </div>
       </div>
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 print:grid-cols-4">
-        <div className="rounded-xl border bg-card p-4 shadow-sm border-blue-500/20">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Meetings</span>
-          <p className="text-2xl font-bold text-foreground mt-1">{reports.length}</p>
-          <span className="text-xs text-muted-foreground">Recorded in system</span>
+      {/* Aggregate KPI Banner */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Average Turnout
+          </span>
+          <p className="text-2xl font-bold text-foreground mt-1">
+            {avgTurnoutRate}%
+          </p>
+          <span className="text-xs text-muted-foreground">
+            Across {reports.length} meetings
+          </span>
         </div>
 
-        <div className="rounded-xl border bg-card p-4 shadow-sm border-emerald-500/20">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Average Turnout</span>
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Total Attendances
+          </span>
           <p className="text-2xl font-bold text-emerald-600 mt-1">
-            {reports.length > 0
-              ? Math.round(reports.reduce((acc, r) => acc + r.turnoutPercentage, 0) / reports.length)
-              : 0}
-            %
+            {totalMembersPresentAcross}
           </p>
-          <span className="text-xs text-emerald-600/80 font-medium">Chapter average</span>
+          <span className="text-xs text-muted-foreground">
+            Members present cumulative
+          </span>
         </div>
 
-        <div className="rounded-xl border bg-card p-4 shadow-sm border-purple-500/20">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Cumulative Fees</span>
-          <p className="text-2xl font-bold text-purple-600 mt-1">
-            ₹{reports.reduce((acc, r) => acc + r.totalCollection, 0)}
+        <div className="rounded-xl border bg-card p-4 shadow-sm">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Total Revenue Collected
+          </span>
+          <p className="text-2xl font-bold text-foreground mt-1">
+            ₹{totalCollectionsAcross.toLocaleString("en-IN")}
           </p>
-          <span className="text-xs text-muted-foreground">Total realized fees</span>
+          <span className="text-xs text-muted-foreground">
+            Meeting fee collections
+          </span>
         </div>
 
         <div className="rounded-xl border bg-card p-4 shadow-sm border-amber-500/20">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Chapter Fee Setting</span>
-          <p className="text-2xl font-bold text-foreground mt-1">₹{context?.meetingFee || 800}</p>
-          <span className="text-xs text-muted-foreground">Standard per meeting</span>
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Chapter Fee Setting
+          </span>
+          <p className="text-2xl font-bold text-foreground mt-1">
+            ₹{context?.meetingFee || 800}
+          </p>
+          <span className="text-xs text-muted-foreground">
+            Standard per meeting
+          </span>
         </div>
       </div>
 
       {/* Meeting Reports Table */}
-      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+      <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
         <div className="p-4 border-b bg-muted/20 flex items-center justify-between">
-          <h3 className="font-bold text-sm text-foreground">Weekly Meeting Performance Logs</h3>
-          <span className="text-xs text-muted-foreground">Click any meeting to inspect detailed breakdown</span>
+          <div>
+            <h3 className="font-bold text-sm text-foreground">
+              Weekly Meeting Performance Logs
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Click &quot;View Report&quot; on any meeting to open its full executive report page
+            </p>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -182,21 +207,22 @@ export function LeadershipReportsView({ forcedRole }: ReportsViewProps) {
                 <th className="py-3 px-4">Meeting Title</th>
                 <th className="py-3 px-4">Date</th>
                 <th className="py-3 px-4">Turnout Rate</th>
-                <th className="py-3 px-4">Present / Total</th>
+                <th className="py-3 px-4">Members Present</th>
+                <th className="py-3 px-4">Business Generated</th>
                 <th className="py-3 px-4">Fee Collection</th>
-                <th className="py-3 px-4 text-right print:hidden">Actions</th>
+                <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
                     Aggregating meeting reports...
                   </td>
                 </tr>
               ) : reports.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
                     No meeting records found.
                   </td>
                 </tr>
@@ -207,8 +233,11 @@ export function LeadershipReportsView({ forcedRole }: ReportsViewProps) {
                       {report.title}
                     </td>
 
-                    <td className="py-3.5 px-4 text-xs text-muted-foreground flex items-center gap-1.5 pt-4">
-                      <Calendar className="h-3.5 w-3.5 text-primary" /> {report.date}
+                    <td className="py-3.5 px-4 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5 text-primary shrink-0" />
+                        {report.date}
+                      </span>
                     </td>
 
                     <td className="py-3.5 px-4">
@@ -218,21 +247,34 @@ export function LeadershipReportsView({ forcedRole }: ReportsViewProps) {
                     </td>
 
                     <td className="py-3.5 px-4 text-xs text-foreground font-medium">
-                      <span className="text-emerald-600 font-bold">{report.presentCount}</span> Present •{" "}
-                      <span className="text-rose-600 font-bold">{report.absentCount}</span> Absent
+                      <div>
+                        <span className="text-emerald-600 font-bold">
+                          {report.membersPresent ?? report.presentCount}
+                        </span>{" "}
+                        Members Present
+                        <span className="text-muted-foreground block text-[11px]">
+                          {report.absentCount} Absent • {report.visitorsPresent || 0} Visitors
+                        </span>
+                      </div>
+                    </td>
+
+                    <td className="py-3.5 px-4 font-semibold text-emerald-600 dark:text-emerald-400">
+                      ₹{Number(report.businessGenerated || 0).toLocaleString("en-IN")}
                     </td>
 
                     <td className="py-3.5 px-4 font-semibold text-foreground">
                       ₹{report.totalCollection}
                     </td>
 
-                    <td className="py-3.5 px-4 text-right print:hidden">
-                      <button
-                        onClick={() => handleOpenDetail(report.id)}
-                        className="rounded-lg border border-input bg-card px-3 py-1.5 text-xs font-semibold hover:bg-accent text-foreground inline-flex items-center gap-1 shadow-sm"
+                    <td className="py-3.5 px-4 text-right">
+                      {/* Navigates directly to dedicated full report page with real PDF / CSV downloads */}
+                      <Link
+                        href={`/dashboard/leadership/reports/${report.id}`}
+                        className="rounded-lg border border-input bg-card px-3 py-1.5 text-xs font-semibold hover:bg-accent text-foreground inline-flex items-center gap-1 shadow-sm transition-colors cursor-pointer"
                       >
-                        <Eye className="h-3.5 w-3.5 text-primary" /> View Report
-                      </button>
+                        <Eye className="h-3.5 w-3.5 text-primary" />
+                        <span>View Report</span>
+                      </Link>
                     </td>
                   </tr>
                 ))
@@ -241,162 +283,6 @@ export function LeadershipReportsView({ forcedRole }: ReportsViewProps) {
           </table>
         </div>
       </div>
-
-      {/* Detailed Meeting Report Inspection Modal */}
-      {selectedMeetingId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto print:static print:bg-transparent print:p-0 print:overflow-visible">
-          <style>{`
-            @media print {
-              body * {
-                visibility: hidden !important;
-              }
-              #printable-meeting-report, #printable-meeting-report * {
-                visibility: visible !important;
-              }
-              #printable-meeting-report {
-                position: absolute !important;
-                left: 0 !important;
-                top: 0 !important;
-                width: 100% !important;
-                margin: 0 !important;
-                padding: 20px !important;
-                background: white !important;
-                color: black !important;
-                box-shadow: none !important;
-                border: none !important;
-              }
-              .print-hide-button {
-                display: none !important;
-              }
-            }
-          `}</style>
-          <div id="printable-meeting-report" className="relative w-full max-w-3xl rounded-2xl border bg-card p-6 shadow-2xl space-y-6 my-8 animate-in fade-in zoom-in duration-150">
-            <button
-              onClick={() => setSelectedMeetingId(null)}
-              className="absolute right-4 top-4 rounded-full p-1.5 text-muted-foreground hover:bg-muted print-hide-button"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            {loadingDetail || !reportDetail ? (
-              <div className="py-16 text-center text-muted-foreground">
-                Loading detailed meeting report...
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Header */}
-                <div className="border-b pb-4">
-                  <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary print:border print:border-black">
-                    Executive Meeting Report
-                  </span>
-                  <h3 className="text-2xl font-bold text-foreground mt-2">{reportDetail.meeting.title}</h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {reportDetail.meeting.chapterName} ({reportDetail.meeting.chapterCode}) • {reportDetail.meeting.date}
-                  </p>
-                </div>
-
-                {/* KPI Metrics */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                  <div className="rounded-xl border bg-muted/20 p-3">
-                    <span className="text-xs text-muted-foreground">Turnout Rate</span>
-                    <p className="text-xl font-bold text-emerald-600 mt-1">{reportDetail.meeting.turnout}%</p>
-                  </div>
-                  <div className="rounded-xl border bg-muted/20 p-3">
-                    <span className="text-xs text-muted-foreground">Present Attendees</span>
-                    <p className="text-xl font-bold text-foreground mt-1">{reportDetail.meeting.presentCount}</p>
-                  </div>
-                  <div className="rounded-xl border bg-muted/20 p-3">
-                    <span className="text-xs text-muted-foreground">Absent Attendees</span>
-                    <p className="text-xl font-bold text-rose-600 mt-1">{reportDetail.meeting.absentCount}</p>
-                  </div>
-                  <div className="rounded-xl border bg-muted/20 p-3">
-                    <span className="text-xs text-muted-foreground">Total Fee Collected</span>
-                    <p className="text-xl font-bold text-purple-600 mt-1">₹{reportDetail.meeting.totalCollection}</p>
-                  </div>
-                </div>
-
-                {/* Highlight: First-Time Visitors */}
-                {reportDetail.newVisitors && reportDetail.newVisitors.length > 0 && (
-                  <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-amber-500" />
-                      <h4 className="font-bold text-sm text-amber-600 dark:text-amber-400">
-                        First-Time Chapter Visitors ({reportDetail.newVisitors.length})
-                      </h4>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      These guests attended their very first meeting with this chapter today:
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                      {reportDetail.newVisitors.map((v: any) => (
-                        <div key={v.id} className="rounded-lg border bg-card p-2 text-xs">
-                          <span className="font-bold text-foreground">{v.name}</span>
-                          <span className="block text-muted-foreground">{v.business} • {v.phone}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Present Attendees Roster */}
-                <div className="space-y-2">
-                  <h4 className="font-bold text-sm text-foreground flex items-center gap-1.5 text-emerald-600">
-                    <CheckCircle2 className="h-4 w-4" /> Present Attendees ({reportDetail.presentList.length})
-                  </h4>
-                  <div className="rounded-xl border bg-card max-h-48 overflow-y-auto divide-y text-xs">
-                    {reportDetail.presentList.map((attendee: any) => (
-                      <div key={attendee.id} className="p-2.5 flex items-center justify-between">
-                        <div>
-                          <span className="font-semibold text-foreground">{attendee.name}</span>
-                          <span className="text-muted-foreground block text-[11px]">{attendee.business}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] font-bold text-emerald-600">
-                            {attendee.paymentMethod} ₹{attendee.amount}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Absent Members Roster */}
-                {reportDetail.absentList && reportDetail.absentList.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="font-bold text-sm text-foreground flex items-center gap-1.5 text-rose-600">
-                      <XCircle className="h-4 w-4" /> Absent / Excused ({reportDetail.absentList.length})
-                    </h4>
-                    <div className="rounded-xl border bg-card max-h-36 overflow-y-auto divide-y text-xs">
-                      {reportDetail.absentList.map((attendee: any) => (
-                        <div key={attendee.id} className="p-2 flex items-center justify-between">
-                          <span className="font-medium text-muted-foreground">{attendee.name}</span>
-                          <span className="text-[11px] text-muted-foreground">{attendee.business}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Modal Footer */}
-                <div className="flex justify-end gap-2 pt-2 border-t print-hide-button">
-                  <button
-                    onClick={() => setSelectedMeetingId(null)}
-                    className="rounded-lg border border-input bg-background px-4 py-2 text-xs font-semibold hover:bg-accent"
-                  >
-                    Close
-                  </button>
-                  <button
-                    onClick={handlePrint}
-                    className="rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5"
-                  >
-                    <Printer className="h-4 w-4" /> Print Meeting Report
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

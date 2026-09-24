@@ -1,21 +1,14 @@
-import { Suspense } from "react";
-import { LeadershipAttendanceView } from "@/features/leadership/components/leadership-attendance-view";
+import { redirect } from "next/navigation";
 
-export const metadata = {
-  title: "Meeting Attendance | Leadership Dashboard | Growcle",
-  description: "Live 1-click meeting attendance sheet and participation recording.",
-};
-
-export default function LeadershipAttendancePage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="p-8 text-center text-muted-foreground">
-          Loading meeting attendance sheet...
-        </div>
-      }
-    >
-      <LeadershipAttendanceView />
-    </Suspense>
-  );
+export default async function LeadershipAttendancePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ meetingId?: string }>;
+}) {
+  const params = await searchParams;
+  const meetingId = params?.meetingId;
+  if (meetingId) {
+    redirect(`/dashboard/leadership/meetings?meetingId=${encodeURIComponent(meetingId)}`);
+  }
+  redirect("/dashboard/leadership/meetings");
 }

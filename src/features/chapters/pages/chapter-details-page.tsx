@@ -20,6 +20,7 @@ export function ChapterDetailsPage({ chapterId }: { chapterId: string }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'leadership' | 'meetings' | 'referrals' | 'settings'>('overview');
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [settingsForm, setSettingsForm] = useState({
@@ -59,8 +60,13 @@ export function ChapterDetailsPage({ chapterId }: { chapterId: string }) {
 
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!settingsForm.name.trim()) {
+      setSettingsError("Chapter name cannot be empty.");
+      return;
+    }
     setSavingSettings(true);
     setSettingsSaved(false);
+    setSettingsError(null);
     try {
       await updateChapterDetails({
         chapterId,
@@ -92,8 +98,9 @@ export function ChapterDetailsPage({ chapterId }: { chapterId: string }) {
 
       setSettingsSaved(true);
       setTimeout(() => setSettingsSaved(false), 4000);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to update chapter", err);
+      setSettingsError(err?.message || "Failed to update chapter. Please check the details and try again.");
     } finally {
       setSavingSettings(false);
     }
@@ -344,6 +351,13 @@ export function ChapterDetailsPage({ chapterId }: { chapterId: string }) {
               <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 text-xs font-semibold flex items-center gap-2">
                 <CheckCircle className="w-4 h-4 shrink-0" />
                 Chapter configuration and meeting schedule saved successfully!
+              </div>
+            )}
+
+            {settingsError && (
+              <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold flex items-center gap-2">
+                <Ban className="w-4 h-4 shrink-0" />
+                {settingsError}
               </div>
             )}
 

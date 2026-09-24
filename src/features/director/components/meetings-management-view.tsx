@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Calendar, Building2, MapPin, Users, Clock, Video, CheckCircle, Search, Filter } from "lucide-react";
-import { getDirectorMeetings, getAssignedChapters } from "../actions/director-actions";
+import { Calendar, Building2, MapPin, Users, Clock, Video, CheckCircle, Search, Filter, Download, FileSpreadsheet, FileText } from "lucide-react";
+import { getDirectorMeetings, getAssignedChapters, getMeetingWiseReportData } from "../actions/director-actions";
+import { exportMeetingWiseReportToExcel, exportMeetingWiseReportToCsv } from "@/lib/export-utils";
 import { Button } from "@/shared/components/ui/button";
 
 export function MeetingsManagementView() {
@@ -11,6 +12,7 @@ export function MeetingsManagementView() {
   const [chapterId, setChapterId] = useState("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -28,6 +30,28 @@ export function MeetingsManagementView() {
     }
     load();
   }, [chapterId]);
+
+  const handleExportMeetingWise = async (format: "excel" | "csv") => {
+    try {
+      setExporting(true);
+      const data = await getMeetingWiseReportData(chapterId === "all" ? undefined : chapterId);
+      if (!data || data.length === 0) {
+        alert("No meeting records available to export.");
+        return;
+      }
+      const filename = `meeting_wise_report_${chapterId === "all" ? "all_chapters" : chapterId}_${new Date().toISOString().split("T")[0]}`;
+      if (format === "excel") {
+        exportMeetingWiseReportToExcel(data, filename);
+      } else {
+        exportMeetingWiseReportToCsv(data, filename);
+      }
+    } catch (err) {
+      console.error("Meeting-wise export failed", err);
+      alert("Failed to export meeting report.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const filteredMeetings = meetings.filter(
     (m) =>
@@ -47,7 +71,29 @@ export function MeetingsManagementView() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-foreground">Director Meetings Oversight</h2>
-          <p className="text-sm text-muted-foreground">Comprehensive full-width oversight of weekly chapter meetings, agendas, speakers, and attendance.</p>
+          <p className="text-sm text-muted-foreground">Comprehensive full-width oversight of weekly chapter meetings, agendas, speakers, attendance, and business generated.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={exporting}
+            onClick={() => handleExportMeetingWise("csv")}
+            className="text-xs h-9 cursor-pointer border-border"
+          >
+            <FileText className="w-4 h-4 mr-1.5 text-blue-500" />
+            {exporting ? "Exporting..." : "Meeting CSV"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={exporting}
+            onClick={() => handleExportMeetingWise("excel")}
+            className="text-xs h-9 cursor-pointer border-emerald-500/30 text-emerald-600 hover:text-emerald-700 bg-emerald-500/5 hover:bg-emerald-500/10 font-semibold"
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-1.5 text-emerald-600" />
+            {exporting ? "Exporting..." : "Meeting-Wise Excel"}
+          </Button>
         </div>
       </div>
 

@@ -12,17 +12,20 @@ import {
   CheckCircle2,
   AlertTriangle,
   Plus,
+  FileEdit,
 } from "lucide-react";
 import { ChapterSummary } from "../actions/director-actions";
 
 interface ChapterPerformanceTableProps {
   chapters: ChapterSummary[];
   onAssignLeadership?: (chapterId: string, position: "PRESIDENT" | "VICE_PRESIDENT" | "TREASURER") => void;
+  onEditChapter?: (chapter: ChapterSummary) => void;
 }
 
 export function ChapterPerformanceTable({
   chapters,
   onAssignLeadership,
+  onEditChapter,
 }: ChapterPerformanceTableProps) {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
@@ -178,12 +181,21 @@ export function ChapterPerformanceTable({
                 </div>
               </div>
 
-              <Link
-                href={`/dashboard/director/chapters/${chap.id}`}
-                className="mt-2 block w-full rounded-md border border-input bg-background py-1.5 text-center text-xs font-semibold text-foreground hover:bg-accent transition-colors"
-              >
-                Manage Chapter Details
-              </Link>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => onEditChapter?.(chap)}
+                  className="rounded-md border border-input bg-background py-1.5 text-center text-xs font-semibold text-foreground hover:bg-accent transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                >
+                  <FileEdit className="h-3 w-3 text-primary" /> Edit
+                </button>
+                <Link
+                  href={`/dashboard/director/chapters/${chap.id}`}
+                  className="rounded-md bg-primary/10 py-1.5 text-center text-xs font-semibold text-primary hover:bg-primary/20 transition-colors flex items-center justify-center gap-1"
+                >
+                  Details <ExternalLink className="h-3 w-3" />
+                </Link>
+              </div>
             </div>
           ))}
         </div>
@@ -252,13 +264,22 @@ export function ChapterPerformanceTable({
                         )}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <Link
-                        href={`/dashboard/director/chapters/${chap.id}`}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-                      >
-                        Details <ExternalLink className="h-3 w-3" />
-                      </Link>
+                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={() => onEditChapter?.(chap)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                        >
+                          <FileEdit className="h-3.5 w-3.5 text-primary" /> Edit
+                        </button>
+                        <Link
+                          href={`/dashboard/director/chapters/${chap.id}`}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+                        >
+                          Details <ExternalLink className="h-3 w-3" />
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))

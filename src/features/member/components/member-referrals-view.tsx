@@ -16,6 +16,7 @@ import {
   Quote,
   Smartphone,
   BookUser,
+  Info,
 } from "lucide-react";
 import {
   getMemberContext,
@@ -32,7 +33,6 @@ import {
 import { MemberHeaderBar } from "./member-header-bar";
 import { ReferralStatus } from "@prisma/client";
 import { useContactPicker, PickedContact } from "@/shared/hooks/use-contact-picker";
-import { ContactPickerModal } from "@/shared/components/contact-picker-modal";
 
 export function MemberReferralsView() {
   const [context, setContext] = useState<MemberContext | null>(null);
@@ -64,9 +64,9 @@ export function MemberReferralsView() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  // Contact Picker & Mobile View States
-  const { isSupported: isContactPickerSupported, pickContact } = useContactPicker();
-  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  // Direct Device Contact Picker Hook
+  const { pickContact } = useContactPicker();
+  const [contactNotice, setContactNotice] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<"GIVEN" | "RECEIVED">("GIVEN");
 
   // TYFCB Converted Modal State
@@ -140,19 +140,18 @@ export function MemberReferralsView() {
   };
 
   const handleOpenContactPicker = async () => {
-    if (isContactPickerSupported) {
-      try {
-        const contact = await pickContact();
-        if (contact && (contact.name || contact.phone || contact.email)) {
-          handleSelectContact(contact);
-          return;
-        }
-      } catch (err) {
-        console.warn("[ContactPicker] Picker closed or error:", err);
+    setContactNotice(null);
+    try {
+      const res = await pickContact();
+      if (res?.contact) {
+        handleSelectContact(res.contact);
+      } else if (res?.error === "NOT_SUPPORTED") {
+        setContactNotice("Device contact picker is available on mobile devices (Chrome on Android). Please type contact details directly.");
+        setTimeout(() => setContactNotice(null), 5000);
       }
+    } catch (err) {
+      console.warn("[ContactPicker] Picker closed or error:", err);
     }
-    // Fallback: Open directory search & smart paste card modal
-    setIsContactModalOpen(true);
   };
 
   const handleGiveSubmit = async (e: React.FormEvent) => {
@@ -715,24 +714,32 @@ export function MemberReferralsView() {
               </div>
 
               {/* Contact Picker Trigger Banner */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-primary/5 border border-primary/20">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                    <BookUser className="h-4 w-4" />
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-primary/5 border border-primary/20">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                      <BookUser className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-foreground">Select Client Contact</p>
+                      <p className="text-[11px] text-muted-foreground">Pick directly from phonebook to auto-fill</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-semibold text-foreground">Select Client Contact</p>
-                    <p className="text-[11px] text-muted-foreground">Pick from phonebook or directory to auto-fill</p>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleOpenContactPicker}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors shadow-xs cursor-pointer shrink-0"
+                  >
+                    <Smartphone className="h-3.5 w-3.5" />
+                    <span>Choose Contact</span>
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleOpenContactPicker}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors shadow-xs cursor-pointer shrink-0"
-                >
-                  <Smartphone className="h-3.5 w-3.5" />
-                  <span>Choose Contact</span>
-                </button>
+                {contactNotice && (
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-400 animate-in fade-in">
+                    <Info className="h-3.5 w-3.5 shrink-0" />
+                    <span>{contactNotice}</span>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -894,16 +901,6 @@ export function MemberReferralsView() {
           </div>
         </div>
       )}
-
-      {/* Contact Picker Modal Fallback & Chapter Directory Picker */}
-      <ContactPickerModal
-        isOpen={isContactModalOpen}
-        onClose={() => setIsContactModalOpen(false)}
-        onSelectContact={handleSelectContact}
-        directoryContacts={chapterMembers}
-        title="Select Referral Contact"
-        description="Choose a contact from your chapter directory, paste raw contact info, or use your phonebook."
-      />
     </div>
   );
 }

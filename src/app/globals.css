@@ -246,4 +246,23 @@
   background: rgba(148, 163, 184, 0.35);
 }
 
+/* ==========================================================================
+   Mobile Optimization & Zoom Prevention
+   ========================================================================== */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Prevent mobile browsers auto-zooming inputs on focus */
+@media screen and (max-width: 768px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 

@@ -1,8 +1,7 @@
-"use client";
-
 import React, { useEffect, useState } from "react";
-import { BarChart3, TrendingUp, Download, Building2, Users, Handshake } from "lucide-react";
-import { getDirectorReports, getAssignedChapters } from "../actions/director-actions";
+import { BarChart3, TrendingUp, Download, Building2, Users, Handshake, FileSpreadsheet, FileText } from "lucide-react";
+import { getDirectorReports, getAssignedChapters, getMeetingWiseReportData } from "../actions/director-actions";
+import { exportMeetingWiseReportToExcel, exportMeetingWiseReportToCsv, MEETING_WISE_REPORT_HEADERS, mapMeetingRowsForExport } from "@/lib/export-utils";
 import { LeadershipReportsView } from "@/features/leadership/components/leadership-reports-view";
 
 export function ReportsManagementView() {
@@ -10,6 +9,7 @@ export function ReportsManagementView() {
   const [chapters, setChapters] = useState<any[]>([]);
   const [chapterId, setChapterId] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState<"meeting-excel" | "meeting-csv" | "multi-excel" | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -28,11 +28,36 @@ export function ReportsManagementView() {
     load();
   }, [chapterId]);
 
+  const handleExportMeetingWiseExcel = async () => {
+    setExporting("meeting-excel");
+    try {
+      const meetingData = await getMeetingWiseReportData(chapterId);
+      await exportMeetingWiseReportToExcel(meetingData as any, `meeting_wise_report_${chapterId}`);
+    } catch (err) {
+      console.error("Failed to export meeting wise Excel", err);
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleExportMeetingWiseCsv = async () => {
+    setExporting("meeting-csv");
+    try {
+      const meetingData = await getMeetingWiseReportData(chapterId);
+      exportMeetingWiseReportToCsv(meetingData as any, `meeting_wise_report_${chapterId}`);
+    } catch (err) {
+      console.error("Failed to export meeting wise CSV", err);
+    } finally {
+      setExporting(null);
+    }
+  };
+
   const handleExportExcel = async () => {
     if (!reports || !chapters) return;
+    setExporting("multi-excel");
     try {
       const { exportMultiSheetExcel } = await import("@/lib/export-utils");
-      const { getDirectorMembers, getDirectorMeetings } = await import("../actions/director-actions");
+      const { getDirectorMembers } = await import("../actions/director-actions");
 
       const sheets: any[] = [];
 
@@ -49,7 +74,12 @@ export function ReportsManagementView() {
       ]);
       sheets.push({ name: "Chapters Overview", headers: overviewHeaders, rows: overviewRows });
 
-      // Sheet 2..N: Chapter-Wise Members Sheets
+      // Sheet 2: Meeting-Wise Breakdown Sheet (with members present, visitors, business generated)
+      const meetingWiseData = await getMeetingWiseReportData(chapterId);
+      const meetingRows = mapMeetingRowsForExport(meetingWiseData as any);
+      sheets.push({ name: "Meeting-Wise Breakdown", headers: MEETING_WISE_REPORT_HEADERS, rows: meetingRows });
+
+      // Sheet 3..N: Chapter-Wise Members Sheets
       for (const chap of reports.chapters) {
         const mems = await getDirectorMembers({ chapterId: chap.id });
         const memHeaders = ["Member Name", "Email", "Phone", "Business Name", "Industry", "Role", "Status"];
@@ -65,40 +95,49 @@ export function ReportsManagementView() {
         sheets.push({ name: `${chap.name.substring(0, 20)} Members`, headers: memHeaders, rows: memRows });
       }
 
-      // Meeting-Wise Breakdown Sheet
-      const meetings = await getDirectorMeetings(chapterId);
-      const meetingHeaders = ["Meeting Date", "Chapter", "Meeting Title", "Speaker", "Location", "Type", "Attendees", "Status"];
-      const meetingRows = meetings.map((m: any) => [
-        new Date(m.date).toLocaleDateString("en-IN"),
-        m.chapterName,
-        m.title,
-        m.speaker,
-        m.location,
-        m.meetingType,
-        m.attendanceCount,
-        m.status,
-      ]);
-      sheets.push({ name: "Meeting-Wise Breakdown", headers: meetingHeaders, rows: meetingRows });
-
       await exportMultiSheetExcel(`director_reports_${new Date().toISOString().split("T")[0]}`, sheets);
     } catch (err) {
       console.error("Failed to export Excel report", err);
+    } finally {
+      setExporting(null);
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-foreground">Director Reports & Analytics</h2>
-          <p className="text-muted-foreground">Comprehensive chapter performance, membership metrics, referral revenues, and leadership reports.</p>
+          <p className="text-muted-foreground">Comprehensive chapter performance, membership metrics, referral revenues, and meeting turnouts.</p>
         </div>
-        <button
-          onClick={handleExportExcel}
-          className="rounded-md border border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-4 py-2 text-sm font-semibold hover:bg-indigo-500/20 flex items-center gap-2 self-start md:self-auto cursor-pointer"
-        >
-          <Download className="h-4 w-4" /> Export Multi-Sheet Excel
-        </button>
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          <button
+            onClick={handleExportMeetingWiseExcel}
+            disabled={exporting !== null}
+            className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3.5 py-2 text-xs font-bold hover:bg-emerald-500/20 flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
+            title="Download meeting-wise report with members present and business generated in Excel"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            {exporting === "meeting-excel" ? "Exporting..." : "Meeting-Wise Excel"}
+          </button>
+          <button
+            onClick={handleExportMeetingWiseCsv}
+            disabled={exporting !== null}
+            className="rounded-lg border border-border bg-card text-foreground px-3.5 py-2 text-xs font-bold hover:bg-muted flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
+            title="Download meeting-wise report with members present and business generated in CSV"
+          >
+            <FileText className="h-4 w-4 text-indigo-500" />
+            {exporting === "meeting-csv" ? "Exporting..." : "Meeting-Wise CSV"}
+          </button>
+          <button
+            onClick={handleExportExcel}
+            disabled={exporting !== null}
+            className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-3.5 py-2 text-xs font-bold hover:bg-indigo-500/20 flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
+          >
+            <Download className="h-4 w-4" />
+            {exporting === "multi-excel" ? "Generating..." : "Full Multi-Sheet Excel"}
+          </button>
+        </div>
       </div>
 
       <div className="rounded-xl border bg-card p-4 shadow-sm flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">

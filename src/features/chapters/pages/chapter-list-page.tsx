@@ -7,6 +7,7 @@ import { Skeleton } from '@/shared/components/ui/skeleton';
 import { Search, Filter, Plus, Building2, Eye, Edit } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { CreateChapterWizard } from '../components/create-chapter-wizard';
+import { EditChapterModal } from '@/features/director/components/edit-chapter-modal';
 import Link from 'next/link';
 
 export function ChapterListPage({ initialCreateOpen = false }: { initialCreateOpen?: boolean }) {
@@ -14,6 +15,7 @@ export function ChapterListPage({ initialCreateOpen = false }: { initialCreateOp
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(initialCreateOpen);
+  const [editingChapter, setEditingChapter] = useState<any | null>(null);
 
   useEffect(() => {
     fetchChapters();
@@ -132,6 +134,14 @@ export function ChapterListPage({ initialCreateOpen = false }: { initialCreateOp
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-[10px] cursor-pointer"
+                          onClick={() => setEditingChapter(chapter)}
+                        >
+                          <Edit className="w-3.5 h-3.5 mr-1 text-primary" /> Edit
+                        </Button>
                         <Link href={`/dashboard/chapters/${chapter.id}`}>
                           <Button size="sm" variant="outline" className="h-7 px-2 text-[10px]">
                             <Eye className="w-3.5 h-3.5 mr-1" /> View
@@ -175,6 +185,13 @@ export function ChapterListPage({ initialCreateOpen = false }: { initialCreateOp
             console.error('Failed to create chapter:', e);
           }
         }} 
+      />
+
+      <EditChapterModal
+        isOpen={!!editingChapter}
+        chapter={editingChapter}
+        onClose={() => setEditingChapter(null)}
+        onSuccess={fetchChapters}
       />
     </div>
   );
