@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
 import { BarChart3, TrendingUp, Download, Building2, Users, Handshake, FileSpreadsheet, FileText } from "lucide-react";
 import { getDirectorReports, getAssignedChapters, getMeetingWiseReportData } from "../actions/director-actions";
